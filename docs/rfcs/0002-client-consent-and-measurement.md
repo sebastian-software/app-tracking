@@ -2,8 +2,8 @@
 
 - Status: Proposed
 - Date: 2026-10-22
-- Constraints: [ADR 0002](../adr/0002-independent-updates-and-opt-in-telemetry.md),
-  [ADR 0003](../adr/0003-repository-derived-project-identity.md)
+- Constraints: [ADR 0004](../adr/0004-independent-updates-and-opt-in-telemetry.md),
+  [ADR 0005](../adr/0005-repository-derived-project-identity.md)
 
 ## Shared client boundary
 

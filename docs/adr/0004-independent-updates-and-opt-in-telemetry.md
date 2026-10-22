@@ -1,4 +1,4 @@
-# ADR 0002: Independent updates and opt-in telemetry
+# ADR 0004: Independent updates and opt-in telemetry
 
 - Status: Accepted
 - Date: 2026-10-22

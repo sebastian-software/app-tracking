@@ -1,4 +1,4 @@
-# ADR 0005: English project language
+# ADR 0001: English project language
 
 - Status: Accepted
 - Date: 2026-10-22

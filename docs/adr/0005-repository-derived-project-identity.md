@@ -1,4 +1,4 @@
-# ADR 0003: Repository-derived project identity
+# ADR 0005: Repository-derived project identity
 
 - Status: Accepted
 - Date: 2026-10-22

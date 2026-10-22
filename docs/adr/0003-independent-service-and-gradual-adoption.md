@@ -1,4 +1,4 @@
-# ADR 0001: Independent service and gradual adoption
+# ADR 0003: Independent service and gradual adoption
 
 - Status: Accepted
 - Date: 2026-10-22

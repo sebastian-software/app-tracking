@@ -1,4 +1,4 @@
-# ADR 0006: Living decision records
+# ADR 0002: Living decision records
 
 - Status: Accepted
 - Date: 2026-10-22

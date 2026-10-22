@@ -1,4 +1,4 @@
-# ADR 0004: Bunny hosting and PlanetScale storage
+# ADR 0006: Bunny hosting and PlanetScale storage
 
 - Status: Accepted
 - Date: 2026-10-22

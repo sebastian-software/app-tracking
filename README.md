@@ -49,8 +49,8 @@ telemetry responses.
 - [Client, consent, and measurement](docs/rfcs/0002-client-consent-and-measurement.md)
 - [Deployment, migration, and validation](docs/rfcs/0003-deployment-and-migration.md)
 
-All project work uses [US English](docs/adr/0005-english-project-language.md).
-ADRs are [living documents](docs/adr/0006-living-decision-records.md) that keep
+All project work uses [US English](docs/adr/0001-english-project-language.md).
+ADRs are [living documents](docs/adr/0002-living-decision-records.md) that keep
 the current decision in a stable location with dated changes and Git history.
 The design deliberately omits credentials, private infrastructure details, and
 real telemetry. Examples use synthetic identifiers and reserved example

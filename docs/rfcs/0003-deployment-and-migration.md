@@ -2,8 +2,8 @@
 
 - Status: Proposed
 - Date: 2026-10-22
-- Constraints: [ADR 0001](../adr/0001-independent-service-and-gradual-adoption.md),
-  [ADR 0004](../adr/0004-bunny-hosting-and-planetscale-storage.md)
+- Constraints: [ADR 0003](../adr/0003-independent-service-and-gradual-adoption.md),
+  [ADR 0006](../adr/0006-bunny-hosting-and-planetscale-storage.md)
 
 ## Starting point and evidence
 
