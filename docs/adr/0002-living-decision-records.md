@@ -33,12 +33,12 @@ hide a previous decision.
 
 Use these statuses consistently:
 
-| Status | Meaning |
-| --- | --- |
-| Proposed | Under discussion; not a binding project decision |
-| Accepted | Current project direction, whether implemented yet or not |
-| Rejected | Considered and not adopted |
-| Deprecated | No longer applicable, without a direct successor |
+| Status     | Meaning                                                              |
+| ---------- | -------------------------------------------------------------------- |
+| Proposed   | Under discussion; not a binding project decision                     |
+| Accepted   | Current project direction, whether implemented yet or not            |
+| Rejected   | Considered and not adopted                                           |
+| Deprecated | No longer applicable, without a direct successor                     |
 | Superseded | Replaced by a different record because its identity or scope changed |
 
 A normal revision needs no successor ADR. If a split, consolidation, or change

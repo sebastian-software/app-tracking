@@ -1,13 +1,14 @@
 # Requests for Comments
 
 These RFCs describe the initial app-tracking design. They are Proposed and can
-change as contracts are tested. They do not document a deployed API.
+change as contracts are tested. The implemented version-only behavior is owned
+by the [version API contract](../version-api.md). Nothing is deployed yet.
 
-| RFC | Proposal |
-| --- | --- |
-| [0001](0001-service-api-and-data-model.md) | Service, API, and data model |
-| [0002](0002-client-consent-and-measurement.md) | Client, consent, and measurement |
-| [0003](0003-deployment-and-migration.md) | Deployment, migration, and validation |
+| RFC                                            | Proposal                              |
+| ---------------------------------------------- | ------------------------------------- |
+| [0001](0001-service-api-and-data-model.md)     | Service, API, and data model          |
+| [0002](0002-client-consent-and-measurement.md) | Client, consent, and measurement      |
+| [0003](0003-deployment-and-migration.md)       | Deployment, migration, and validation |
 
 [Accepted ADRs](../adr/README.md) constrain these proposals. Exact route names,
 limits, identity scope, retention periods, runtime versions, and deployment

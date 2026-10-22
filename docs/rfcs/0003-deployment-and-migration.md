@@ -160,14 +160,14 @@ breaks these outcomes into issues with explicit prerequisites. Start with the
 The shared update client and Dalo's version-only migration can ship before
 telemetry is ready.
 
-| Package | Observable outcome | Evidence required |
-| --- | --- | --- |
-| Version service | One reviewed release resolver answers a compact GET independently of telemetry | Cold/warm cache checks, distribution eligibility, stale/outage cases, no reporting identifiers |
-| Shared update client and Dalo version checks | A published consumer uses the new version contract without telemetry | Local comparison, disable/offline controls, concurrent check state, installation guidance, output/latency, staging delivery |
-| Consented ingestion | Registered installations can submit immutable batches safely | Real database concurrency, duplicate/reused IDs, lost acknowledgement, expiry, withdrawal and deletion races |
-| Shared telemetry client and Dalo opt-in | One consumer adopts reporting without altering command semantics | Consent/no-consent, URL normalization, concurrent local state, offline behavior, JSON/output/latency, wrapper deduplication |
-| Private and public reporting | Maintainers can inspect useful aggregates and approve a bounded public export | Distinct counts across periods, missing coverage, unknown-project usage, deletion propagation, no row-level public data |
-| Palamedes and later tools | Each consumer deliberately replaces its old path | Consumer-specific release, consent, opt-out, output, packaging, and end-to-end evidence |
+| Package                                      | Observable outcome                                                             | Evidence required                                                                                                           |
+| -------------------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| Version service                              | One reviewed release resolver answers a compact GET independently of telemetry | Cold/warm cache checks, distribution eligibility, stale/outage cases, no reporting identifiers                              |
+| Shared update client and Dalo version checks | A published consumer uses the new version contract without telemetry           | Local comparison, disable/offline controls, concurrent check state, installation guidance, output/latency, staging delivery |
+| Consented ingestion                          | Registered installations can submit immutable batches safely                   | Real database concurrency, duplicate/reused IDs, lost acknowledgement, expiry, withdrawal and deletion races                |
+| Shared telemetry client and Dalo opt-in      | One consumer adopts reporting without altering command semantics               | Consent/no-consent, URL normalization, concurrent local state, offline behavior, JSON/output/latency, wrapper deduplication |
+| Private and public reporting                 | Maintainers can inspect useful aggregates and approve a bounded public export  | Distinct counts across periods, missing coverage, unknown-project usage, deletion propagation, no row-level public data     |
+| Palamedes and later tools                    | Each consumer deliberately replaces its old path                               | Consumer-specific release, consent, opt-out, output, packaging, and end-to-end evidence                                     |
 
 Telemetry ingestion and client integration depend on an agreed contract and
 the database/runtime proof, not on completion of unrelated dashboard styling.
@@ -200,9 +200,11 @@ disable an existing service as a side effect of deploying this one.
 
 ## Decisions still needed before rollout
 
-- Runtime/driver proof, database region/tier, hostname, and license.
+- Runtime/driver proof, database region/tier, and hostname. The implementation
+  license is selected in [ADR 0007](../adr/0007-dual-license.md).
 - Final consent wording, installation identity scope, retry bounds, retention,
-  backup/deletion policy, and stale-version limit.
+  backup/deletion policy. The version-only limits are defined in the
+  [implemented contract](../version-api.md) and still need deployment proof.
 - Maintainer authentication, public aggregate disclosure, and abuse controls.
 - Short-lived client upload strategy and measured latency/size budgets.
 - Production operating ownership, deployment authorization, recovery evidence,

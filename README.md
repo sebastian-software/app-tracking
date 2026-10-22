@@ -8,10 +8,41 @@ installations, and a repository count shared across developers and clones.
 
 ## Status
 
-This repository contains the initial design. It does not yet contain a working
-service, client library, or deployment. Accepted ADRs record the agreed
-direction; proposed RFCs describe details that still need implementation and
-validation.
+The version endpoint is implemented with a reviewed release catalog, conditional
+GET, bounded registry requests, and deterministic contract tests. It builds a
+self-contained Bunny edge script and runs locally without a database or
+telemetry. Production deployment, shared clients, and usage tracking are later
+delivery steps. Accepted ADRs record direction; RFCs retain the unimplemented
+proposals.
+
+## Run and verify
+
+Use the Node version in [.node-version](.node-version) and the pnpm version in
+[package.json](package.json). Install the pinned development dependencies:
+
+```sh
+pnpm install --frozen-lockfile --ignore-scripts
+pnpm check
+pnpm dev
+```
+
+The local server listens on `http://127.0.0.1:8787`. In a second terminal:
+
+```sh
+curl -i http://127.0.0.1:8787/v1/versions/dalo/npm/stable
+curl -i http://127.0.0.1:8787/health
+```
+
+`pnpm check` verifies formatting, types, synthetic tests, bundling, and SDK
+registration in a local runtime harness. The HTTP tests bind ephemeral loopback
+ports; they do not contact public registries. `pnpm smoke:upstreams` is a
+separate, opt-in read-only check against the configured public sources.
+
+`pnpm build` produces `dist/edge.js` for Bunny and `dist/service.js` with an
+exported `createHandler` for integration. Both have no external imports. No
+credentials or environment configuration are needed for this slice. See the
+[version API contract](docs/version-api.md) for supported paths, errors, cache
+behavior, and the remaining deployment proof.
 
 ## Implementation plan
 
@@ -67,6 +98,8 @@ a future deployment is configured.
   metrics and dashboard integration. It can later consume approved aggregates
   from this service.
 
-License selection remains open before reusable implementation code is
-published. This documentation bootstrap does not adopt either reference
-repository's license by implication.
+## License
+
+Available under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your
+option. [ADR 0007](docs/adr/0007-dual-license.md) records the decision.
+[Third-party notices](THIRD_PARTY_NOTICES.md) cover the SDK bundled for Bunny.
