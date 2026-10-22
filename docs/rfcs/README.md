@@ -15,6 +15,10 @@ settings belong to the RFCs until their contracts are finalized. Implementation
 work should preserve the distinction between agreed direction, proposed
 defaults, and observed evidence.
 
+The [implementation tracker](https://github.com/sebastian-software/app-tracking/issues/17)
+owns delivery order, dependencies, and progress. Version delivery is the first
+slice and does not wait for the telemetry database or consent flow.
+
 Use sequential, zero-padded filenames. Once a proposal is implemented, move
 executable contract details to maintained API documentation and configuration,
 and link that owner from the RFC rather than maintaining competing versions.

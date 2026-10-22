@@ -13,6 +13,16 @@ service, client library, or deployment. Accepted ADRs record the agreed
 direction; proposed RFCs describe details that still need implementation and
 validation.
 
+## Implementation plan
+
+The [delivery tracker](https://github.com/sebastian-software/app-tracking/issues/17)
+contains the implementation issues, suggested order, and completion
+dependencies. Start with the
+[version endpoint](https://github.com/sebastian-software/app-tracking/issues/1),
+then ship Bunny version delivery and the shared update client before enabling
+telemetry. Each issue defines its scope and acceptance evidence; the tracker
+owns delivery status.
+
 ## Direction
 
 - Build a new service with its own API and deployment. Use `version-service`
@@ -39,10 +49,13 @@ telemetry responses.
 - [Client, consent, and measurement](docs/rfcs/0002-client-consent-and-measurement.md)
 - [Deployment, migration, and validation](docs/rfcs/0003-deployment-and-migration.md)
 
-All repository documentation uses US English. The design deliberately omits
-credentials, private infrastructure details, and real telemetry. Examples use
-synthetic identifiers and reserved example domains. Public source makes the
-design inspectable; it does not establish how a future deployment is configured.
+All project work uses [US English](docs/adr/0005-english-project-language.md).
+ADRs are [living documents](docs/adr/0006-living-decision-records.md) that keep
+the current decision in a stable location with dated changes and Git history.
+The design deliberately omits credentials, private infrastructure details, and
+real telemetry. Examples use synthetic identifiers and reserved example
+domains. Public source makes the design inspectable; it does not establish how
+a future deployment is configured.
 
 ## Related projects
 
