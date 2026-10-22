@@ -50,17 +50,19 @@ the timestamp of stale data.
 
 ## Proposed API
 
-All routes use HTTPS. Names and schemas below are proposals, not deployed
-interfaces. Examples omit real credentials and use synthetic values.
+Production routes use HTTPS. The version and health routes are implemented in
+the [version API contract](../version-api.md); they are not deployed yet. The
+remaining routes and telemetry schemas below are proposals. Examples omit real
+credentials and use synthetic values.
 
-| Method and path | Contract | Cache |
-| --- | --- | --- |
-| `GET /v1/versions/{tool}/{distribution}/{channel}` | Read the latest eligible release | Public CDN |
-| `PUT /v1/installations/{id}` | Register a consented reporting installation idempotently | No store |
-| `POST /v1/usage-batches` | Accept an immutable usage batch | No store |
-| `DELETE /v1/installations/{id}` | Revoke reporting and delete its retained usage | No store |
-| `GET /v1/admin/usage` | Read authorized aggregate results | No shared cache |
-| `GET /health` | Observe process liveness without ingesting usage | No store |
+| Method and path                                    | Contract                                                 | Cache           |
+| -------------------------------------------------- | -------------------------------------------------------- | --------------- |
+| `GET /v1/versions/{tool}/{distribution}/{channel}` | Read the latest eligible release                         | Public CDN      |
+| `PUT /v1/installations/{id}`                       | Register a consented reporting installation idempotently | No store        |
+| `POST /v1/usage-batches`                           | Accept an immutable usage batch                          | No store        |
+| `DELETE /v1/installations/{id}`                    | Revoke reporting and delete its retained usage           | No store        |
+| `GET /v1/admin/usage`                              | Read authorized aggregate results                        | No shared cache |
+| `GET /health`                                      | Observe process liveness without ingesting usage         | No store        |
 
 There is no legacy `/check` adapter. The public aggregate export for
 `oss-metrics` is a later consumer contract, not an unrestricted view of the
@@ -68,34 +70,21 @@ private reporting tables.
 
 ### Version-only response
 
-```json
-{
-  "schema_version": 1,
-  "tool_id": "example-tool",
-  "distribution": "npm",
-  "channel": "stable",
-  "latest_version": "1.2.3",
-  "published_at": "2026-10-21T12:00:00Z",
-  "checked_at": "2026-10-22T08:00:00Z",
-  "release_url": "https://example.com/releases/1.2.3",
-  "stale": false
-}
-```
+The maintained [version API](../version-api.md) owns the implemented response
+schema, supported distributions, ETags, cache policy, upstream limits, and
+errors. Its [synthetic fixture](../../test/fixtures/version.json) is exercised
+through the real handler and the built deployment script.
 
 The request contains no installed version, installation ID, repository hash, or
 usage counter. The client compares versions locally. It owns installation-aware
 update instructions; the service must not return an arbitrary shell command for
 the client to execute. Automatic executable replacement is out of scope.
 
-Use an ETag and explicit cache freshness. The starting client check interval is
-one hour during tool use; the proposed CDN freshness is also one hour. Their
-combined delay and registry-publication delay must be documented rather than
-presented as a one-hour end-to-end guarantee. A future authenticated refresh can
-revalidate a configured release and purge its cached response after publication.
-
-The maximum stale-serving age remains open. Set it before rollout, preserve the
-original `checked_at`, and test stale delivery rather than assuming Bunny's
-cache survives every outage or eviction.
+The initial implementation uses hourly freshness and a maximum retained-result
+age of 24 hours, preserving `checked_at` during failures. It only retains last
+successes within one service instance. The planned client interval adds its own
+delay, and staging must verify CDN behavior and cold/evicted-cache outages.
+A future authenticated refresh and durable cache remain separate changes.
 
 ### Reporting installation
 
@@ -155,16 +144,16 @@ not turn an otherwise identical retry into a different report. A closed batch
 never changes its ID or contents. Splitting an oversized local queue creates
 distinct batches before any of them is submitted.
 
-| Outcome | Response and client behavior |
-| --- | --- |
+| Outcome                                               | Response and client behavior                       |
+| ----------------------------------------------------- | -------------------------------------------------- |
 | Committed or already committed with the same contents | `200`, with batch ID and `accepted` or `duplicate` |
-| Invalid fields or an expired first submission | `400`, fixed error code; do not retry unchanged |
-| Oversized body | `413`; do not retry unchanged |
-| Missing or wrong credential | `401`; do not register over an existing identity |
-| Revoked installation | `410`; stop reporting |
-| Existing batch ID with different contents | `409`; preserve the conflict for local inspection |
-| Rate limited | `429` with bounded `Retry-After` |
-| Temporary database or service failure | `503`; retry the same batch with backoff |
+| Invalid fields or an expired first submission         | `400`, fixed error code; do not retry unchanged    |
+| Oversized body                                        | `413`; do not retry unchanged                      |
+| Missing or wrong credential                           | `401`; do not register over an existing identity   |
+| Revoked installation                                  | `410`; stop reporting                              |
+| Existing batch ID with different contents             | `409`; preserve the conflict for local inspection  |
+| Rate limited                                          | `429` with bounded `Retry-After`                   |
+| Temporary database or service failure                 | `503`; retry the same batch with backoff           |
 
 A dropped acknowledgement is an unknown outcome. Retry with the same batch ID;
 never generate a fresh ID merely because the response was lost. Successful
@@ -173,12 +162,12 @@ release lookup failure does not undo or hide a committed report.
 
 ## Proposed relational model
 
-| Table | Key and significant fields | Role |
-| --- | --- | --- |
-| `release_versions` | `(tool_id, distribution, channel)`; version, published/checked times, source status | Rebuildable cache of configured distribution sources |
-| `reporting_installations` | Installation UUID; immutable tool ID, token hash, consent revision, creation/last-seen/revocation times | Reporting authority and lifecycle |
-| `telemetry_batches` | Unique `(tool_id, installation_id, batch_id)`; canonical content hash, receipt time | Durable duplicate detection |
-| `usage_counts` | Batch key and row number; installation, tool, UTC day, optional project hash/version, command, tool version, mode, count | Attributable usage contributions |
+| Table                     | Key and significant fields                                                                                               | Role                                                 |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| `release_versions`        | `(tool_id, distribution, channel)`; version, published/checked times, source status                                      | Rebuildable cache of configured distribution sources |
+| `reporting_installations` | Installation UUID; immutable tool ID, token hash, consent revision, creation/last-seen/revocation times                  | Reporting authority and lifecycle                    |
+| `telemetry_batches`       | Unique `(tool_id, installation_id, batch_id)`; canonical content hash, receipt time                                      | Durable duplicate detection                          |
+| `usage_counts`            | Batch key and row number; installation, tool, UTC day, optional project hash/version, command, tool version, mode, count | Attributable usage contributions                     |
 
 Use foreign keys or equivalent database-enforced relationships to prevent a
 batch or usage row from naming another tool's installation. Store project
@@ -237,6 +226,7 @@ cross-query disclosure rules remain a production gate.
 
 - Final route/schema naming, consent revisions, and identity scope/lifetime.
 - Payload limits, retry/age windows, and retention from [RFC 0002](0002-client-consent-and-measurement.md).
-- Maintainer authentication, aggregate disclosure policy, and stale-version age.
+- Maintainer authentication and aggregate disclosure policy; the implemented
+  stale-version policy is maintained in the version API contract.
 - Cold/warm latency, concurrent duplicate handling, deletion races, and query plans.
 - Exact runtime and HTTP-driver compatibility from [RFC 0003](0003-deployment-and-migration.md).

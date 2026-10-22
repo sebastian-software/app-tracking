@@ -3,14 +3,15 @@
 These records explain durable choices for app-tracking. Accepted means the
 direction is decided, not that it is implemented or deployed.
 
-| ADR | Decision | Status |
-| --- | --- | --- |
-| [0001](0001-english-project-language.md) | English project language | Accepted |
-| [0002](0002-living-decision-records.md) | Living decision records | Accepted |
+| ADR                                                      | Decision                                 | Status   |
+| -------------------------------------------------------- | ---------------------------------------- | -------- |
+| [0001](0001-english-project-language.md)                 | English project language                 | Accepted |
+| [0002](0002-living-decision-records.md)                  | Living decision records                  | Accepted |
 | [0003](0003-independent-service-and-gradual-adoption.md) | Independent service and gradual adoption | Accepted |
 | [0004](0004-independent-updates-and-opt-in-telemetry.md) | Independent updates and opt-in telemetry | Accepted |
-| [0005](0005-repository-derived-project-identity.md) | Repository-derived project identity | Accepted |
-| [0006](0006-bunny-hosting-and-planetscale-storage.md) | Bunny hosting and PlanetScale storage | Accepted |
+| [0005](0005-repository-derived-project-identity.md)      | Repository-derived project identity      | Accepted |
+| [0006](0006-bunny-hosting-and-planetscale-storage.md)    | Bunny hosting and PlanetScale storage    | Accepted |
+| [0007](0007-dual-license.md)                             | MIT or Apache-2.0 licensing              | Accepted |
 
 Use sequential, zero-padded filenames. An ADR records context, the decision,
 and its consequences. The status vocabulary is Proposed, Accepted, Rejected,

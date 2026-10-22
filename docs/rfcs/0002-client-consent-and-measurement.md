@@ -108,15 +108,15 @@ Normalization version 1 should:
 
 Illustrative canonicalization fixtures, to become executable before release:
 
-| Input | Expected relationship |
-| --- | --- |
-| `git@github.com:example-org/example-project.git` | Same identity as the HTTPS form below |
-| `https://github.com/example-org/example-project.git` | Canonical input `github.com/example-org/example-project` |
-| `https://github.com/example-org/example-project/` | Same identity as the supported clone forms |
-| `https://github.com/another-org/example-project.git` | Distinct project |
-| Same repository with different `repository.directory` values | One project |
-| Worktree and primary checkout sharing origin | One project |
-| Local-only directory or unresolved SSH alias | No project identity |
+| Input                                                        | Expected relationship                                    |
+| ------------------------------------------------------------ | -------------------------------------------------------- |
+| `git@github.com:example-org/example-project.git`             | Same identity as the HTTPS form below                    |
+| `https://github.com/example-org/example-project.git`         | Canonical input `github.com/example-org/example-project` |
+| `https://github.com/example-org/example-project/`            | Same identity as the supported clone forms               |
+| `https://github.com/another-org/example-project.git`         | Distinct project                                         |
+| Same repository with different `repository.directory` values | One project                                              |
+| Worktree and primary checkout sharing origin                 | One project                                              |
+| Local-only directory or unresolved SSH alias                 | No project identity                                      |
 
 Hash the canonical UTF-8 input with SHA-256, with no installation salt or tool
 prefix. Include the normalization version beside the resulting hash. Different
@@ -125,13 +125,13 @@ continuity and any future cross-version mapping require a separate design.
 
 ## What the measurements mean
 
-| Measurement | Definition | Important limit |
-| --- | --- | --- |
-| Reported invocations | Sum of accepted invocation counts in the period | Can miss offline, expired, and unconsented usage |
-| Active reporting installations | Distinct participating installation identities with usage in the period | Shared profiles and identity resets affect the count |
-| Active reporting projects | Distinct known repository identities with usage in the period | Missing metadata and repository moves affect the count |
-| Command distribution | Counts by allowlisted command | Not command arguments or user intent |
-| Version adoption | Reported usage and installations by tool version | Not all installed copies, including inactive ones |
+| Measurement                    | Definition                                                              | Important limit                                        |
+| ------------------------------ | ----------------------------------------------------------------------- | ------------------------------------------------------ |
+| Reported invocations           | Sum of accepted invocation counts in the period                         | Can miss offline, expired, and unconsented usage       |
+| Active reporting installations | Distinct participating installation identities with usage in the period | Shared profiles and identity resets affect the count   |
+| Active reporting projects      | Distinct known repository identities with usage in the period           | Missing metadata and repository moves affect the count |
+| Command distribution           | Counts by allowlisted command                                           | Not command arguments or user intent                   |
+| Version adoption               | Reported usage and installations by tool version                        | Not all installed copies, including inactive ones      |
 
 Deduplicate installations and projects across the whole requested period.
 Adding daily distinct counts does not produce weekly or monthly distinct
@@ -153,14 +153,14 @@ unique users, people, or total adoption without independent supporting evidence.
 
 These are starting proposals, not accepted policy or provider guarantees:
 
-| Data or operation | Starting proposal |
-| --- | --- |
-| Age of usage in a first submission | At most seven days, with exact UTC boundary and clock-skew handling to be specified |
-| Attributable usage rows and batch receipts | 90 days; receipts must cover every accepted retry/replay path |
-| Local unsent queue | Bounded age and size; remove on withdrawal |
-| Installation credential and identity | No automatic monthly rotation; lifetime and inactivity expiry remain open |
-| Revocation records and deletion history | Minimum needed for replay prevention and backup recovery; exact period open |
-| Backups, infrastructure logs, and derived aggregates | Explicit provider/configuration-specific policies before production |
+| Data or operation                                    | Starting proposal                                                                   |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Age of usage in a first submission                   | At most seven days, with exact UTC boundary and clock-skew handling to be specified |
+| Attributable usage rows and batch receipts           | 90 days; receipts must cover every accepted retry/replay path                       |
+| Local unsent queue                                   | Bounded age and size; remove on withdrawal                                          |
+| Installation credential and identity                 | No automatic monthly rotation; lifetime and inactivity expiry remain open           |
+| Revocation records and deletion history              | Minimum needed for replay prevention and backup recovery; exact period open         |
+| Backups, infrastructure logs, and derived aggregates | Explicit provider/configuration-specific policies before production                 |
 
 An accepted duplicate can return its existing receipt while that receipt is
 retained. Once receipts expire, an old payload must still fail the usage-age
