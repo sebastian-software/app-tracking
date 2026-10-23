@@ -22,10 +22,12 @@ real service address.
 
 The host owns these decisions:
 
-1. Detect the installation distribution and select the matching service route.
-   For example, npm Dalo uses `dalo/npm/stable` and npm upgrade instructions.
-   Do not compare a GitHub release against an npm installation whose package
-   may not be published yet. Unsupported distributions return an advisory error.
+1. Select the tool's shared GitHub release feed: for example,
+   `Tool::new("dalo", installed, "github", "stable")`. The service reads
+   oss-metrics and applies the one-hour minimum release age. Detect the local
+   installation separately to render npm, Homebrew, or other upgrade guidance.
+   Do not split checks or cache state by installation method. Earlier `npm` and
+   `standalone` API labels remain aliases; they do not certify registry readiness.
 2. Map update/offline configuration to `Mode::Enabled`, `Mode::Disabled`, or
    `Mode::Offline`. Preserve existing disable settings. CI, JSON output, and
    terminal eligibility remain host policy. The HTTP transport may honor
@@ -123,11 +125,11 @@ RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --no-deps
 cargo package --locked -p app-tracking
 ```
 
-The synthetic consumer uses the real service handler and a fake registry. It
+The synthetic consumer uses the real service handler and a synthetic oss-metrics snapshot. It
 verifies host-supplied guidance, unchanged stdout and deliberately nonzero exit
 status, unsupported distributions, zero disabled/offline traffic, and twelve
 concurrent processes sharing one lookup and one notice. Normal checks contact
-no public registry or Bunny endpoint.
+no public source or Bunny endpoint.
 
 To release, update the crate version, run these checks from a clean committed
 checkout, inspect `cargo package --list -p app-tracking`, then publish:

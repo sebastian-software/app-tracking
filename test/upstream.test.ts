@@ -4,7 +4,7 @@ import { once } from "node:events";
 import test, { type TestContext } from "node:test";
 import { createHandler } from "../src/handler.ts";
 import { MAX_UPSTREAM_BYTES } from "../src/upstream.ts";
-import { npmDocument, NOW, request } from "./helpers.ts";
+import { metricsDocument, NOW, request } from "./helpers.ts";
 
 async function serverFor(t: TestContext, listener: RequestListener) {
   const server = createServer(listener);
@@ -21,13 +21,13 @@ async function serverFor(t: TestContext, listener: RequestListener) {
   return `http://127.0.0.1:${address.port}`;
 }
 
-test("the real HTTP transport parses npm JSON without forwarding incoming headers", async (t) => {
+test("the real HTTP transport parses metrics JSON without forwarding incoming headers", async (t) => {
   const base = await serverFor(t, (req, res) => {
-    assert.equal(req.url, "/getdalo");
+    assert.equal(req.url, "/v1/metrics.json");
     assert.equal(req.headers.authorization, undefined);
     assert.equal(req.headers.cookie, undefined);
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify(npmDocument()));
+    res.end(JSON.stringify(metricsDocument()));
   });
   const handle = createHandler({
     now: () => NOW,

@@ -1,14 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { runInNewContext } from "node:vm";
-import {
-  githubDocument,
-  npmDocument,
-  NOW,
-  path,
-  request,
-  versionFixture,
-} from "../test/helpers.ts";
+import { metricsDocument, NOW, path, request, versionFixture } from "../test/helpers.ts";
 
 type Handler = (request: Request) => Promise<Response>;
 let handle: Handler | undefined;
@@ -37,9 +30,9 @@ runInNewContext(bundle, {
       return NOW;
     }
   },
-  fetch: async (url: URL) => {
+  fetch: async () => {
     requests++;
-    return Response.json(url.hostname === "api.github.com" ? githubDocument() : npmDocument());
+    return Response.json(metricsDocument());
   },
 });
 assert.ok(handle, "The shipped SDK must register the HTTP handler through Bunny.v1.serve");

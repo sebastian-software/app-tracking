@@ -1,50 +1,28 @@
-export type ReleaseSource =
-  | { kind: "npm"; packageName: string; tag: string }
-  | {
-      kind: "github";
-      repository: string;
-      tagPrefix: string;
-      binaryTargets: readonly string[];
-    };
-
 export interface Distribution {
   tool: string;
   distribution: string;
   channel: "stable";
-  source: ReleaseSource;
+  source: {
+    repository: string;
+    tagPrefix: string;
+  };
 }
 
-// This reviewed catalog, never request data, owns every upstream destination.
+// Reviewed mappings only. Distribution labels are API compatibility aliases;
+// every installation of a tool uses the same GitHub release from oss-metrics.
 export const catalog: readonly Distribution[] = [
-  {
+  ...["github", "npm", "standalone"].map((distribution) => ({
     tool: "dalo",
-    distribution: "npm",
-    channel: "stable",
-    source: { kind: "npm", packageName: "getdalo", tag: "latest" },
-  },
-  {
-    tool: "dalo",
-    distribution: "standalone",
-    channel: "stable",
-    source: {
-      kind: "github",
-      repository: "sebastian-software/dalo",
-      tagPrefix: "dalo-v",
-      binaryTargets: [
-        "aarch64-apple-darwin",
-        "aarch64-unknown-linux-gnu",
-        "aarch64-unknown-linux-musl",
-        "x86_64-unknown-linux-gnu",
-        "x86_64-unknown-linux-musl",
-      ],
-    },
-  },
-  {
+    distribution,
+    channel: "stable" as const,
+    source: { repository: "dalo", tagPrefix: "dalo-v" },
+  })),
+  ...["github", "npm"].map((distribution) => ({
     tool: "palamedes",
-    distribution: "npm",
-    channel: "stable",
-    source: { kind: "npm", packageName: "@palamedes/cli", tag: "latest" },
-  },
+    distribution,
+    channel: "stable" as const,
+    source: { repository: "palamedes", tagPrefix: "palamedes-v" },
+  })),
 ];
 
 export function versionPath(entry: Distribution): string {

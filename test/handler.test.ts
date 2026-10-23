@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createHandler } from "../src/handler.ts";
-import { githubDocument, npmDocument, NOW, path, request, versionFixture } from "./helpers.ts";
+import { metricsDocument, NOW, path, request, versionFixture } from "./helpers.ts";
 
-test("npm returns the complete version contract without reporting fields or forwarded credentials", async () => {
+test("oss-metrics returns the complete version contract without reporting fields or forwarded credentials", async () => {
   const handle = createHandler({
     now: () => NOW,
     fetch: async (url, init) => {
-      assert.equal(String(url), "https://registry.npmjs.org/getdalo");
+      assert.equal(String(url), "https://metrics.sebastian-software.com/v1/metrics.json");
       assert.equal(init?.method, "GET");
       assert.equal(init?.redirect, "error");
       assert.equal(init?.credentials, "omit");
@@ -19,7 +19,7 @@ test("npm returns the complete version contract without reporting fields or forw
         headers.get("user-agent"),
         "app-tracking (https://github.com/sebastian-software/app-tracking)",
       );
-      return Response.json(npmDocument());
+      return Response.json(metricsDocument());
     },
   });
   const response = await handle(
@@ -41,62 +41,32 @@ test("npm returns the complete version contract without reporting fields or forw
   assert.equal(response.headers.get("set-cookie"), null);
 });
 
-test("scoped Palamedes metadata uses its npm package and npm publication time", async () => {
-  const handle = createHandler({
-    now: () => NOW,
-    fetch: async (url) => {
-      assert.equal(String(url), "https://registry.npmjs.org/%40palamedes%2Fcli");
-      return Response.json(npmDocument("@palamedes/cli", "2.3.4"));
-    },
-  });
-  const response = await handle(request("/v1/versions/palamedes/npm/stable"));
-  assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), {
-    ...versionFixture(),
-    tool_id: "palamedes",
-    latest_version: "2.3.4",
-    release_url: "https://www.npmjs.com/package/@palamedes/cli/v/2.3.4",
-  });
-});
-
-test("standalone releases require binary assets and construct a reviewed release link", async () => {
-  const handle = createHandler({
-    now: () => NOW,
-    fetch: async (url) => {
-      assert.equal(
-        String(url),
-        "https://api.github.com/repos/sebastian-software/dalo/releases/latest",
-      );
-      return Response.json(githubDocument());
-    },
-  });
-  const response = await handle(request("/v1/versions/dalo/standalone/stable"));
-  assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), {
-    ...versionFixture(),
-    distribution: "standalone",
-    release_url: "https://github.com/sebastian-software/dalo/releases/tag/dalo-v1.2.3",
-  });
-});
-
-test("distribution caches stay independent during publication lag", async () => {
+test("all installation routes use the same GitHub release metadata", async () => {
   const calls: string[] = [];
   const handle = createHandler({
     now: () => NOW,
     fetch: async (url) => {
       calls.push(String(url));
-      return Response.json(
-        String(url).includes("api.github.com") ? githubDocument() : npmDocument("getdalo", "1.2.2"),
-      );
+      return Response.json(metricsDocument());
     },
   });
-  assert.equal(
-    (await (await handle(request("/v1/versions/dalo/standalone/stable"))).json()).latest_version,
-    "1.2.3",
-  );
-  assert.equal((await (await handle(request())).json()).latest_version, "1.2.2");
-  assert.equal((await (await handle(request())).json()).latest_version, "1.2.2");
-  assert.equal(calls.length, 2);
+  for (const distribution of ["github", "npm", "standalone"]) {
+    const response = await handle(request(`/v1/versions/dalo/${distribution}/stable`));
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { ...versionFixture(), distribution });
+  }
+  for (const distribution of ["github", "npm"]) {
+    const response = await handle(request(`/v1/versions/palamedes/${distribution}/stable`));
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      ...versionFixture(),
+      distribution,
+      tool_id: "palamedes",
+      latest_version: "2.3.4",
+      release_url: "https://github.com/sebastian-software/palamedes/releases/tag/palamedes-v2.3.4",
+    });
+  }
+  assert.ok(calls.every((url) => url === "https://metrics.sebastian-software.com/v1/metrics.json"));
 });
 
 test("invalid requests and unsupported mappings never perform an upstream lookup", async () => {
@@ -142,7 +112,7 @@ test("fresh cache responses reduce remaining CDN lifetime and honor conditional 
     now: () => now,
     fetch: async () => {
       calls++;
-      return Response.json(npmDocument());
+      return Response.json(metricsDocument("1.2.3", new Date(now).toISOString()));
     },
   });
   const initial = await handle(request());
@@ -188,7 +158,7 @@ test("outages preserve the original timestamp and stale results expire at 24 hou
     retryDelayMs: 0,
     fetch: async () => {
       calls++;
-      return failing ? new Response(null, { status: 503 }) : Response.json(npmDocument());
+      return failing ? new Response(null, { status: 503 }) : Response.json(metricsDocument());
     },
   });
   const first = await handle(request());
@@ -228,7 +198,7 @@ test("a cold outage is unavailable, suppresses retries for a minute, and recover
     fetch: async () => {
       calls++;
       if (failing) throw new Error("synthetic detail must not escape");
-      return Response.json(npmDocument());
+      return Response.json(metricsDocument());
     },
   });
   const unavailable = await handle(request());
@@ -259,14 +229,17 @@ test("concurrent cold requests share one lookup", async () => {
   const responses = Array.from({ length: 8 }, () => handle(request()));
   assert.equal(calls, 1);
   assert.ok(complete);
-  complete(Response.json(npmDocument()));
+  complete(Response.json(metricsDocument()));
   for (const response of await Promise.all(responses))
     assert.deepEqual(await response.json(), versionFixture());
   assert.equal(calls, 1);
 });
 
 test("eviction or a new isolate has no guaranteed stale fallback", async () => {
-  const warm = createHandler({ now: () => NOW, fetch: async () => Response.json(npmDocument()) });
+  const warm = createHandler({
+    now: () => NOW,
+    fetch: async () => Response.json(metricsDocument()),
+  });
   assert.equal((await warm(request())).status, 200);
   const cold = createHandler({
     now: () => NOW,
@@ -275,23 +248,32 @@ test("eviction or a new isolate has no guaranteed stale fallback", async () => {
   assert.equal((await cold(request())).status, 503);
 });
 
-test("invalid npm metadata and stable-channel prereleases never become successful responses", async () => {
+test("invalid, expired, future, and unsuccessful metrics snapshots are unavailable", async () => {
+  const valid = metricsDocument();
   const cases: unknown[] = [
     {},
-    npmDocument("wrong-package"),
-    npmDocument("getdalo", "1.2.3-beta.1"),
-    npmDocument("getdalo", "v1.2.3"),
-    npmDocument("getdalo", "01.2.3"),
-    { ...npmDocument(), versions: {} },
-    { ...npmDocument(), time: {} },
-    { ...npmDocument(), time: { "1.2.3": "2026-02-30T08:00:00.000Z" } },
-    { ...npmDocument(), time: { "1.2.3": "2030-01-01T08:00:00.000Z" } },
-    { ...npmDocument(), versions: { "1.2.3": { name: "getdalo", version: "1.2.2" } } },
-    {
-      ...npmDocument(),
-      versions: { "1.2.3": { name: "getdalo", version: "1.2.3", deprecated: "Retired" } },
-    },
+    { ...valid, schema: 2 },
+    { ...valid, sources: { github: "ok", releases: "skipped" } },
+    { ...valid, sources: { github: "error", releases: "ok" } },
+    { ...valid, github: {} },
+    { ...valid, generatedAt: "2026-02-30T08:00:00Z" },
+    { ...valid, generatedAt: new Date(NOW + 1).toISOString() },
+    { ...valid, generatedAt: "2026-10-21T07:59:59.000Z" },
+    { ...valid, generatedAt: new Date(NOW - 86_400_000).toISOString() },
+    { ...valid, generatedAt: new Date(NOW - 86_400_001).toISOString() },
   ];
+  for (const release of [
+    {
+      tag: "dalo-v1.2.3-rc.1",
+      version: "1.2.3-rc.1",
+      publishedAt: valid.github.dalo.release.publishedAt,
+    },
+    { ...valid.github.dalo.release, tag: "other-v1.2.3" },
+    { ...valid.github.dalo.release, version: "01.2.3" },
+    { ...valid.github.dalo.release, publishedAt: null },
+    { ...valid.github.dalo.release, publishedAt: new Date(NOW - 3_599_999).toISOString() },
+  ])
+    cases.push({ ...valid, github: { dalo: { release } } });
   for (const document of cases) {
     let calls = 0;
     const handle = createHandler({
@@ -306,23 +288,76 @@ test("invalid npm metadata and stable-channel prereleases never become successfu
   }
 });
 
-test("draft, prerelease, malformed, and incomplete GitHub releases are unavailable", async () => {
-  const valid = githubDocument();
-  const cases = [
-    { ...valid, draft: true },
-    { ...valid, prerelease: true },
-    { ...valid, tag_name: "dalo-v1.2.3-rc.1" },
-    { ...valid, tag_name: "another-v1.2.3" },
-    { ...valid, published_at: null },
-    { ...valid, assets: [] },
-    { ...valid, assets: valid.assets.slice(1) },
-    { ...valid, assets: valid.assets.map((asset) => ({ ...asset, state: "new" })) },
-    { ...valid, assets: valid.assets.map((asset) => ({ ...asset, size: 0 })) },
-  ];
-  for (const document of cases) {
-    const handle = createHandler({ now: () => NOW, fetch: async () => Response.json(document) });
-    assert.equal((await handle(request("/v1/versions/dalo/standalone/stable"))).status, 503);
-  }
+test("the release becomes eligible exactly one hour after publication", async () => {
+  let now = NOW;
+  const document = metricsDocument();
+  document.github.dalo.release.publishedAt = new Date(NOW - 3_599_999).toISOString();
+  const handle = createHandler({ now: () => now, fetch: async () => Response.json(document) });
+  assert.equal((await handle(request())).status, 503);
+  now += 60_000; // Respect failure suppression before the next lookup.
+  assert.equal((await handle(request())).status, 200);
+  document.github.dalo.release.publishedAt = new Date(NOW - 3_600_000).toISOString();
+  const boundary = createHandler({ now: () => NOW, fetch: async () => Response.json(document) });
+  assert.equal((await boundary(request())).status, 200);
+});
+
+test("stale CDN snapshots keep their collection time and are retried at most once a minute", async () => {
+  let now = NOW;
+  let calls = 0;
+  const document = metricsDocument("1.2.3", new Date(NOW - 3_600_000).toISOString());
+  const handle = createHandler({
+    now: () => now,
+    fetch: async () => {
+      calls++;
+      return Response.json(document);
+    },
+  });
+  const first = await handle(request());
+  assert.equal(first.status, 200);
+  assert.equal(first.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await first.json(), {
+    ...versionFixture(),
+    checked_at: document.generatedAt,
+    stale: true,
+  });
+  assert.equal((await handle(request())).status, 200);
+  assert.equal(calls, 1);
+  now += 60_000;
+  assert.equal((await handle(request())).status, 200);
+  assert.equal(calls, 2);
+  now = Date.parse(document.generatedAt) + 86_400_000;
+  assert.equal((await handle(request())).status, 503);
+});
+
+test("a fresh cached upstream document gets only its remaining snapshot lifetime", async () => {
+  const generatedAt = new Date(NOW - 1_800_000).toISOString();
+  const handle = createHandler({
+    now: () => NOW,
+    fetch: async () => Response.json(metricsDocument("1.2.3", generatedAt)),
+  });
+  const response = await handle(request());
+  assert.equal(
+    response.headers.get("cache-control"),
+    "public, max-age=0, s-maxage=1800, must-revalidate",
+  );
+  assert.equal((await response.json()).checked_at, generatedAt);
+});
+
+test("a recent release retains a previous observation without resetting its age", async () => {
+  let now = NOW;
+  let document = metricsDocument();
+  const handle = createHandler({ now: () => now, fetch: async () => Response.json(document) });
+  assert.equal((await handle(request())).status, 200);
+  now += 3_600_000;
+  document = metricsDocument("1.2.4", new Date(now).toISOString());
+  document.github.dalo.release.publishedAt = new Date(now - 900_000).toISOString();
+  const previous = await handle(request());
+  assert.deepEqual(await previous.json(), { ...versionFixture(), stale: true });
+  now += 2_700_000;
+  const mature = await handle(request());
+  const body = await mature.json();
+  assert.equal(body.latest_version, "1.2.4");
+  assert.equal(body.checked_at, document.generatedAt);
 });
 
 test("an upstream 5xx retries once; 404 and 429 do not retry in the request", async () => {
@@ -333,7 +368,7 @@ test("an upstream 5xx retries once; 404 and 429 do not retry in the request", as
       retryDelayMs: 0,
       fetch: async () => {
         calls++;
-        return calls === 1 ? new Response(null, { status }) : Response.json(npmDocument());
+        return calls === 1 ? new Response(null, { status }) : Response.json(metricsDocument());
       },
     });
     const response = await handle(request());
@@ -343,7 +378,10 @@ test("an upstream 5xx retries once; 404 and 429 do not retry in the request", as
 });
 
 test("an empty query is canonicalized to the same version resource", async () => {
-  const handle = createHandler({ now: () => NOW, fetch: async () => Response.json(npmDocument()) });
+  const handle = createHandler({
+    now: () => NOW,
+    fetch: async () => Response.json(metricsDocument()),
+  });
   const response = await handle(request(path + "?"));
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), versionFixture());

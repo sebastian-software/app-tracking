@@ -7,27 +7,18 @@ export const path = "/v1/versions/dalo/npm/stable";
 export const request = (pathname = path, init?: RequestInit) =>
   new Request(`https://example.com${pathname}`, init);
 
-export function npmDocument(name = "getdalo", version = "1.2.3") {
+export function metricsDocument(version = "1.2.3", generatedAt = new Date(NOW).toISOString()) {
   return {
-    name,
-    "dist-tags": { latest: version },
-    versions: { [version]: { name, version } },
-    time: { [version]: published },
+    schema: 1,
+    generatedAt,
+    sources: { github: "ok", releases: "ok", npm: "error", crates: "error" },
+    github: {
+      dalo: { release: { tag: `dalo-v${version}`, version, publishedAt: published } },
+      palamedes: { release: { tag: "palamedes-v2.3.4", version: "2.3.4", publishedAt: published } },
+    },
   };
 }
 
 export function versionFixture(): VersionResponse {
   return JSON.parse(readFileSync(new URL("./fixtures/version.json", import.meta.url), "utf8"));
-}
-
-export function githubDocument() {
-  const document: {
-    tag_name: string;
-    draft: boolean;
-    prerelease: boolean;
-    published_at: string;
-    html_url: string;
-    assets: { name: string; state: string; size: number }[];
-  } = JSON.parse(readFileSync(new URL("./fixtures/github-release.json", import.meta.url), "utf8"));
-  return document;
 }

@@ -8,7 +8,7 @@
 
 ## Outcome
 
-I propose one small service with three responsibilities: release discovery,
+I propose one small service with three responsibilities: version delivery,
 durable ingestion of consented usage reports, and bounded aggregate queries.
 The first implementation targets Bunny Edge Scripting with TypeScript and
 PlanetScale Postgres. This is a new protocol; its `/v1/` namespace does not
@@ -26,7 +26,7 @@ flowchart LR
     CDN -->|Cache miss| API[App tracking edge script]
     Client -->|Consented report| API
     API --> Resolver[Release resolver]
-    Resolver --> Registry[Distribution registries]
+    Resolver --> Metrics[oss-metrics CDN snapshot]
     Resolver -->|Optional durable cache| DB[(PlanetScale)]
     API -->|Reports and aggregate queries| DB
     Dashboard[Authorized dashboard] -->|Aggregate query| API
@@ -37,16 +37,19 @@ release channels, supported commands, and allowed public release links. Request
 fields must never become arbitrary upstream URLs. Adding a tool does not imply
 enabling telemetry for its users.
 
-The release resolver checks the relevant distribution source, such as npm's
-release tag, crates.io, or GitHub Releases for standalone binaries. A GitHub
-release does not prove that the corresponding npm or Homebrew release is ready.
-Unsupported distribution mappings produce an explicit unavailable result.
+The release resolver reads the existing CDN-cached oss-metrics snapshot.
+oss-metrics owns GitHub release discovery; app-tracking owns release eligibility
+and the version API. All installation methods share the GitHub release version,
+with a minimum release age of one hour to reduce downstream publication races.
+The host selects installation-aware upgrade instructions. No per-registry
+readiness guarantee or fallback lookup is part of this contract.
 
-Download statistics, stars, and analytics queries are not dependencies of a
-version-only request. PlanetScale may hold the last successful release result,
-but a database failure can still permit a bounded lookup at the same configured
-registry. A registry failure must not fabricate a current version or refresh
-the timestamp of stale data.
+Version-only requests use the public snapshot without querying private usage
+analytics or PlanetScale. The snapshot also contains other public statistics;
+a slow cold collection or unavailable snapshot can make a check advisory and
+unavailable. Do not bypass that failure by introducing a duplicate release feed.
+Preserve `generatedAt` as `checked_at` rather than renewing an old snapshot's
+freshness. Exact age and retry bounds live in the maintained version contract.
 
 ## Proposed API
 
@@ -164,12 +167,12 @@ release lookup failure does not undo or hide a committed report.
 
 ## Proposed relational model
 
-| Table                     | Key and significant fields                                                                                               | Role                                                 |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
-| `release_versions`        | `(tool_id, distribution, channel)`; version, published/checked times, source status                                      | Rebuildable cache of configured distribution sources |
-| `reporting_installations` | Installation UUID; immutable tool ID, token hash, consent revision, creation/last-seen/revocation times                  | Reporting authority and lifecycle                    |
-| `telemetry_batches`       | Unique `(tool_id, installation_id, batch_id)`; canonical content hash, receipt time                                      | Durable duplicate detection                          |
-| `usage_counts`            | Batch key and row number; installation, tool, UTC day, optional project hash/version, command, tool version, mode, count | Attributable usage contributions                     |
+| Table                     | Key and significant fields                                                                                               | Role                                                         |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| `release_versions`        | `(tool_id, distribution, channel)`; version, published/checked times, source status                                      | Rebuildable cache of the public oss-metrics release snapshot |
+| `reporting_installations` | Installation UUID; immutable tool ID, token hash, consent revision, creation/last-seen/revocation times                  | Reporting authority and lifecycle                            |
+| `telemetry_batches`       | Unique `(tool_id, installation_id, batch_id)`; canonical content hash, receipt time                                      | Durable duplicate detection                                  |
+| `usage_counts`            | Batch key and row number; installation, tool, UTC day, optional project hash/version, command, tool version, mode, count | Attributable usage contributions                             |
 
 Use foreign keys or equivalent database-enforced relationships to prevent a
 batch or usage row from naming another tool's installation. Store project

@@ -54,7 +54,7 @@ private routes bypass shared caches.
 Every deployment checks all configured distributions, revision headers, an
 observed CDN HIT, conditional requests, freshness, invalid-query rejection,
 and repeated uncached health/admin/report paths. Deterministic tests cover
-registry failure, retry limits, cold outages, and maximum retained stale age.
+snapshot failure, release eligibility, retry limits, cold outages, and maximum retained stale age.
 No synthetic failure bundle is published to the live service.
 
 Initial live validation on 2026-10-23 also exercised same-node CDN expiry and
@@ -68,9 +68,11 @@ query fields remain invalid. Application 503 responses can arrive with no-cache
 instead of no-store while preserving the JSON error and Retry-After. Repeated
 error requests were verified not to be cache hits with error caching disabled.
 
-Version source freshness is one hour, with an explicitly stale retained result
-limited to 24 hours. Client check intervals add their own delay. Version delivery
-has no database or reporting-service dependency. The [version API
+Version data comes only from the CDN-cached oss-metrics snapshot. A release
+must be at least one hour old. Source freshness is one hour from its original
+`generatedAt`, with explicitly stale results limited to 24 hours. Client check
+intervals add their own delay. Version delivery has no database dependency and
+never directly queries private usage analytics. The [version API
 contract](version-api.md) owns the exact response and retry limits.
 
 ## Logging and evidence

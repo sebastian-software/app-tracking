@@ -21,22 +21,9 @@ class LookupFailure extends Error {
   }
 }
 
-function destination(entry: Distribution): URL {
-  const source = entry.source;
-  const url =
-    source.kind === "npm"
-      ? new URL(`https://registry.npmjs.org/${encodeURIComponent(source.packageName)}`)
-      : new URL(`https://api.github.com/repos/${source.repository}/releases/latest`);
-  if (
-    url.protocol !== "https:" ||
-    url.username ||
-    url.password ||
-    url.port ||
-    !["registry.npmjs.org", "api.github.com"].includes(url.hostname)
-  )
-    throw new LookupFailure();
-  return url;
-}
+export const METRICS_URL = "https://metrics.sebastian-software.com/v1/metrics.json";
+export const MIN_RELEASE_AGE_MS = 3_600_000;
+const MAX_SNAPSHOT_AGE_MS = 86_400_000;
 
 async function readJson(response: Response, signal: AbortSignal): Promise<unknown> {
   if (!response.body) throw new LookupFailure();
@@ -79,66 +66,45 @@ async function readJson(response: Response, signal: AbortSignal): Promise<unknow
   }
 }
 
-function parseRelease(entry: Distribution, data: unknown, now: number): Release {
+function parseRelease(entry: Distribution, data: unknown, now: number) {
   const document = record(data);
-  if (!document) throw new LookupFailure();
+  const sources = record(document?.sources);
+  const generated = timestamp(document?.generatedAt, now);
+  const checkedAt = generated ? Date.parse(generated) : NaN;
+  if (
+    document?.schema !== 1 ||
+    sources?.github !== "ok" ||
+    sources.releases !== "ok" ||
+    !Number.isFinite(checkedAt) ||
+    checkedAt > now ||
+    now - checkedAt >= MAX_SNAPSHOT_AGE_MS
+  )
+    throw new LookupFailure();
   const source = entry.source;
-  if (source.kind === "npm") {
-    const version = record(document["dist-tags"])?.[source.tag];
-    if (document.name !== source.packageName || !stableVersion(version)) throw new LookupFailure();
-    const manifest = record(record(document.versions)?.[version]);
-    const published = timestamp(record(document.time)?.[version], now);
-    if (
-      manifest?.name !== source.packageName ||
-      manifest.version !== version ||
-      manifest.deprecated ||
-      !published
-    )
-      throw new LookupFailure();
-    return {
-      latest_version: version,
-      published_at: published,
-      release_url: `https://www.npmjs.com/package/${source.packageName}/v/${encodeURIComponent(version)}`,
-    };
-  }
-
-  const tag = document.tag_name;
+  const release = record(record(record(document.github)?.[source.repository])?.release);
+  const version = release?.version;
+  const tag = release?.tag;
+  const published = timestamp(release?.publishedAt, now);
   if (
-    document.draft !== false ||
-    document.prerelease !== false ||
-    typeof tag !== "string" ||
-    !tag.startsWith(source.tagPrefix)
+    !stableVersion(version) ||
+    tag !== `${source.tagPrefix}${version}` ||
+    !published ||
+    Date.parse(published) > checkedAt ||
+    now - Date.parse(published) < MIN_RELEASE_AGE_MS
   )
     throw new LookupFailure();
-  const version = tag.slice(source.tagPrefix.length);
-  const published = timestamp(document.published_at, now);
-  if (!stableVersion(version) || !published || !Array.isArray(document.assets))
-    throw new LookupFailure();
-  const assets = document.assets.map(record);
-  if (
-    !source.binaryTargets.every((target) =>
-      assets.some(
-        (asset) =>
-          asset?.name === `${entry.tool}-${version}-${target}.tar.gz` &&
-          asset.state === "uploaded" &&
-          typeof asset.size === "number" &&
-          asset.size > 0,
-      ),
-    )
-  )
-    throw new LookupFailure();
-  return {
+  const result: Release = {
     latest_version: version,
     published_at: published,
-    release_url: `https://github.com/${source.repository}/releases/tag/${encodeURIComponent(tag)}`,
+    release_url: `https://github.com/sebastian-software/${source.repository}/releases/tag/${encodeURIComponent(tag)}`,
   };
+  // The metrics collection time survives every cache layer. Fetching an old
+  // CDN snapshot must never renew its freshness or its 24-hour stale lifetime.
+  return { release: result, checkedAt };
 }
 
-export async function fetchRelease(
-  entry: Distribution,
-  options: UpstreamOptions,
-): Promise<Release> {
-  const url = destination(entry);
+export async function fetchRelease(entry: Distribution, options: UpstreamOptions) {
+  const url = new URL(METRICS_URL);
   for (let attempt = 0; attempt < 2; attempt++) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? UPSTREAM_TIMEOUT_MS);
@@ -150,7 +116,6 @@ export async function fetchRelease(
         headers: {
           Accept: "application/json",
           "User-Agent": USER_AGENT,
-          ...(entry.source.kind === "github" ? { "X-GitHub-Api-Version": "2022-11-28" } : {}),
         },
         signal: controller.signal,
       });
