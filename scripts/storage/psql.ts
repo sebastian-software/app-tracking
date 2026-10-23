@@ -1,0 +1,38 @@
+import { execFile } from "node:child_process";
+
+// Keep the connection string/password out of argv, errors, and CI output.
+export function psql(url: string, sql: string): Promise<string> {
+  const parsed = new URL(url);
+  if (!["postgres:", "postgresql:"].includes(parsed.protocol))
+    throw new Error("Invalid database URL");
+  return new Promise((resolve, reject) => {
+    const child = execFile(
+      "psql",
+      ["-X", "-qAt", "-v", "ON_ERROR_STOP=1"],
+      {
+        env: {
+          ...process.env,
+          PGHOST: parsed.hostname,
+          PGPORT: parsed.port || "5432",
+          PGDATABASE: decodeURIComponent(parsed.pathname.slice(1)),
+          PGUSER: decodeURIComponent(parsed.username),
+          PGPASSWORD: decodeURIComponent(parsed.password),
+          PGSSLMODE: parsed.searchParams.get("sslmode") || "verify-full",
+          PGCONNECT_TIMEOUT: "10",
+          PGOPTIONS: "-c timezone=UTC -c statement_timeout=10000",
+        },
+        timeout: 30_000,
+        maxBuffer: 1024 * 1024,
+      },
+      (error, stdout, stderr) => {
+        if (error) {
+          // SQLSTATE is safe; SQL text, parameters and provider errors are not.
+          const code = stderr.match(/ERROR:\s+([0-9A-Z]{5}):/)?.[1];
+          reject(new Error(`Database operation failed${code ? ` (${code})` : ""}`));
+        } else resolve(stdout.trim());
+      },
+    );
+    child.stdin?.end("\\set VERBOSITY verbose\n" + sql);
+  });
+}
+export const quote = (s: string): string => "'" + s.replaceAll("'", "''") + "'";

@@ -91,3 +91,10 @@ workflow summaries.
 API contracts were checked against Bunny's official OpenAPI documents on
 2026-10-23: [Core](https://core-api-public-docs.b-cdn.net/docs/v3/public.json) and
 [Compute](https://core-api-public-docs.b-cdn.net/docs/v3/compute.json).
+
+## Synthetic database integration proof
+
+The optional `storage_proof` workflow input runs a temporary authenticated probe
+with separate database credentials. It does not deploy the version service or
+introduce a permanent staging environment. See the [storage proof
+runbook](storage-proof.md) for setup, measurements, and cleanup.
