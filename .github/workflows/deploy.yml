@@ -64,6 +64,13 @@ jobs:
         run: |
           node scripts/release.ts
           node scripts/verify-deployment.ts
+      - name: Exercise expiry, outage boundaries and restoration in isolated staging
+        if: inputs.environment != 'production' && inputs.release_run == ''
+        env:
+          BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
+          RELEASE_REVISION: ${{ github.sha }}
+          DEPLOYMENT_ENVIRONMENT: staging
+        run: node scripts/staging-drill.ts
       - name: Restore a previously verified bundle
         if: inputs.release_run != ''
         env:

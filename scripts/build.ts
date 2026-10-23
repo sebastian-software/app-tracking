@@ -14,6 +14,7 @@ await mkdir("dist", { recursive: true });
 for (const [name, entry] of [
   ["edge", "src/edge.ts"],
   ["service", "src/handler.ts"],
+  ["drill", "test/fixtures/drill-edge.ts"],
 ]) {
   const result = await build({
     entryPoints: [entry],
@@ -25,7 +26,7 @@ for (const [name, entry] of [
     define: { __APP_REVISION__: JSON.stringify(revision) },
     alias: { "@bunny.net/edgescript-sdk": sdk },
     banner: {
-      js: `// SPDX-License-Identifier: MIT OR Apache-2.0\n${name === "edge" ? `/*\n${notices}\n*/` : ""}`,
+      js: `// SPDX-License-Identifier: MIT OR Apache-2.0\n${name !== "service" ? `/*\n${notices}\n*/` : ""}`,
     },
     metafile: true,
     logLevel: "info",
