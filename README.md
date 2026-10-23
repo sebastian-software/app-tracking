@@ -11,9 +11,9 @@ installations, and a repository count shared across developers and clones.
 The version endpoint is implemented with a reviewed release catalog, conditional
 GET, bounded registry requests, and deterministic contract tests. It builds a
 self-contained Bunny edge script and runs locally without a database or
-telemetry. Production deployment, shared clients, and usage tracking are later
-delivery steps. Accepted ADRs record direction; RFCs retain the unimplemented
-proposals.
+telemetry. Main-branch changes deploy directly to one Bunny service after
+automated checks. Shared clients and usage tracking are later delivery steps.
+Accepted ADRs record direction; RFCs retain the unimplemented proposals.
 
 ## Run and verify
 
@@ -44,9 +44,9 @@ credentials or environment configuration are needed for this slice. See the
 [version API contract](docs/version-api.md) for supported paths, errors, cache
 behavior, and the remaining deployment proof.
 
-See the [deployment runbook](docs/deployment.md) for staging, promotion, cache
-verification, and restoring verified release artifacts. Live operational proof
-is tracked in issue #2; a workflow file alone does not establish deployment.
+See the [deployment runbook](docs/deployment.md) for automatic deployment, live
+cache verification, and restoring a previous release. Operational evidence is
+tracked in [issue #2](https://github.com/sebastian-software/app-tracking/issues/2).
 
 ## Implementation plan
 
@@ -90,7 +90,7 @@ the current decision in a stable location with dated changes and Git history.
 The design deliberately omits credentials, private infrastructure details, and
 real telemetry. Examples use synthetic identifiers and reserved example
 domains. Public source makes the design inspectable; it does not establish how
-a future deployment is configured.
+the live deployment is configured.
 
 ## Related projects
 

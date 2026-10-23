@@ -51,7 +51,8 @@ the timestamp of stale data.
 ## Proposed API
 
 Production routes use HTTPS. The version and health routes are implemented in
-the [version API contract](../version-api.md); they are not deployed yet. The
+the [version API contract](../version-api.md), with deployment described in the
+[runbook](../deployment.md). The
 remaining routes and telemetry schemas below are proposals. Examples omit real
 credentials and use synthetic values.
 
@@ -83,7 +84,8 @@ the client to execute. Automatic executable replacement is out of scope.
 The initial implementation uses hourly freshness and a maximum retained-result
 age of 24 hours, preserving `checked_at` during failures. It only retains last
 successes within one service instance. The planned client interval adds its own
-delay, and staging must verify CDN behavior and cold/evicted-cache outages.
+delay. The deployment probe verifies live CDN behavior; deterministic tests
+cover cold/evicted-cache outages and stale-age boundaries.
 A future authenticated refresh and durable cache remain separate changes.
 
 ### Reporting installation

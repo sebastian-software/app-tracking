@@ -60,31 +60,24 @@ capacity from these limits alone.
 
 ## Provisioning and deployment
 
-Create independent test and production deployments with separate database
-credentials, data, hosts, and synthetic verification traffic. Hostnames are
-not selected by this RFC; use reserved example domains in documentation.
+The version-only service has one Bunny deployment. Changes to main run the
+checks, build an identifiable bundle, publish it, purge the CDN, and verify the
+live version contract. There is no separate staging environment or manual
+promotion gate. Pull requests run checks without deploying. The
+[deployment runbook](../deployment.md) owns the current commands and rollback
+procedure using retained verified release artifacts.
 
-Version the non-secret desired infrastructure state and implement idempotent
-provisioning. Keep account credentials and runtime database credentials in the
-chosen secret stores, with the narrowest supported scopes. Deployment and
-schema-migration credentials are not runtime client credentials and never enter
-the public bundle or CLI.
+Provisioning is idempotent. The organization Actions secret supplies the Bunny
+account credential only during deployment; it never enters the public bundle.
+Non-secret desired settings are versioned, while actual resource IDs remain in
+ignored runner state.
 
-The proposed pipeline is:
-
-1. Validate documentation, types, unit tests, and contract tests; build one
-   identifiable bundle from a recorded commit.
-2. Apply additive database migrations in the test environment.
-3. Deploy the same bundle to test and run cache, transaction, deletion, privacy,
-   and consumer checks with synthetic data.
-4. Apply compatible production migrations and publish through a protected,
-   explicitly authorized production workflow.
-5. Verify release identity, endpoint behavior, and operational signals. Keep a
-   previous compatible bundle for rollback.
-
-No deployment workflow or infrastructure is created by the documentation
-bootstrap. Exact commands, runtime versions, secret names, and production
-authorization mechanics belong in implementation and its runbook once verified.
+When telemetry is implemented, prove the database/runtime integration with
+synthetic data and isolated database credentials before accepting real reports.
+Test migrations, transactions, deletion, and recovery independently of the live
+usage dataset. Keep deployment and schema-migration credentials separate from
+runtime client credentials. Decide any additional deployment stages from that
+concrete implementation rather than requiring them for version delivery.
 
 ## CDN and regional behavior
 
@@ -163,7 +156,7 @@ telemetry is ready.
 | Package                                      | Observable outcome                                                             | Evidence required                                                                                                           |
 | -------------------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
 | Version service                              | One reviewed release resolver answers a compact GET independently of telemetry | Cold/warm cache checks, distribution eligibility, stale/outage cases, no reporting identifiers                              |
-| Shared update client and Dalo version checks | A published consumer uses the new version contract without telemetry           | Local comparison, disable/offline controls, concurrent check state, installation guidance, output/latency, staging delivery |
+| Shared update client and Dalo version checks | A published consumer uses the new version contract without telemetry           | Local comparison, disable/offline controls, concurrent check state, installation guidance, output/latency, live delivery    |
 | Consented ingestion                          | Registered installations can submit immutable batches safely                   | Real database concurrency, duplicate/reused IDs, lost acknowledgement, expiry, withdrawal and deletion races                |
 | Shared telemetry client and Dalo opt-in      | One consumer adopts reporting without altering command semantics               | Consent/no-consent, URL normalization, concurrent local state, offline behavior, JSON/output/latency, wrapper deduplication |
 | Private and public reporting                 | Maintainers can inspect useful aggregates and approve a bounded public export  | Distinct counts across periods, missing coverage, unknown-project usage, deletion propagation, no row-level public data     |
@@ -204,7 +197,8 @@ disable an existing service as a side effect of deploying this one.
   license is selected in [ADR 0007](../adr/0007-dual-license.md).
 - Final consent wording, installation identity scope, retry bounds, retention,
   backup/deletion policy. The version-only limits are defined in the
-  [implemented contract](../version-api.md) and still need deployment proof.
+  [implemented contract](../version-api.md); deployment evidence belongs in
+  [issue #2](https://github.com/sebastian-software/app-tracking/issues/2).
 - Maintainer authentication, public aggregate disclosure, and abuse controls.
 - Short-lived client upload strategy and measured latency/size budgets.
 - Production operating ownership, deployment authorization, recovery evidence,

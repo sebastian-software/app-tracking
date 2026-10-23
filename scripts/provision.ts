@@ -78,8 +78,6 @@ if (import.meta.main) {
     required("SCRIPT_NAME"),
     required("ZONE_NAME"),
   );
-  if (process.env.REQUIRE_NO_CHANGES === "1" && result.changes !== 0)
-    throw new Error("Provisioning did not converge on the second run");
   await mkdir(".deployment", { recursive: true });
   await writeFile(".deployment/target.json", JSON.stringify(result.target), { mode: 0o600 });
   if (process.env.GITHUB_OUTPUT) {

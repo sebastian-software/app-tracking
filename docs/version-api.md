@@ -161,7 +161,7 @@ pinned in [package.json](../package.json) and [pnpm-lock.yaml](../pnpm-lock.yaml
 The build uses the installed SDK's `esm-bunny` entry, packages its MIT notice,
 and rejects external imports. No dependency installation scripts are required.
 The SDK's internal entry path is a deliberate version-specific build dependency;
-an SDK upgrade must pass the bundle check and staging proof again.
+an SDK upgrade must pass the bundle check and live deployment probe again.
 
 Current primary references:
 

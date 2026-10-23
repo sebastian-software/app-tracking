@@ -14,7 +14,6 @@ await mkdir("dist", { recursive: true });
 for (const [name, entry] of [
   ["edge", "src/edge.ts"],
   ["service", "src/handler.ts"],
-  ["drill", "test/fixtures/drill-edge.ts"],
 ]) {
   const result = await build({
     entryPoints: [entry],

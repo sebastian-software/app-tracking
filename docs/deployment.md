@@ -1,122 +1,91 @@
 # Bunny version deployment
 
-The `Deploy version service` workflow provisions isolated staging and production
-scripts and zones. Staging runs on same-repository PRs and relevant main-branch
-pushes. Fork PRs receive no deployment access. Production is manually dispatched
-from main and requires a successful main-branch release run as `release_run`.
+Changes to main deploy directly to one Bunny Edge Script and its linked Pull
+Zone. The `Deploy version service` workflow runs `pnpm check`, configures the
+service, publishes the bundle, purges the CDN, and verifies the live API. Pull
+requests run checks without deploying. There is no separate staging environment
+or manual promotion gate.
 
-The account credential is the existing organization Actions secret
-`BUNNY_API_KEY`. It is never a runtime secret. Resource IDs, generated hostnames,
-and provisioning state stay in ignored `.deployment/` files on the runner.
-No custom hostname or existing service is modified. The initial generated zone
-names are defined by the workflow; staging and production have distinct names.
+The workflow uses the organization Actions secret `BUNNY_API_KEY` only for
+deployment. No account credential enters the runtime bundle. Resource IDs and
+generated hostnames stay in ignored `.deployment/` runner files. Existing
+services and custom hostnames are not changed.
 
 ## Release and rollback
 
-The workflow checks the pinned toolchain and builds a single edge bundle with
-an `X-App-Revision` header on every response. Provisioning runs twice, and the
-second run must converge. No broad edge rule can override route cache headers;
-unexpected existing rules stop provisioning for review. Account mutation errors
-never print provider bodies or credentials.
+Each bundle carries its commit in `X-App-Revision`. Provisioning creates missing
+resources and converges cache and logging settings on later runs. Unexpected
+edge rules stop deployment rather than silently overriding route policy.
+Deployments run serially.
 
-A new staging release uploads the bundle, publishes it, purges its isolated
-zone, and verifies the endpoint. Only successful verification uploads the
-`verified-release` artifact (90-day retention). It contains `edge.js` and a
-manifest with the original commit and SHA-256, without deployment identifiers.
+After successful live verification, the workflow retains a `verified-release`
+artifact for 90 days. It contains `edge.js` and a manifest with the original
+commit and SHA-256, without deployment identifiers.
 
-To promote or restore a bundle, dispatch the workflow with the target environment
-and the successful original release run ID in `release_run`. The workflow checks
-that the run belongs to this repository's deployment workflow on main and
-succeeded, downloads its immutable artifact, verifies its hash and main-branch
-ancestry, publishes the original bytes, purges the target zone, and verifies
-revision and API behavior. It never reconstructs the old bundle with newer
-packages. Artifact expiry makes that run unavailable for rollback; retain a
-known-good release within the retention window.
+To deploy main again:
 
-A failed publication does not run the purge. A failed post-publication probe
-marks deployment failed; it does not claim the previous release is still live.
-Use the last known-good release run to restore explicitly. An interrupted
-publish has an unknown outcome: inspect the revision endpoint before retrying.
-Do not attempt to restore an unpublished draft obtained from the code API.
+```sh
+gh workflow run deploy.yml --ref main
+```
 
-Set production environment protection to selected `main` deployments and the
-maintainers' required approval policy before production use. Operator ownership
-belongs to repository maintainers. The manual dispatch selects the verified
-artifact and target; changes to production protection need separate review.
+To restore a previous successful deployment, select its original run ID:
 
-## Cache and operational proof
+```sh
+gh workflow run deploy.yml --ref main -f release_run=RUN_ID
+```
 
-Pull Zone settings respect origin Cache-Control, preserve query distinctions,
-disable Smart Cache exclusions for JSON, disable caching of errors and stale
-background/offline responses, and disable access-log forwarding/storage. The
-script continues to cache only approved fresh version successes through its
-response headers. Health, invalid requests, errors, and future private routes
-return no-store. The service's retained stale fallback remains per isolate.
+Restoration downloads the original artifact, checks its hash and main-branch
+ancestry, publishes those exact bytes, purges the CDN, and verifies the restored
+revision and API. It does not rebuild old source with newer packages. A run
+whose artifact has expired cannot be used for rollback.
 
-The deployed probe checks all catalog routes, full revision headers, observed
-CDN HIT within eight attempts, conditional 304 responses, checked-at freshness,
-invalid-query rejection, and repeated uncached health/admin/report paths.
-A missing HIT or an incorrect bypass fails the release. This intentionally
-catches provider query normalization instead of assuming configuration suffices.
-The staging-only drill temporarily publishes a synthetic bundle to the verified
-staging script, exercises a two-second CDN expiry and purge of a ten-minute
-entry, then runs the real handler with a controlled fake registry and clock for
-warm outage, 24-hour expiry, and cold outage. It restores the exact original
-verified bundle in a finally block and rechecks the full live API. Synthetic
-bundles are excluded from promotion artifacts. No probe performs production
-fault injection.
+A failed publish does not purge the CDN. A failed post-publication check marks
+the run failed; inspect the live revision and restore a known-good artifact if
+needed. Maintainers own deployment and recovery.
 
-Before issue #2 is complete, record sanitized **live** evidence for:
+## Cache verification
 
-- A second provision run with zero changes and distinct staging/production targets.
-- Cold/warm hits, purge/eviction, real expiry, and ETag behavior on Bunny.
-- Controlled registry failure and the maximum stale-age boundary in isolated
-  staging; the deterministic tests alone are not evidence of platform behavior.
-- A staging rollback to an older verified artifact and a subsequent re-promotion.
-- Production protection, promotion, revision checks, and the privacy settings below.
+Only fresh public version responses are shared-cache candidates. Provisioning
+respects origin Cache-Control, preserves query distinctions, disables error
+caching and stale background/offline responses, and disables Pull Zone access
+logging, forwarding, and log storage. Health, invalid requests, and future
+private routes bypass shared caches.
 
-The existing synthetic suite covers retry limits, stale expiry and cold outages;
-these must not be described as completed staging drills. Cache API behavior and
-CDN routing depend on actual provider settings. Bunny normalizes an empty query to the URL without a query, so both forms identify
-the same public version resource. Nonempty query fields must still be rejected.
+Every deployment checks all configured distributions, revision headers, an
+observed CDN HIT, conditional requests, freshness, invalid-query rejection,
+and repeated uncached health/admin/report paths. Deterministic tests cover
+registry failure, retry limits, cold outages, and maximum retained stale age.
+No synthetic failure bundle is published to the live service.
 
-Initial operational targets: fresh source validation within one hour during
-traffic, less than 24 hours for an explicitly stale retained result, at most two
-1.5-second upstream attempts plus a 50 ms retry pause. Measure cold/warm endpoint
-latency in staging before establishing an alert threshold. The combined server
-freshness, publication lag, and client's hourly check can exceed one hour.
-Monitor synthetic freshness/revision failures without installation, project, or
-request-specific metric labels. Version delivery has no database or reporting
-service dependency.
+Initial live validation on 2026-10-23 also exercised same-node CDN expiry and
+purge, synthetic registry outages and stale-age boundaries, and restoration in
+a temporary test deployment. That deployment is not part of ongoing operation.
+A successful live cache check is not a capacity benchmark.
 
-## Observed platform behavior
+Bunny can route consecutive requests to different edge nodes and weaken the
+origin ETag. An empty query is normalized to the same public resource; nonempty
+query fields remain invalid. Application 503 responses can arrive with no-cache
+instead of no-store while preserving the JSON error and Retry-After. Repeated
+error requests were verified not to be cache hits with error caching disabled.
 
-Live staging on 2026-10-23 verified convergence, CDN hits, conditional requests,
-invalid/private bypass, expiry, purge, synthetic registry faults, and restoration.
-These checks run in the deployment workflow rather than relying on this dated
-statement. Production promotion remains a protected main-branch operation.
-
-Bunny may route consecutive requests to different edge nodes; a changed ETag on
-a 200 response is valid. The conditional probe waits for a cache hit, and expiry
-and purge evidence must refer to the same observed node. Bunny also normalizes
-an empty query and may weaken the origin ETag. On application 503 responses it
-rewrites no-store to no-cache while preserving the JSON error and Retry-After;
-repeated requests were verified not to be cache hits with error caching disabled.
+Version source freshness is one hour, with an explicitly stale retained result
+limited to 24 hours. Client check intervals add their own delay. Version delivery
+has no database or reporting-service dependency. The [version API
+contract](version-api.md) owns the exact response and retry limits.
 
 ## Logging and evidence
 
 Application code logs no request payloads, URLs, credentials, or identifiers.
-Provisioning verifies Pull Zone access logging, forwarding, and storage are off.
-This does not establish that Bunny has no internal security/control-plane logs.
-Before production, verify processor terms and provider-internal retention and
-record the result privately. Do not assert zero IP processing or EU-only routing
-from a single cache or region setting.
+Disabled Pull Zone access logs do not imply that Bunny processes no IP addresses
+or keeps no internal security/control-plane logs. Processor terms and internal
+retention are provider/account matters; the service makes no zero-IP-processing
+or EU-only routing claim.
 
-Public evidence may state revision, pass/fail, change count, cache state and
-aggregate latency. Keep actual account IDs, internal hosts, operator identity,
-real traffic, credentials, and provider error bodies out of the public issue,
-repository, and workflow summaries.
+Public evidence may contain revisions, pass/fail, change counts, cache state,
+and aggregate latency. Keep account IDs, internal hosts, operator identities,
+credentials, provider error bodies, and real traffic out of the repository and
+workflow summaries.
 
-API contracts were checked against Bunny's official current OpenAPI documents
-on 2026-10-23: [Core](https://core-api-public-docs.b-cdn.net/docs/v3/public.json)
-and [Compute](https://core-api-public-docs.b-cdn.net/docs/v3/compute.json).
+API contracts were checked against Bunny's official OpenAPI documents on
+2026-10-23: [Core](https://core-api-public-docs.b-cdn.net/docs/v3/public.json) and
+[Compute](https://core-api-public-docs.b-cdn.net/docs/v3/compute.json).
