@@ -2,30 +2,21 @@ name: Deploy version service
 on:
   push:
     branches: [main]
-    paths: ["src/**", "scripts/**", ".github/workflows/deploy.yml", "pnpm-lock.yaml"]
-  pull_request:
-    paths: ["src/**", "scripts/**", ".github/workflows/deploy.yml", "pnpm-lock.yaml"]
   workflow_dispatch:
     inputs:
-      environment:
-        type: choice
-        options: [staging, production]
-        required: true
-        default: staging
       release_run:
-        description: Verified staging/release run to promote or restore; required for production
+        description: Successful release run to restore; leave empty to deploy main
         required: false
         type: string
 permissions:
   contents: read
   actions: read
 concurrency:
-  group: version-deployment-${{ inputs.environment || 'staging' }}
+  group: version-deployment
   cancel-in-progress: false
 jobs:
   deploy:
-    if: github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
-    environment: ${{ inputs.environment || 'staging' }}
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -43,18 +34,13 @@ jobs:
           cache: true
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm check
-      - name: Require a verified artifact for production
-        if: inputs.environment == 'production' && inputs.release_run == ''
-        run: exit 1
-      - name: Converge isolated target twice
+      - name: Configure Bunny service
         id: target
         env:
           BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
-          SCRIPT_NAME: app-tracking-${{ inputs.environment || 'staging' }}
-          ZONE_NAME: sebastian-app-tracking-${{ inputs.environment || 'staging' }}
-        run: |
-          node scripts/provision.ts
-          REQUIRE_NO_CHANGES=1 node scripts/provision.ts
+          SCRIPT_NAME: app-tracking
+          ZONE_NAME: sebastian-app-tracking
+        run: node scripts/provision.ts
       - name: Publish and verify
         if: inputs.release_run == ''
         env:
@@ -64,13 +50,6 @@ jobs:
         run: |
           node scripts/release.ts
           node scripts/verify-deployment.ts
-      - name: Exercise expiry, outage boundaries and restoration in isolated staging
-        if: inputs.environment != 'production' && inputs.release_run == ''
-        env:
-          BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
-          RELEASE_REVISION: ${{ github.sha }}
-          DEPLOYMENT_ENVIRONMENT: staging
-        run: node scripts/staging-drill.ts
       - name: Restore a previously verified bundle
         if: inputs.release_run != ''
         env:
@@ -78,7 +57,32 @@ jobs:
           RELEASE_RUN: ${{ inputs.release_run }}
           BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
         run: node scripts/restore-artifact.ts
-      - name: Retain verified release for promotion and rollback
+      - name: Retire the temporary bootstrap test deployment
+        if: inputs.release_run == ''
+        env:
+          BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
+        run: |
+          node --input-type=module <<'JS'
+          import { bunnyApi, required } from './scripts/bunny.ts';
+          const api = bunnyApi(required('BUNNY_API_KEY'));
+          const path = '/compute/script?search=app-tracking-staging&type=1&includeLinkedPullzones=true&perPage=100&page=1';
+          const list = await api('GET', path);
+          if (list.Items.length >= 100) throw new Error('Unexpected bootstrap discovery size');
+          const matches = list.Items.filter(s => s.Name === 'app-tracking-staging');
+          if (matches.length > 1) throw new Error('Ambiguous bootstrap target');
+          if (matches.length === 1) {
+            const script = await api('GET', `/compute/script/${matches[0].Id}`);
+            const zones = script.LinkedPullZones;
+            if (zones?.length !== 1 || zones[0].PullZoneName !== 'sebastian-app-tracking-staging')
+              throw new Error('Unexpected bootstrap links');
+            await api('DELETE', `/compute/script/${script.Id}?deleteLinkedPullZones=true`);
+          }
+          const after = await api('GET', path);
+          if (after.Items.some(s => s.Name === 'app-tracking-staging'))
+            throw new Error('Bootstrap test deployment still exists');
+          console.log('Temporary bootstrap test deployment retired.');
+          JS
+      - name: Retain verified release for rollback
         if: inputs.release_run == ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

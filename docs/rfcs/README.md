@@ -2,7 +2,8 @@
 
 These RFCs describe the initial app-tracking design. They are Proposed and can
 change as contracts are tested. The implemented version-only behavior is owned
-by the [version API contract](../version-api.md). Nothing is deployed yet.
+by the [version API contract](../version-api.md) and
+[deployment runbook](../deployment.md). Telemetry remains unimplemented.
 
 | RFC                                            | Proposal                              |
 | ---------------------------------------------- | ------------------------------------- |

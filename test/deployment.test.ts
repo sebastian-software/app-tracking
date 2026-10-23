@@ -10,7 +10,7 @@ test("provisioning converges twice without duplicating or rewriting resources", 
   const zone: Record<string, unknown> = { EdgeRules: [] };
   const script = {
     Id: 1,
-    Name: "app-tracking-staging",
+    Name: "app-tracking",
     LinkedPullZones: [{ Id: 2, PullZoneName: "isolated-zone" }],
   };
   const api: BunnyApi = async <T>(method: string, path: string, body?: unknown): Promise<T> => {
@@ -29,15 +29,12 @@ test("provisioning converges twice without duplicating or rewriting resources", 
     } else assert.fail("Unexpected operation");
     return result as T;
   };
-  assert.equal((await provision(api, "app-tracking-staging", "isolated-zone")).changes, 2);
-  assert.equal((await provision(api, "app-tracking-staging", "isolated-zone")).changes, 0);
+  assert.equal((await provision(api, "app-tracking", "isolated-zone")).changes, 2);
+  assert.equal((await provision(api, "app-tracking", "isolated-zone")).changes, 0);
   assert.equal(writes, 2);
   assert.deepEqual(Object.fromEntries(Object.keys(SETTINGS).map((k) => [k, zone[k]])), SETTINGS);
   zone.EdgeRules = [{ Description: "foreign TTL override" }];
-  await assert.rejects(
-    provision(api, "app-tracking-staging", "isolated-zone"),
-    /Unexpected edge rules/,
-  );
+  await assert.rejects(provision(api, "app-tracking", "isolated-zone"), /Unexpected edge rules/);
 });
 
 test("publication orders upload, publish and purge; a failed publish does not purge", async () => {
