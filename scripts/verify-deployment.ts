@@ -66,9 +66,32 @@ export async function verifyDeployment(
     "Deployment contract, revision, CDN hits, conditional requests, and cache bypass passed.",
   );
 }
+export async function waitForRevision(
+  base: string,
+  revision: string,
+  fetcher: typeof fetch = fetch,
+) {
+  let ready = false;
+  for (let attempt = 0; attempt < 30; attempt++) {
+    try {
+      const health = await fetcher(new URL("/health", base), {
+        redirect: "error",
+        signal: AbortSignal.timeout(10_000),
+      });
+      ready = health.status === 200 && health.headers.get("x-app-revision") === revision;
+      await health.body?.cancel();
+      if (ready) break;
+    } catch {
+      /* Publication propagation can temporarily leave an unavailable edge. */
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  assert.ok(ready, "The expected published revision did not become ready within the bounded wait");
+}
 if (import.meta.main) {
   const base = process.env.DEPLOYMENT_BASE;
   const revision = process.env.RELEASE_REVISION;
   if (!base || !revision) throw new Error("DEPLOYMENT_BASE and RELEASE_REVISION are required");
+  await waitForRevision(base, revision);
   await verifyDeployment(base, revision);
 }

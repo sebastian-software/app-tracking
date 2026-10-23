@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { bunnyApi, required } from "./bunny.ts";
 import { publish } from "./release.ts";
-import { verifyDeployment } from "./verify-deployment.ts";
+import { verifyDeployment, waitForRevision } from "./verify-deployment.ts";
 import type { Target } from "./provision.ts";
 // Restore an immutable artifact from a previously verified release, never rebuilt source.
 const manifest: { revision: string; sha256: string } = JSON.parse(
@@ -19,5 +19,6 @@ if (
   throw new Error("Rollback artifact integrity failure");
 const target: Target = JSON.parse(await readFile(".deployment/target.json", "utf8"));
 await publish(bunnyApi(required("BUNNY_API_KEY")), target, code, manifest.revision);
+await waitForRevision(target.base, manifest.revision);
 await verifyDeployment(target.base, manifest.revision);
 console.log("Rollback restored the verified artifact; CDN purge and contract checks passed.");
