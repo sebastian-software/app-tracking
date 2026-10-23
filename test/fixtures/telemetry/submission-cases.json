@@ -1,0 +1,166 @@
+[
+  {
+    "name": "first submission",
+    "expected": "accepted"
+  },
+  {
+    "name": "lost acknowledgement",
+    "receipt": "same",
+    "expected": "duplicate"
+  },
+  {
+    "name": "row permutation retry",
+    "receipt": "same",
+    "reverse_rows": true,
+    "expected": "duplicate"
+  },
+  {
+    "name": "changed payload",
+    "receipt": "different",
+    "expected": "batch_conflict"
+  },
+  {
+    "name": "duplicate beyond occurrence age",
+    "now": "2026-11-01T12:00:00.000Z",
+    "receipt": "same",
+    "expected": "duplicate"
+  },
+  {
+    "name": "receipt at expiry cannot count again",
+    "now": "2027-01-21T12:00:00.000Z",
+    "receipt": "expired",
+    "expected": "batch_expired",
+    "last_activity": "2027-01-21T11:00:00.000Z"
+  },
+  {
+    "name": "old ID with fresh occurrence day",
+    "now": "2027-01-21T12:00:00.000Z",
+    "receipt": "expired",
+    "row_day": "2027-01-21",
+    "expected": "batch_expired",
+    "last_activity": "2027-01-21T11:00:00.000Z"
+  },
+  {
+    "name": "revoked identity before receipt",
+    "state": "revoked",
+    "receipt": "same",
+    "expected": "installation_revoked"
+  },
+  {
+    "name": "inactive at ninety days",
+    "receipt": "same",
+    "expected": "installation_expired",
+    "last_activity": "2026-07-25T12:00:00.000Z"
+  },
+  {
+    "name": "wrong credential before duplicate",
+    "credential_matches": false,
+    "receipt": "same",
+    "expected": "unauthorized"
+  },
+  {
+    "name": "unsupported new consent revision",
+    "revision": "telemetry-v2",
+    "expected": "consent_required"
+  },
+  {
+    "name": "missing installation",
+    "state": "missing",
+    "expected": "installation_not_found"
+  },
+  {
+    "name": "oldest permitted day",
+    "row_day": "2026-10-17",
+    "expected": "accepted"
+  },
+  {
+    "name": "day before permitted interval",
+    "row_day": "2026-10-16",
+    "expected": "invalid_usage_day"
+  },
+  {
+    "name": "midnight late-clock grace",
+    "now": "2026-10-24T00:04:59.999Z",
+    "row_day": "2026-10-17",
+    "expected": "accepted"
+  },
+  {
+    "name": "midnight grace ends exactly",
+    "now": "2026-10-24T00:05:00.000Z",
+    "row_day": "2026-10-17",
+    "expected": "invalid_usage_day"
+  },
+  {
+    "name": "future day outside grace",
+    "row_day": "2026-10-24",
+    "expected": "invalid_usage_day"
+  },
+  {
+    "name": "future UUID at skew boundary",
+    "batch_birth": "2026-10-23T12:05:00.000Z",
+    "expected": "accepted"
+  },
+  {
+    "name": "future UUID beyond skew boundary",
+    "batch_birth": "2026-10-23T12:05:00.001Z",
+    "expected": "clock_skew"
+  },
+  {
+    "name": "batch at oldest birth boundary",
+    "batch_birth": "2026-10-16T11:55:00.000Z",
+    "row_day": "2026-10-16",
+    "now": "2026-10-23T12:00:00.000Z",
+    "expected": "invalid_usage_day"
+  },
+  {
+    "name": "batch beyond oldest birth boundary",
+    "batch_birth": "2026-10-16T11:54:59.999Z",
+    "expected": "batch_expired"
+  },
+  {
+    "name": "duplicate dimensional row",
+    "repeat_row": true,
+    "expected": "duplicate_dimensions"
+  },
+  {
+    "name": "authority one millisecond before inactivity expiry",
+    "last_activity": "2026-07-25T12:00:00.001Z",
+    "receipt": "same",
+    "expected": "duplicate"
+  },
+  {
+    "name": "total count at limit",
+    "total_count": 10000000,
+    "expected": "accepted"
+  },
+  {
+    "name": "total count above limit",
+    "total_count": 10000001,
+    "expected": "count_limit"
+  },
+  {
+    "name": "daily count above limit",
+    "existing_daily_count": 9999999,
+    "expected": "count_limit"
+  },
+  {
+    "name": "duplicate does not spend daily quota",
+    "receipt": "same",
+    "existing_daily_count": 10000000,
+    "expected": "duplicate"
+  },
+  {
+    "name": "midnight early-clock grace at boundary",
+    "now": "2026-10-23T23:55:00.000Z",
+    "row_day": "2026-10-24",
+    "batch_birth": "2026-10-24T00:00:00.000Z",
+    "expected": "accepted"
+  },
+  {
+    "name": "next date before midnight grace",
+    "now": "2026-10-23T23:54:59.999Z",
+    "row_day": "2026-10-24",
+    "batch_birth": "2026-10-23T23:59:59.999Z",
+    "expected": "invalid_usage_day"
+  }
+]

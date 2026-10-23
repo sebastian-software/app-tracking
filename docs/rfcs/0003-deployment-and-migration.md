@@ -136,11 +136,14 @@ successful retention run. Keep labels bounded and exclude installation and
 project IDs. Alert thresholds and operating ownership are open until an
 operator and workload are established.
 
-Document backup retention, restoration, deletion replay, and rollback before
-production. A restored backup must not resurrect withdrawn reporting authority
-or deleted usage. Exercise restoration in isolation; a successful backup job
-does not prove recovery. Prefer compatible schema changes because rolling back
-the application bundle does not reverse already committed data.
+Follow the maintained [telemetry retention policy](../telemetry-retention.md)
+for normal PlanetScale backup/PITR recovery and its explicit rollback boundary.
+Do not add a custom restore service, separate deletion-history store, or blanket
+telemetry purge. A restored snapshot is one authoritative dataset, not usage to
+append. Verify the actual provider settings and reporting coverage after recovery;
+a successful backup job does not prove the recovery behavior. Prefer compatible
+schema changes because rolling back the application bundle does not reverse
+already committed data.
 
 Estimate cost from the selected database tier, region, backups, edge requests,
 CPU, and transfer. There is no justified traffic forecast or final monthly
@@ -196,11 +199,13 @@ disable an existing service as a side effect of deploying this one.
 
 - Runtime/driver proof, database region/tier, and hostname. The implementation
   license is selected in [ADR 0007](../adr/0007-dual-license.md).
-- Final consent wording, installation identity scope, retry bounds, retention,
-  backup/deletion policy. The version-only limits are defined in the
+- Actual legal/processor review and released notice for the configured service.
+  The telemetry contract, identity, consent, retry, and retention requirements
+  are defined in the [maintained v1 contract](../telemetry-api.md).
+  The version-only limits are defined in the
   [implemented contract](../version-api.md); deployment evidence belongs in
   [issue #2](https://github.com/sebastian-software/app-tracking/issues/2).
 - Maintainer authentication, public aggregate disclosure, and abuse controls.
-- Short-lived client upload strategy and measured latency/size budgets.
+- Measured client latency and queue behavior for the bounded synchronous upload contract.
 - Production operating ownership, deployment authorization, recovery evidence,
   and the first consumer's release gates.

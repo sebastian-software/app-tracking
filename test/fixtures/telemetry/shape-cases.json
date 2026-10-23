@@ -1,0 +1,265 @@
+[
+  {
+    "name": "known project",
+    "definition": "batch",
+    "changes": [],
+    "valid": true
+  },
+  {
+    "name": "unknown project",
+    "definition": "batch",
+    "changes": [
+      {
+        "path": ["rows", 0, "project_id"],
+        "remove": true
+      },
+      {
+        "path": ["rows", 0, "project_id_version"],
+        "remove": true
+      }
+    ],
+    "valid": true
+  },
+  {
+    "name": "project hash without version",
+    "definition": "batch",
+    "changes": [
+      {
+        "path": ["rows", 0, "project_id_version"],
+        "remove": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "version without project hash",
+    "definition": "batch",
+    "changes": [
+      {
+        "path": ["rows", 0, "project_id"],
+        "remove": true
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "unknown field",
+    "definition": "batch",
+    "changes": [
+      {
+        "path": ["rows", 0, "repository_url"],
+        "value": "https://example.invalid/private"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "zero count",
+    "definition": "batch",
+    "changes": [
+      {
+        "path": ["rows", 0, "count"],
+        "value": 0
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "fractional count",
+    "definition": "batch",
+    "changes": [
+      {
+        "path": ["rows", 0, "count"],
+        "value": 1.5
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "oversized count",
+    "definition": "batch",
+    "changes": [
+      {
+        "path": ["rows", 0, "count"],
+        "value": 1000001
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "null project",
+    "definition": "batch",
+    "changes": [
+      {
+        "path": ["rows", 0, "project_id"],
+        "value": null
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "uppercase hash",
+    "definition": "batch",
+    "changes": [
+      {
+        "path": ["rows", 0, "project_id"],
+        "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "unknown command",
+    "definition": "batch",
+    "changes": [
+      {
+        "path": ["rows", 0, "command"],
+        "value": "raw-user-input"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "invalid leap date",
+    "definition": "batch",
+    "changes": [
+      {
+        "path": ["rows", 0, "day"],
+        "value": "2026-02-29"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "leading-zero semver",
+    "definition": "batch",
+    "changes": [
+      {
+        "path": ["rows", 0, "tool_version"],
+        "value": "01.0.0"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "leading-zero prerelease",
+    "definition": "batch",
+    "changes": [
+      {
+        "path": ["rows", 0, "tool_version"],
+        "value": "1.0.0-01"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "unsupported hash revision",
+    "definition": "batch",
+    "changes": [
+      {
+        "path": ["rows", 0, "project_id_version"],
+        "value": 2
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "unsupported consent",
+    "definition": "batch",
+    "changes": [
+      {
+        "path": ["consent_revision"],
+        "value": "telemetry-v2"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "unsupported tool",
+    "definition": "batch",
+    "changes": [
+      {
+        "path": ["tool_id"],
+        "value": "palamedes"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "UUIDv4 installation",
+    "definition": "batch",
+    "changes": [
+      {
+        "path": ["installation_id"],
+        "value": "00000000-0000-4000-8000-000000000001"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "per-row mode",
+    "definition": "batch",
+    "changes": [
+      {
+        "path": ["rows", 0, "mode"],
+        "value": "ci"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "valid prerelease",
+    "definition": "batch",
+    "changes": [
+      {
+        "path": ["rows", 0, "tool_version"],
+        "value": "1.0.0-rc.1+build.2"
+      }
+    ],
+    "valid": true
+  },
+  {
+    "name": "CI registration",
+    "definition": "registration",
+    "changes": [
+      {
+        "path": ["mode"],
+        "value": "ci"
+      }
+    ],
+    "valid": true
+  },
+  {
+    "name": "noncanonical consent timestamp",
+    "definition": "registration",
+    "changes": [
+      {
+        "path": ["consented_at"],
+        "value": "2026-10-17T12:00:00Z"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "core version outside portable numeric bound",
+    "definition": "batch",
+    "changes": [
+      {
+        "path": ["rows", 0, "tool_version"],
+        "value": "10000000000.0.0"
+      }
+    ],
+    "valid": false
+  },
+  {
+    "name": "valid leap date",
+    "definition": "batch",
+    "changes": [
+      {
+        "path": ["rows", 0, "day"],
+        "value": "2028-02-29"
+      }
+    ],
+    "valid": true
+  }
+]

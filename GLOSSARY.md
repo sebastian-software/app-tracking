@@ -34,6 +34,18 @@ binary it launches do not constitute two invocations.
 A set of locally summarized invocation counts submitted by a reporting
 installation.
 
+**Closed batch**:
+An immutable snapshot of summarized usage submitted as one operation. A retry
+represents that same operation, not newly observed activity.
+
+**Receipt**:
+The retained acknowledgement that a particular batch was accepted. Receiving
+a receipt again does not add usage or mean its underlying data is still retained.
+
+**Consent grant**:
+An affirmative decision covering a documented reporting purpose and data scope.
+A grant is distinct from an update setting or permission to run the tool.
+
 **Reporting period**:
 The interval during which the reported usage occurred, independent of when its
 report arrived.
