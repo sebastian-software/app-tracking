@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
@@ -7,11 +8,13 @@ import { build } from "esbuild";
 const sdk = fileURLToPath(
   new URL("../esm-bunny/lib.mjs", import.meta.resolve("@bunny.net/edgescript-sdk")),
 );
+const revision = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 const notices = await readFile("THIRD_PARTY_NOTICES.md", "utf8");
 await mkdir("dist", { recursive: true });
 for (const [name, entry] of [
   ["edge", "src/edge.ts"],
   ["service", "src/handler.ts"],
+  ["drill", "test/fixtures/drill-edge.ts"],
 ]) {
   const result = await build({
     entryPoints: [entry],
@@ -20,9 +23,10 @@ for (const [name, entry] of [
     format: "esm",
     platform: "neutral",
     target: "es2022",
+    define: { __APP_REVISION__: JSON.stringify(revision) },
     alias: { "@bunny.net/edgescript-sdk": sdk },
     banner: {
-      js: `// SPDX-License-Identifier: MIT OR Apache-2.0\n${name === "edge" ? `/*\n${notices}\n*/` : ""}`,
+      js: `// SPDX-License-Identifier: MIT OR Apache-2.0\n${name !== "service" ? `/*\n${notices}\n*/` : ""}`,
     },
     metafile: true,
     logLevel: "info",

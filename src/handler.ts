@@ -11,7 +11,7 @@ export function createHandler(options: Partial<UpstreamOptions> = {}) {
     if (request.method !== "GET") return errorResponse(405, "method_not_allowed");
     const url = new URL(request.url);
     if (
-      request.url.includes("?") ||
+      url.search !== "" ||
       url.hash ||
       request.body !== null ||
       (request.headers.has("content-length") && request.headers.get("content-length") !== "0") ||

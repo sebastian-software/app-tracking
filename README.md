@@ -44,6 +44,10 @@ credentials or environment configuration are needed for this slice. See the
 [version API contract](docs/version-api.md) for supported paths, errors, cache
 behavior, and the remaining deployment proof.
 
+See the [deployment runbook](docs/deployment.md) for staging, promotion, cache
+verification, and restoring verified release artifacts. Live operational proof
+is tracked in issue #2; a workflow file alone does not establish deployment.
+
 ## Implementation plan
 
 The [delivery tracker](https://github.com/sebastian-software/app-tracking/issues/17)

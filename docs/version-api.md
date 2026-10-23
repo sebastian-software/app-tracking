@@ -38,8 +38,8 @@ is not published to crates.io. A future catalog change needs distribution-specif
 evidence and tests; a repository tag alone is insufficient.
 
 Paths are exact and case-sensitive. Encoded names, extra path segments, and
-trailing slashes are rejected. Query strings (including an empty `?`), request
-bodies, and transfer-encoded GETs are rejected. Only GET is supported; there is
+trailing slashes are rejected. Nonempty query strings, request
+bodies, and transfer-encoded GETs are rejected. An empty `?` is equivalent to no query because Bunny normalizes it before cache lookup. Only GET is supported; there is
 no legacy `/check` route or telemetry endpoint in this slice. The installed
 version, repository URL/hash, installation identity, and invocation counts are
 never request inputs.
@@ -91,7 +91,8 @@ one-hour validation deadline, capped at 3,600. Serving a warm response does not
 restart its lifetime. Shared caches must respect these headers and must not
 ignore query strings or serve cached successes for invalid requests.
 
-The strong ETag is the SHA-256 of the exact response bytes. A matching
+The origin strong ETag is the SHA-256 of the exact response bytes. Bunny may
+mark it weak during delivery; clients must treat validators as opaque values. A matching
 `If-None-Match` (including a weak validator, a matching item in a list, or `*`)
 returns `304` with no body, the current ETag, and the same cache policy.
 Conditional requests still validate input and resolve current freshness. A
@@ -121,7 +122,14 @@ Anonymous GitHub API rate limits can therefore cause temporary unavailability.
 
 ## Errors
 
-Errors have `Cache-Control: no-store` and a fixed JSON shape:
+Application errors have `Cache-Control: no-store` and a fixed JSON shape.
+Live Bunny delivery can rewrite that header to `no-cache` for 503 responses;
+error caching must remain disabled. Staging verifies preserved error JSON and
+`Retry-After` plus repeated cache bypass. Infrastructure errors can additionally
+occur outside the application; clients must handle status and retry behavior
+even when an intermediary supplies a non-JSON error body.
+
+Application error example:
 
 ```json
 { "schema_version": 1, "error": { "code": "release_unavailable" } }

@@ -3,3 +3,7 @@ dist/
 .env
 .env.*
 *.log
+
+.deployment/
+rollback/
+.bunny/
