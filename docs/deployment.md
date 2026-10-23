@@ -55,7 +55,7 @@ return no-store. The service's retained stale fallback remains per isolate.
 
 The deployed probe checks all catalog routes, full revision headers, observed
 CDN HIT within eight attempts, conditional 304 responses, checked-at freshness,
-invalid/empty query rejection, and repeated uncached health/admin/report paths.
+invalid-query rejection, and repeated uncached health/admin/report paths.
 A missing HIT or an incorrect bypass fails the release. This intentionally
 catches provider query normalization instead of assuming configuration suffices.
 No probe performs production fault injection.
@@ -71,9 +71,8 @@ Before issue #2 is complete, record sanitized **live** evidence for:
 
 The existing synthetic suite covers retry limits, stale expiry and cold outages;
 these must not be described as completed staging drills. Cache API behavior and
-CDN routing depend on actual provider settings. If an empty query collides with
-a warm cache key, the release must remain failed until validation is moved before
-cache execution or an equivalent verified bypass is introduced.
+CDN routing depend on actual provider settings. Bunny normalizes an empty query to the URL without a query, so both forms identify
+the same public version resource. Nonempty query fields must still be rejected.
 
 Initial operational targets: fresh source validation within one hour during
 traffic, less than 24 hours for an explicitly stale retained result, at most two

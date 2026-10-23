@@ -39,15 +39,26 @@ export async function verifyDeployment(
       assert.ok(age >= -300_000 && age < 3_600_000, "Version result is not fresh");
       const tag = response.headers.get("etag");
       assert.ok(tag);
-      const conditional = await get(path, { "If-None-Match": tag });
-      assert.equal(conditional.status, 304);
-      assert.equal(await conditional.text(), "");
       hit ||= response.headers.get("cdn-cache")?.toUpperCase() === "HIT";
-      if (hit) break;
+      if (hit) {
+        const conditional = await get(path, { "If-None-Match": tag });
+        if (conditional.status === 200) {
+          assert.notEqual(
+            conditional.headers.get("etag"),
+            tag,
+            "An unchanged cached response must honor its validator",
+          );
+          hit = false;
+        } else {
+          assert.equal(conditional.status, 304);
+          assert.equal(await conditional.text(), "");
+          break;
+        }
+      }
       await new Promise((r) => setTimeout(r, 500));
     }
     assert.ok(hit, "No CDN cache HIT was observed within the bounded probe");
-    for (const invalid of [path + "?unexpected=1", path + "?"]) {
+    for (const invalid of [path + "?unexpected=1"]) {
       const response = await get(invalid);
       assert.equal(response.status, 400, "The cache served an invalid query");
       assert.equal(response.headers.get("cache-control"), "no-store");

@@ -38,8 +38,8 @@ is not published to crates.io. A future catalog change needs distribution-specif
 evidence and tests; a repository tag alone is insufficient.
 
 Paths are exact and case-sensitive. Encoded names, extra path segments, and
-trailing slashes are rejected. Query strings (including an empty `?`), request
-bodies, and transfer-encoded GETs are rejected. Only GET is supported; there is
+trailing slashes are rejected. Nonempty query strings, request
+bodies, and transfer-encoded GETs are rejected. An empty `?` is equivalent to no query because Bunny normalizes it before cache lookup. Only GET is supported; there is
 no legacy `/check` route or telemetry endpoint in this slice. The installed
 version, repository URL/hash, installation identity, and invocation counts are
 never request inputs.

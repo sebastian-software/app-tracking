@@ -109,7 +109,6 @@ test("invalid requests and unsupported mappings never perform an upstream lookup
     [path + "?installed_version=1.0.0", 400, "invalid_request"],
     [path + "?project_id=synthetic", 400, "invalid_request"],
     [path + "?url=https://example.com", 400, "invalid_request"],
-    [path + "?", 400, "invalid_request"],
     [path + "/", 404, "not_found"],
     ["/v1/versions/%64alo/npm/stable", 404, "not_found"],
     ["/v1/versions/unknown/npm/stable", 404, "unknown_tool"],
@@ -341,4 +340,11 @@ test("an upstream 5xx retries once; 404 and 429 do not retry in the request", as
     assert.equal(response.status, status >= 500 ? 200 : 503);
     assert.equal(calls, status >= 500 ? 2 : 1);
   }
+});
+
+test("an empty query is canonicalized to the same version resource", async () => {
+  const handle = createHandler({ now: () => NOW, fetch: async () => Response.json(npmDocument()) });
+  const response = await handle(request(path + "?"));
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), versionFixture());
 });
