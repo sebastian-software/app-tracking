@@ -20,16 +20,25 @@ try {
   await publish(api, target, synthetic, revision);
   await waitForRevision(target.base, revision + "-drill");
   let origin: string | null = null;
+  let originServer: string | null = null;
   for (let n = 0; n < 8; n++) {
     const r = await probe("/probe/fresh");
     assert.equal(r.status, 200);
     origin = r.headers.get("x-probe-origin");
+    originServer = r.headers.get("server");
     if (r.headers.get("cdn-cache")?.toUpperCase() === "HIT") break;
     if (n === 7) assert.fail("Synthetic cache did not warm");
   }
   assert.ok(origin);
   await new Promise((resolve) => setTimeout(resolve, 3000));
-  const expired = await probe("/probe/fresh");
+  let expired = await probe("/probe/fresh");
+  for (let n = 0; n < 8 && expired.headers.get("server") !== originServer; n++)
+    expired = await probe("/probe/fresh");
+  assert.equal(
+    expired.headers.get("server"),
+    originServer,
+    "Expiry proof must observe the same edge node",
+  );
   assert.equal(expired.status, 200);
   assert.notEqual(
     expired.headers.get("x-probe-origin"),
@@ -37,9 +46,11 @@ try {
     "A two-second response remained cached after expiry",
   );
   let beforePurge: string | null = null;
+  let purgeServer: string | null = null;
   for (let n = 0; n < 8; n++) {
     const r = await probe("/probe/purge");
     beforePurge = r.headers.get("x-probe-origin");
+    purgeServer = r.headers.get("server");
     if (r.headers.get("cdn-cache")?.toUpperCase() === "HIT") break;
     if (n === 7) assert.fail("The purge fixture did not warm");
   }
@@ -48,7 +59,10 @@ try {
   let purged = false;
   for (let n = 0; n < 30; n++) {
     const r = await probe("/probe/purge");
-    if (r.headers.get("x-probe-origin") !== beforePurge) {
+    if (
+      r.headers.get("server") === purgeServer &&
+      r.headers.get("x-probe-origin") !== beforePurge
+    ) {
       purged = true;
       break;
     }

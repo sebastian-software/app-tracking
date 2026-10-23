@@ -91,7 +91,8 @@ one-hour validation deadline, capped at 3,600. Serving a warm response does not
 restart its lifetime. Shared caches must respect these headers and must not
 ignore query strings or serve cached successes for invalid requests.
 
-The strong ETag is the SHA-256 of the exact response bytes. A matching
+The origin strong ETag is the SHA-256 of the exact response bytes. Bunny may
+mark it weak during delivery; clients must treat validators as opaque values. A matching
 `If-None-Match` (including a weak validator, a matching item in a list, or `*`)
 returns `304` with no body, the current ETag, and the same cache policy.
 Conditional requests still validate input and resolve current freshness. A
@@ -121,7 +122,14 @@ Anonymous GitHub API rate limits can therefore cause temporary unavailability.
 
 ## Errors
 
-Errors have `Cache-Control: no-store` and a fixed JSON shape:
+Application errors have `Cache-Control: no-store` and a fixed JSON shape.
+Live Bunny delivery can rewrite that header to `no-cache` for 503 responses;
+error caching must remain disabled. Staging verifies preserved error JSON and
+`Retry-After` plus repeated cache bypass. Infrastructure errors can additionally
+occur outside the application; clients must handle status and retry behavior
+even when an intermediary supplies a non-JSON error body.
+
+Application error example:
 
 ```json
 { "schema_version": 1, "error": { "code": "release_unavailable" } }

@@ -58,7 +58,13 @@ CDN HIT within eight attempts, conditional 304 responses, checked-at freshness,
 invalid-query rejection, and repeated uncached health/admin/report paths.
 A missing HIT or an incorrect bypass fails the release. This intentionally
 catches provider query normalization instead of assuming configuration suffices.
-No probe performs production fault injection.
+The staging-only drill temporarily publishes a synthetic bundle to the verified
+staging script, exercises a two-second CDN expiry and purge of a ten-minute
+entry, then runs the real handler with a controlled fake registry and clock for
+warm outage, 24-hour expiry, and cold outage. It restores the exact original
+verified bundle in a finally block and rechecks the full live API. Synthetic
+bundles are excluded from promotion artifacts. No probe performs production
+fault injection.
 
 Before issue #2 is complete, record sanitized **live** evidence for:
 
@@ -82,6 +88,20 @@ freshness, publication lag, and client's hourly check can exceed one hour.
 Monitor synthetic freshness/revision failures without installation, project, or
 request-specific metric labels. Version delivery has no database or reporting
 service dependency.
+
+## Observed platform behavior
+
+Live staging on 2026-10-23 verified convergence, CDN hits, conditional requests,
+invalid/private bypass, expiry, purge, synthetic registry faults, and restoration.
+These checks run in the deployment workflow rather than relying on this dated
+statement. Production promotion remains a protected main-branch operation.
+
+Bunny may route consecutive requests to different edge nodes; a changed ETag on
+a 200 response is valid. The conditional probe waits for a cache hit, and expiry
+and purge evidence must refer to the same observed node. Bunny also normalizes
+an empty query and may weaken the origin ETag. On application 503 responses it
+rewrites no-store to no-cache while preserving the JSON error and Retry-After;
+repeated requests were verified not to be cache hits with error caching disabled.
 
 ## Logging and evidence
 
