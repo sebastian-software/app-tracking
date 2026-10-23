@@ -262,18 +262,21 @@ cannot pass issue #8, revise this contract before enabling it.
 
 Let `W = 7 days + 300 s`, `R = 90 days`, and `G = 300 s`.
 First acceptance requires a batch birth within W and eligible occurrence days.
-A receipt survives R after first receipt, without extending on replay. Since
-`R > W`, a batch whose receipt has expired cannot pass first-acceptance birth
-validation again, even if its row days were edited. Unchanged old rows also fail
-the day rule. Retained receipts compare the full canonical hash before row-age
-validation. The installation must still be active and authenticated; a duplicate
-receipt never revives expired or revoked authority. Changing the batch ID is a different operation, not a retry.
+A receipt survives R after first receipt, without extending on replay. A first
+receipt can precede the ID time by at most G, so `R > W + G` ensures that a batch
+whose receipt has expired cannot pass first-acceptance birth validation again,
+even if its row days were edited. Unchanged old rows also fail the day rule.
+Retained receipts compare the full canonical hash before row-age validation.
+The installation must still be active and authenticated; a duplicate receipt
+never revives expired or revoked authority. Changing the batch ID is a different
+operation, not a retry.
 
 A revoked/expired identity keeps only a minimal tombstone for R. Before its
 expiry it rejects registration/reporting; after its expiry the original UUID
-is far older than G, so it cannot pass first-registration validation. Changing
-`consented_at` cannot change that embedded timestamp. Deletion and receipt GC
-therefore require no permanent identifier blacklist during normal operation.
+is older than G (`R > 2G`, even for an initially future-skewed ID), so it cannot
+pass first-registration validation. Changing `consented_at` cannot change that
+embedded timestamp. Deletion and receipt GC therefore require no permanent
+identifier blacklist during normal operation.
 A provider restore rolls the database back, including these records; it is not
 covered by a stronger historical-deletion guarantee. The retention policy names
 that recovery boundary explicitly. Forging a new timestamped

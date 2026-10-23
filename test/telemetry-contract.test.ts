@@ -176,6 +176,7 @@ interface ConsentCase {
   action?: string;
   revision?: string;
   environment_consent?: string;
+  grant_source?: string;
   legacy_reporting?: boolean;
   do_not_track?: boolean;
   offline?: boolean;
@@ -200,7 +201,8 @@ function consent(c: ConsentCase) {
   const grant =
     !refused &&
     ((c.state === "enabled" &&
-      (c.revision ?? policy.consent_revision) === policy.consent_revision) ||
+      (c.revision ?? policy.consent_revision) === policy.consent_revision &&
+      (c.grant_source !== "environment" || c.environment_consent === policy.consent_revision)) ||
       ((!c.state || c.state === "undecided") && c.environment_consent === policy.consent_revision));
   const allowed =
     !!grant &&
@@ -221,7 +223,7 @@ test("policy command catalog agrees with the wire schema", () => {
   assert.deepEqual(schema.$defs.row.properties.command.enum, policy.tools.dalo.commands);
   assert.equal(schema.$defs.batch.properties.rows.maxItems, policy.max_rows);
   assert.equal(schema.$defs.row.properties.count.maximum, policy.max_row_count);
-  assert.ok(policy.receipt_retention_days * DAY > policy.batch_max_age_seconds * 1000 + GRACE);
+  assert.ok(policy.receipt_retention_days * DAY > policy.batch_max_age_seconds * 1000 + 2 * GRACE);
   assert.ok(
     policy.revocation_retention_days * DAY > policy.registration_window_seconds * 1000 + GRACE,
   );
