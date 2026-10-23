@@ -12,7 +12,9 @@ The version endpoint is implemented with a reviewed release catalog, conditional
 GET, bounded registry requests, and deterministic contract tests. It builds a
 self-contained Bunny edge script and runs locally without a database or
 telemetry. Main-branch changes deploy directly to one Bunny service after
-automated checks. Shared clients and usage tracking are later delivery steps.
+automated checks. The shared Rust update client is in
+[crates/app-tracking](crates/app-tracking/README.md). Usage tracking and consumer
+migrations remain separate delivery steps.
 Accepted ADRs record direction; RFCs retain the unimplemented proposals.
 
 ## Run and verify
@@ -47,6 +49,15 @@ behavior, and the remaining deployment proof.
 See the [deployment runbook](docs/deployment.md) for automatic deployment, live
 cache verification, and restoring a previous release. Operational evidence is
 tracked in [issue #2](https://github.com/sebastian-software/app-tracking/issues/2).
+
+## Shared Rust update client
+
+The [`app-tracking` crate](crates/app-tracking/README.md) provides synchronous,
+bounded update checks with hourly caching, failure backoff, and process-safe
+notice throttling. The host supplies installation-aware guidance and output
+policy. It performs no telemetry collection. See the
+[0.1 integration and release guide](docs/rust-client.md) for the API, process
+lifetime, verification commands, and publishing procedure.
 
 ## Implementation plan
 

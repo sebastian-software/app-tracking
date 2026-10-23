@@ -1,0 +1,25 @@
+[package]
+name = "app-tracking"
+version = "0.1.0"
+description = "Bounded, cached update checks for CLI tools, independent of telemetry"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+readme = "README.md"
+keywords = ["cli", "updates", "version", "cache"]
+categories = ["command-line-interface", "development-tools"]
+include = ["src/**", "examples/**", "fixtures/**", "README.md", "LICENSE-MIT", "LICENSE-APACHE"]
+
+[lints]
+workspace = true
+
+[dependencies]
+semver = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tempfile = "3"
+thiserror = "2"
+time = { version = "0.3", default-features = false, features = ["parsing"] }
+ureq = { version = "3.4.2", default-features = false, features = ["rustls"] }

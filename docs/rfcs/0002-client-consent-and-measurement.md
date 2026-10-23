@@ -7,8 +7,9 @@
 
 ## Shared client boundary
 
-I propose a reusable Rust client as the first implementation for Dalo and
-Palamedes, with a runtime-independent wire contract. Sharing a library must not
+The implemented [Rust update client](../rust-client.md) supplies version checks
+for Dalo and Palamedes through a runtime-independent wire contract. The telemetry
+client lifecycle below remains proposed. Sharing a library must not
 force one tool's installation-channel policy, command names, or output behavior
 on another. Additional runtimes can implement the same protocol later.
 
@@ -72,9 +73,10 @@ queue; new invocations accumulate separately. Acknowledging a batch removes
 only that batch, not counts created while it was in flight.
 
 A detached in-process thread cannot promise to finish after a short CLI exits.
-The execution mechanism remains open: compare a bounded join with a short-lived
-upload subprocess, including latency, process cleanup, and reliable credential
-handling. A permanent daemon is out of scope. Do not promise lossless telemetry:
+The version-only client completes a synchronous check under a bounded network
+deadline. The telemetry execution mechanism remains open: compare a bounded
+join with a short-lived upload subprocess, including latency, process cleanup,
+and reliable credential handling. A permanent daemon is out of scope. Do not promise lossless telemetry:
 offline expiry, uninstall, and the last unuploaded activity can remain missing.
 
 ## Repository identity

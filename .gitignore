@@ -7,3 +7,5 @@ dist/
 .deployment/
 rollback/
 .bunny/
+
+/target/
