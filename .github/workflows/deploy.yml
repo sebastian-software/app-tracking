@@ -1,0 +1,83 @@
+name: Deploy version service
+on:
+  push:
+    branches: [main]
+    paths: ["src/**", "scripts/**", ".github/workflows/deploy.yml", "pnpm-lock.yaml"]
+  pull_request:
+    paths: ["src/**", "scripts/**", ".github/workflows/deploy.yml", "pnpm-lock.yaml"]
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [staging, production]
+        required: true
+        default: staging
+      release_run:
+        description: Verified staging/release run to promote or restore; required for production
+        required: false
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: version-deployment-${{ inputs.environment || 'staging' }}
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    environment: ${{ inputs.environment || 'staging' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa
+        with:
+          run_install: false
+          cache: true
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm check
+      - name: Require a verified artifact for production
+        if: inputs.environment == 'production' && inputs.release_run == ''
+        run: exit 1
+      - name: Converge isolated target twice
+        id: target
+        env:
+          BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
+          SCRIPT_NAME: app-tracking-${{ inputs.environment || 'staging' }}
+          ZONE_NAME: sebastian-app-tracking-${{ inputs.environment || 'staging' }}
+        run: |
+          node scripts/provision.ts
+          REQUIRE_NO_CHANGES=1 node scripts/provision.ts
+      - name: Publish and verify
+        if: inputs.release_run == ''
+        env:
+          BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
+          RELEASE_REVISION: ${{ github.sha }}
+          DEPLOYMENT_BASE: ${{ steps.target.outputs.base }}
+        run: |
+          node scripts/release.ts
+          node scripts/verify-deployment.ts
+      - name: Restore a previously verified bundle
+        if: inputs.release_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_RUN: ${{ inputs.release_run }}
+          BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
+        run: node scripts/restore-artifact.ts
+      - name: Retain verified release for promotion and rollback
+        if: inputs.release_run == ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: verified-release
+          path: |
+            dist/edge.js
+            dist/release.json
+          retention-days: 90
+          if-no-files-found: error
