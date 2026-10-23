@@ -15,7 +15,11 @@ telemetry. Main-branch changes deploy directly to one Bunny service after
 automated checks. The shared Rust update client is in
 [crates/app-tracking](crates/app-tracking/README.md). Usage tracking and consumer
 migrations remain separate delivery steps.
-Accepted ADRs record direction; RFCs retain the unimplemented proposals.
+The [telemetry v1 contract](docs/telemetry-api.md) specifies opt-in reporting,
+with [consent/disclosure](docs/telemetry-consent.md),
+[retention](docs/telemetry-retention.md), and executable synthetic conformance
+vectors. It adds no telemetry endpoints or client collection. Accepted ADRs
+record direction; RFCs retain the remaining implementation proposals.
 
 ## Run and verify
 
@@ -83,8 +87,7 @@ owns delivery status.
 
 The initial client design uses hourly version checks during tool use and
 normally daily telemetry batches. The service owns one release-metadata path
-for both standalone version responses and optional release information in
-telemetry responses.
+for public version responses; v1 telemetry does not bundle a version lookup.
 
 ## Design documents
 

@@ -14,9 +14,9 @@ The first implementation targets Bunny Edge Scripting with TypeScript and
 PlanetScale Postgres. This is a new protocol; its `/v1/` namespace does not
 inherit the old version-service wire version.
 
-The service has one release resolver. Both version-only responses and optional
-release information in report acknowledgements use it. No separately published
-release manifest or second manually maintained version feed is required.
+The service has one release resolver. Reports do not bundle version lookups in
+v1; updates keep their independent read path. No separately published release
+manifest or second manually maintained version feed is required.
 
 ## Boundaries
 
@@ -56,8 +56,9 @@ freshness. Exact age and retry bounds live in the maintained version contract.
 Production routes use HTTPS. The version and health routes are implemented in
 the [version API contract](../version-api.md), with deployment described in the
 [runbook](../deployment.md). The
-remaining routes and telemetry schemas below are proposals. Examples omit real
-credentials and use synthetic values.
+telemetry routes are specified in the maintained [telemetry API](../telemetry-api.md),
+with consent and retention policies linked there. They are not implemented or
+enabled by the contract. The aggregate routes below remain proposals.
 
 | Method and path                                    | Contract                                                 | Cache           |
 | -------------------------------------------------- | -------------------------------------------------------- | --------------- |
@@ -91,88 +92,27 @@ delay. The deployment probe verifies live CDN behavior; deterministic tests
 cover cold/evicted-cache outages and stale-age boundaries.
 A future authenticated refresh and durable cache remain separate changes.
 
-### Reporting installation
+### Telemetry authority and batches
 
-After consent, the client generates a random installation UUID and a separate
-256-bit random token, stores both locally, and uses the token as a Bearer
-credential. The initial scope is one tool per local user profile; cross-tool
-installation correlation remains an open decision. Repository identity is
-shared across tools independently of that choice.
+The [telemetry API](../telemetry-api.md) owns registration, immutable batch and
+acknowledgement schemas, canonical hashing, authentication, UTC/UUID age bounds,
+limits, error/retry semantics, and deletion. Its JSON Schema and synthetic
+vectors are the common input for server and Rust client implementation.
+[Client consent](../telemetry-consent.md) owns effective configuration, per-tool
+identity, CI scope, withdrawal/preview/reset, and bounded process lifetime.
 
-The registration body declares `tool_id` and `consent_revision`. The server
-stores a hash of the high-entropy token, not the token itself. Repeating a
-registration with the same identity, credential, and declaration succeeds.
-An existing identity cannot be claimed with another credential or changed to
-another tool. A revoked identity cannot be silently reactivated.
-
-Registration is not proof of a real person, authentic software, or an actual
-consent interaction. The server records the client's declaration; the client
-must implement and test the consent flow. No shared secret embedded in a public
-binary can establish trustworthy user counts.
-
-### Usage batch
-
-```json
-{
-  "schema_version": 1,
-  "tool_id": "example-tool",
-  "installation_id": "00000000-0000-4000-8000-000000000001",
-  "batch_id": "00000000-0000-4000-8000-000000000002",
-  "consent_revision": "telemetry-v1",
-  "rows": [
-    {
-      "day": "2026-10-22",
-      "tool_version": "1.2.3",
-      "project_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      "project_id_version": 1,
-      "command": "extract",
-      "mode": "local",
-      "count": 12
-    }
-  ]
-}
-```
-
-The example project hash is synthetic. Project fields are omitted together
-when no reliable project context exists. A row represents counts for one UTC
-day and one combination of dimensions, not individual event timestamps.
-
-Start with a proposed 64 KiB body limit and 256 rows per request. Validate the
-actual streamed size, integer bounds, field lengths, UUID/hash shape, dates,
-consent revision, and tool-specific command allowlists. Reject unknown fields
-and duplicate dimensional rows within a batch. The limits require validation
-against representative local queues before they become a stable contract.
-
-The accepted batch identity is `(tool_id, installation_id, batch_id)`. Compute
-the content hash from the validated, canonical payload; object-key order must
-not turn an otherwise identical retry into a different report. A closed batch
-never changes its ID or contents. Splitting an oversized local queue creates
-distinct batches before any of them is submitted.
-
-| Outcome                                               | Response and client behavior                       |
-| ----------------------------------------------------- | -------------------------------------------------- |
-| Committed or already committed with the same contents | `200`, with batch ID and `accepted` or `duplicate` |
-| Invalid fields or an expired first submission         | `400`, fixed error code; do not retry unchanged    |
-| Oversized body                                        | `413`; do not retry unchanged                      |
-| Missing or wrong credential                           | `401`; do not register over an existing identity   |
-| Revoked installation                                  | `410`; stop reporting                              |
-| Existing batch ID with different contents             | `409`; preserve the conflict for local inspection  |
-| Rate limited                                          | `429` with bounded `Retry-After`                   |
-| Temporary database or service failure                 | `503`; retry the same batch with backoff           |
-
-A dropped acknowledgement is an unknown outcome. Retry with the same batch ID;
-never generate a fresh ID merely because the response was lost. Successful
-ingestion may optionally include cached release metadata when requested. A
-release lookup failure does not undo or hide a committed report.
+Do not duplicate those rules in this RFC. The relational shape below remains a
+candidate implementation of the agreed observable contract, not a second wire
+specification or a proof of database transaction behavior.
 
 ## Proposed relational model
 
-| Table                     | Key and significant fields                                                                                               | Role                                                         |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| `release_versions`        | `(tool_id, distribution, channel)`; version, published/checked times, source status                                      | Rebuildable cache of the public oss-metrics release snapshot |
-| `reporting_installations` | Installation UUID; immutable tool ID, token hash, consent revision, creation/last-seen/revocation times                  | Reporting authority and lifecycle                            |
-| `telemetry_batches`       | Unique `(tool_id, installation_id, batch_id)`; canonical content hash, receipt time                                      | Durable duplicate detection                                  |
-| `usage_counts`            | Batch key and row number; installation, tool, UTC day, optional project hash/version, command, tool version, mode, count | Attributable usage contributions                             |
+| Table                     | Key and significant fields                                                                                                                           | Role                                                         |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `release_versions`        | `(tool_id, distribution, channel)`; version, published/checked times, source status                                                                  | Rebuildable cache of the public oss-metrics release snapshot |
+| `reporting_installations` | Installation UUIDv7; immutable tool/context, token hash, consent declaration, last-new-batch and expiry/revocation times                             | Reporting authority and lifecycle                            |
+| `telemetry_batches`       | Unique `(tool_id, installation_id, batch_id)`; canonical content hash, first receipt/expiry time                                                     | Durable duplicate detection                                  |
+| `usage_counts`            | Batch key and row number; installation, tool, UTC day, optional project hash/version, command, tool version, count; mode inherited from installation | Attributable usage contributions                             |
 
 Use foreign keys or equivalent database-enforced relationships to prevent a
 batch or usage row from naming another tool's installation. Store project
@@ -197,21 +137,12 @@ event-per-invocation storage is required initially.
 
 ## Deletion and derived data
 
-Deletion authenticates the installation, revokes further writes, and removes
-its retained usage and batch rows. The initial completion response is `204`
-only after that database work commits. Repeated authenticated deletion remains
-idempotent. A minimal revocation record can remain for a disclosed period to
-prevent old retries or registration replays from recreating the identity.
-
-Delete only this installation's contributions. Another installation reporting
-the same project must retain its own data. Derived aggregates and caches need a
-bounded invalidation or recomputation policy. Backup expiry, restore-time
-deletion replay, and the revocation-record period must be settled in the
-retention policy before production.
-
-If deletion cannot complete within the tested request budget, define an
-explicit asynchronous deletion contract and durable job state before shipping;
-do not silently acknowledge unfinished work as complete.
+The [retention policy](../telemetry-retention.md) owns visibility/cleanup,
+receipts, finite tombstones, backups, provider recovery, and launch evidence.
+The API owns synchronous authenticated deletion and its transaction ordering
+against ingestion. Initial usage views are computed from nonexpired attributable
+rows, with no durable rollups. Database/runtime and deletion proofs belong to
+issues #6–#8; a timeout must not claim unfinished work is complete.
 
 ## Aggregate contract
 
@@ -227,11 +158,13 @@ Public exports contain only approved aggregate dimensions, never installation
 IDs, repository hashes, credentials, or row-level reports. Small-cell and
 cross-query disclosure rules remain a production gate.
 
-## Open decisions and proof
+## Remaining implementation and proof
 
-- Final route/schema naming, consent revisions, and identity scope/lifetime.
-- Payload limits, retry/age windows, and retention from [RFC 0002](0002-client-consent-and-measurement.md).
-- Maintainer authentication and aggregate disclosure policy; the implemented
-  stale-version policy is maintained in the version API contract.
-- Cold/warm latency, concurrent duplicate handling, deletion races, and query plans.
-- Exact runtime and HTTP-driver compatibility from [RFC 0003](0003-deployment-and-migration.md).
+- Runtime/HTTP-driver and transaction proof from [RFC 0003](0003-deployment-and-migration.md).
+- Concurrent duplicate/deletion races, bounded maintenance, and query plans.
+- Actual processor/legal and operational enablement evidence from the retention policy and issue #11.
+- Maintainer authentication and aggregate/public disclosure policy in #13/#14.
+
+Issue #5's wire, consent, identity-lifetime, retry, and retention choices are
+specified in the maintained contract. Provider/runtime readiness is not inferred
+from their specification or conformance fixtures.

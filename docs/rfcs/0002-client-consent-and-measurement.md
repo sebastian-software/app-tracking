@@ -22,62 +22,21 @@ Only the designated CLI entry point reports an invocation. npm wrappers,
 native binaries, and embedded library use must not all count the same command.
 Library consumers do not report automatically merely because they import code.
 
-## Consent lifecycle
+## Consent, reporting, and process lifetime
 
-The initial states are undecided, declined, enabled for a documented consent
-revision, and withdrawn. Until enabled, create no telemetry identifier, usage
-counter, project hash, reporting queue, or telemetry network request. Version
-checks remain an independently configured operation.
+The maintained [telemetry API](../telemetry-api.md),
+[client consent](../telemetry-consent.md), and
+[retention policy](../telemetry-retention.md) settle the v1 contract from issue #5.
+They own exact schemas, limits, per-tool/context identity, consent precedence,
+CI opt-in, disclosure, withdrawal/offline deletion/reset, retry, and retention.
+Telemetry is still unimplemented and disabled. The existing Rust crate only
+performs update checks; these documents do not change it.
 
-A disclosure must identify the operator, purposes, fields, endpoints, retention,
-cross-installation project matching, relevant processors, withdrawal, and
-deletion. It must explain that repository hashes can be matched against guessed
-URLs and that installation counts do not count people.
-
-Provide inspectable settings and a payload preview that sends nothing.
-Credentials are redacted in previews. A new purpose or materially expanded
-collection requires an appropriate new consent decision; do not silently
-reinterpret an old consent revision.
-
-Noninteractive execution cannot manufacture consent. An explicit configuration
-mechanism may express a prior decision, but its scope and precedence must be
-documented. CI reporting is initially excluded unless separately enabled and
-classified. JSON or agent-driven invocations can contribute after consent;
-non-TTY output alone is not evidence that an agent ran the command.
-
-Withdrawal immediately stops local collection and upload and clears unsent
-usage. Remote deletion is a separate authenticated operation. If offline,
-explain that deletion is pending and retain only the state needed to request it;
-do not resume usage collection while waiting. Resolve deletion-token loss and
-identity reset behavior before publishing the consent UX.
-
-Preserve existing explicit disable choices during migration, including
-`DALO_UPDATE_CHECK=never`, `PALAMEDES_UPDATE_CHECK=0`, and `DO_NOT_TRACK=1`.
-An offline override disables both network paths. No legacy behavior implies
-consent to this protocol.
-
-## Cadence and process lifetime
-
-Start with a successful version-check interval of one hour during tool use.
-There is no polling while idle. Track failures separately with bounded retry
-suppression. Show an update notice at a useful frequency rather than on every
-check, and never change the command's stdout or exit status on network failure.
-
-Count invocations locally and normally upload at most daily while the tool is
-used, with a separate bounded retry policy. A single report can contain several
-UTC days and projects. Record usage by its occurrence day, not its receipt day.
-
-Counters, check claims, queue limits, and batch closure must be atomic across
-concurrent local processes. Closing a batch moves a snapshot into an immutable
-queue; new invocations accumulate separately. Acknowledging a batch removes
-only that batch, not counts created while it was in flight.
-
-A detached in-process thread cannot promise to finish after a short CLI exits.
-The version-only client completes a synchronous check under a bounded network
-deadline. The telemetry execution mechanism remains open: compare a bounded
-join with a short-lived upload subprocess, including latency, process cleanup,
-and reliable credential handling. A permanent daemon is out of scope. Do not promise lossless telemetry:
-offline expiry, uninstall, and the last unuploaded activity can remain missing.
+The client executes at most one bounded synchronous telemetry request per
+invocation after command work. There is no detached upload worker, subprocess,
+or permanent daemon. Version checks remain independent, with their existing
+[client contract](../rust-client.md). Server and client implementation still need
+real concurrency, queue, transport, and latency evidence in the adoption issues.
 
 ## Repository identity
 
@@ -151,27 +110,14 @@ late reports, deletion, and spoofed clients limit inference. Even complete
 server collection covers only the reporting population. No number is labeled
 unique users, people, or total adoption without independent supporting evidence.
 
-## Proposed retention and retry limits
+## Accepted v1 retention and retry policy
 
-These are starting proposals, not accepted policy or provider guarantees:
-
-| Data or operation                                    | Starting proposal                                                                   |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Age of usage in a first submission                   | At most seven days, with exact UTC boundary and clock-skew handling to be specified |
-| Attributable usage rows and batch receipts           | 90 days; receipts must cover every accepted retry/replay path                       |
-| Local unsent queue                                   | Bounded age and size; remove on withdrawal                                          |
-| Installation credential and identity                 | No automatic monthly rotation; lifetime and inactivity expiry remain open           |
-| Revocation records and deletion history              | Minimum needed for replay prevention and backup recovery; exact period open         |
-| Backups, infrastructure logs, and derived aggregates | Explicit provider/configuration-specific policies before production                 |
-
-An accepted duplicate can return its existing receipt while that receipt is
-retained. Once receipts expire, an old payload must still fail the usage-age
-rule; changing the envelope's send time cannot make old usage current.
-
-Deletion must cover attributable tables, derived views, caches, and restoration
-procedures. Do not describe a small or linkable aggregate as anonymous merely
-because the original rows were removed. Longer-term aggregates and public
-small-cell suppression need a separate disclosure analysis.
+The [retention policy](../telemetry-retention.md) and
+[wire contract](../telemetry-api.md) replace the initial seven-day/90-day and
+64 KiB/256-row proposals with exact adopted rules and rationale. Do not use this
+RFC as a second copy of numeric values. Ordinary provider recovery restores one
+consistent snapshot, not new usage; there is no separate deletion-history store
+or blanket purge. The policy documents the database-rollback boundary explicitly.
 
 ## Excluded collection
 
@@ -194,7 +140,8 @@ infrastructure concern, not made absent by omitting an IP field.
   retain the host tool's behavior and tested latency budget.
 - Weekly/monthly distinct counts, unknown-project usage, late arrival, and
   deletion have real database fixtures rather than sums of daily unique counts.
-- A published consenting client is observed through the complete staging path.
+- A published consenting client is observed against the service with isolated
+  synthetic data and credentials; no separate staging deployment is required.
 
 ## Prior art and review inputs
 

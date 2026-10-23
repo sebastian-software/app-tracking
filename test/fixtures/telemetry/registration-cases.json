@@ -1,0 +1,64 @@
+[
+  {
+    "name": "first registration",
+    "expected": "registered"
+  },
+  {
+    "name": "lost registration acknowledgement",
+    "exists": true,
+    "expected": "duplicate"
+  },
+  {
+    "name": "another credential cannot claim identity",
+    "exists": true,
+    "credential_matches": false,
+    "expected": "unauthorized"
+  },
+  {
+    "name": "changed declaration cannot claim identity",
+    "exists": true,
+    "declaration_matches": false,
+    "expected": "registration_conflict"
+  },
+  {
+    "name": "withdrawn identity cannot reactivate",
+    "exists": true,
+    "revoked": true,
+    "expected": "installation_revoked"
+  },
+  {
+    "name": "expired tombstone cannot reactivate",
+    "birth": "2026-07-01T12:00:00.000Z",
+    "expected": "installation_expired"
+  },
+  {
+    "name": "registration exact lower birth boundary",
+    "birth": "2026-10-23T11:55:00.000Z",
+    "expected": "registered"
+  },
+  {
+    "name": "registration one millisecond too old",
+    "birth": "2026-10-23T11:54:59.999Z",
+    "expected": "installation_expired"
+  },
+  {
+    "name": "registration exact upper birth boundary",
+    "birth": "2026-10-23T12:05:00.000Z",
+    "expected": "registered"
+  },
+  {
+    "name": "registration one millisecond too far ahead",
+    "birth": "2026-10-23T12:05:00.001Z",
+    "expected": "clock_skew"
+  },
+  {
+    "name": "consent one millisecond too far in future",
+    "consented_at": "2026-10-23T12:05:00.001Z",
+    "expected": "clock_skew"
+  },
+  {
+    "name": "consent older than ninety days requires new grant",
+    "consented_at": "2026-07-25T11:59:59.999Z",
+    "expected": "consent_required"
+  }
+]

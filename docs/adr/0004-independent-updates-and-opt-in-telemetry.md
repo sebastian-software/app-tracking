@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-22
-- Last updated: 2026-10-22
+- Last updated: 2026-10-23
 
 ## Context
 
@@ -27,9 +27,26 @@ The client summarizes usage locally and sends bounded batches. Withdrawal
 stops collection and upload, clears pending reports, and provides a way to
 delete retained attributable data. Offline and disable controls remain explicit.
 
-The service uses the same release metadata for version-only requests and
-optional release information in telemetry responses. Sharing a response does
-not couple the success of the two operations.
+Each tool/user-profile/context has its own consented installation identity;
+repository hashes remain shared across tools and clones. CI is separately
+opt-in. Identity changes require an explicit reset or renewed grant, not an
+automatic reporting retry. The client uses finite-lived immutable operation
+identities and durable receipts to bound replay state instead of retaining a
+permanent identifier blacklist. UUID creation time is disclosed protocol
+metadata, not a per-invocation timestamp.
+
+The maintained [telemetry API](../telemetry-api.md),
+[consent policy](../telemetry-consent.md), and
+[retention policy](../telemetry-retention.md) define v1 fields, finite windows,
+recovery behavior, and conformance vectors. Reports have no bundled version
+lookup in v1; updates use their independent public client.
+
+Use normal PlanetScale recovery without a separate deletion-history store or
+blanket telemetry purge. A backup restores one dataset, not additional usage.
+The retention policy explicitly scopes the consequences of rolling back
+acknowledged database changes; no stronger restore-time deletion guarantee is
+implied. Actual processor/legal and runtime evidence belongs to the existing
+production-enablement issues, not to this contract's acceptance.
 
 ## Consequences
 
@@ -41,5 +58,12 @@ not couple the success of the two operations.
 - The final legal basis and operator obligations require review of the actual
   deployment; this decision does not certify compliance.
 
-See [RFC 0002](../rfcs/0002-client-consent-and-measurement.md) for the client
-lifecycle and measurement boundaries.
+See [RFC 0002](../rfcs/0002-client-consent-and-measurement.md) for shared-client
+boundaries and the remaining repository-normalization proposal.
+
+## Change history
+
+- 2026-10-23: Define per-tool/context identity, separately opted-in CI, finite
+  replay protection, explicit renewal/reset, and the maintained v1 contracts.
+  Keep provider recovery proportionate: no separate deletion history or blanket
+  purge, and no claim that a database rollback preserves later deletions.
