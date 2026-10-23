@@ -62,9 +62,22 @@ try {
   ] as const) {
     const r = await probe(path);
     assert.equal(r.status, status);
-    assert.equal(r.headers.get("cache-control"), "no-store");
+    assert.notEqual(r.headers.get("cdn-cache")?.toUpperCase(), "HIT");
+    if (status === 200) assert.equal(r.headers.get("cache-control"), "no-store");
+    else assert.ok(["no-store", "no-cache"].includes(r.headers.get("cache-control") ?? ""));
+    assert.ok(
+      r.headers.get("content-type")?.includes("application/json"),
+      "Bunny replaced the application error body",
+    );
     const data = await r.json();
     if (stale !== undefined) assert.equal(data.stale, stale);
+    else {
+      assert.equal(data.error?.code, "release_unavailable");
+      assert.equal(r.headers.get("retry-after"), "60");
+      const repeat = await probe(path);
+      assert.equal(repeat.status, 503);
+      assert.notEqual(repeat.headers.get("cdn-cache")?.toUpperCase(), "HIT");
+    }
   }
   console.log(
     "Synthetic Bunny expiry, purge, warm-registry outage, stale-age boundary, and cold-outage drills passed.",
