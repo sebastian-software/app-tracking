@@ -21,8 +21,9 @@ reference points:
   analytics acknowledgement and carry `Cache-Control: no-store`.
 - [oss-metrics](https://github.com/sebastian-software/oss-metrics/tree/3333a430432f064516409a4bcb6b39aea48cb675)
   has a public CDN-cached snapshot and repeatable Bunny provisioning. Its
-  broad statistics collection is unsuitable as a dependency of a fast CLI
-  version request. Its broad route caching must not be copied onto private APIs.
+  release fields provide the shared version source. Its broad statistics
+  collection can be slow on a cold miss; the app-tracking lookup stays bounded
+  and advisory. Its broad route caching must not be copied onto private APIs.
 - [version-service issue 12](https://github.com/sebastian-software/version-service/issues/12)
   records a deployed service and enabled Palamedes releases, with a remaining
   published-client observation task. The existing service cannot be assumed

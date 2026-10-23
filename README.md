@@ -9,7 +9,7 @@ installations, and a repository count shared across developers and clones.
 ## Status
 
 The version endpoint is implemented with a reviewed release catalog, conditional
-GET, bounded registry requests, and deterministic contract tests. It builds a
+GET, bounded oss-metrics snapshot requests, and deterministic contract tests. It builds a
 self-contained Bunny edge script and runs locally without a database or
 telemetry. Main-branch changes deploy directly to one Bunny service after
 automated checks. The shared Rust update client is in
@@ -31,20 +31,20 @@ pnpm dev
 The local server listens on `http://127.0.0.1:8787`. In a second terminal:
 
 ```sh
-curl -i http://127.0.0.1:8787/v1/versions/dalo/npm/stable
+curl -i http://127.0.0.1:8787/v1/versions/dalo/github/stable
 curl -i http://127.0.0.1:8787/health
 ```
 
 `pnpm check` verifies formatting, types, synthetic tests, bundling, and SDK
 registration in a local runtime harness. The HTTP tests bind ephemeral loopback
-ports; they do not contact public registries. `pnpm smoke:upstreams` is a
-separate, opt-in read-only check against the configured public sources.
+ports; they do not contact public sources. `pnpm smoke:upstreams` is a
+separate, opt-in read-only check against the public oss-metrics snapshot.
 
 `pnpm build` produces `dist/edge.js` for Bunny and `dist/service.js` with an
 exported `createHandler` for integration. Both have no external imports. No
 credentials or environment configuration are needed for this slice. See the
 [version API contract](docs/version-api.md) for supported paths, errors, cache
-behavior, and the remaining deployment proof.
+behavior, and source-age validation.
 
 See the [deployment runbook](docs/deployment.md) for automatic deployment, live
 cache verification, and restoring a previous release. Operational evidence is
@@ -72,7 +72,7 @@ owns delivery status.
 ## Direction
 
 - Build a new service with its own API and deployment. Use `version-service`
-  and `oss-metrics` as references, and migrate tools independently.
+  as a reference, reuse `oss-metrics` for release data, and migrate tools independently.
 - Keep update checks useful when telemetry is declined or unavailable.
 - Collect and send usage only after explicit opt-in.
 - Derive a shared project identifier locally from the SHA-256 of a normalized
@@ -110,7 +110,8 @@ the live deployment is configured.
 - [version-service](https://github.com/sebastian-software/version-service):
   existing update-check service and operational experience.
 - [oss-metrics](https://github.com/sebastian-software/oss-metrics): public OSS
-  metrics and dashboard integration. It can later consume approved aggregates
+  metrics, GitHub release snapshots, and dashboard integration. It supplies version
+  data to this service and can later consume approved aggregates
   from this service.
 
 ## License

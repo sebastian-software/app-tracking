@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { createHandler } from "../src/handler.ts";
-import { npmDocument } from "../test/helpers.ts";
+import { metricsDocument } from "../test/helpers.ts";
 
 const fixture = JSON.parse(await readFile("test/fixtures/version.json", "utf8"));
 assert.deepEqual(
@@ -18,7 +18,7 @@ let upstreams = 0;
 const handle = createHandler({
   fetch: async () => {
     upstreams++;
-    return Response.json(npmDocument());
+    return Response.json(metricsDocument("1.2.3", new Date().toISOString()));
   },
 });
 const server = createServer((incoming, outgoing) => {

@@ -5,7 +5,7 @@
   "channel": "stable",
   "latest_version": "1.2.3",
   "published_at": "2026-10-21T08:00:00.000Z",
-  "release_url": "https://www.npmjs.com/package/getdalo/v/1.2.3",
+  "release_url": "https://github.com/sebastian-software/dalo/releases/tag/dalo-v1.2.3",
   "checked_at": "2026-10-22T09:00:00.000Z",
   "stale": false
 }

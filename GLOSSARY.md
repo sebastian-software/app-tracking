@@ -47,7 +47,12 @@ The route through which a tool is installed and updated, such as npm, Cargo,
 Homebrew, or a standalone binary.
 
 **Release channel**:
-A release selection such as stable or preview within a distribution channel.
+A release selection such as stable or preview. Version checks use a shared
+release feed across installation methods.
+
+**Release feed**:
+Shared release metadata used to choose which version of a tool to advertise,
+independent of how the tool was installed.
 
 **Withdrawal**:
 The end of an installation's consent to usage collection and reporting.

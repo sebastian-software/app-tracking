@@ -41,9 +41,14 @@ export function createResolver(options: UpstreamOptions) {
     const current = state;
     current.pending = (async () => {
       try {
-        const release = await fetchRelease(entry, options);
-        current.cached = { release, checkedAt: options.now() };
-        current.retryAt = 0;
+        const checked = await fetchRelease(entry, options);
+        if (!current.cached || checked.checkedAt >= current.cached.checkedAt)
+          current.cached = checked;
+        // A stale upstream CDN hit is still stale; avoid fetching it on every
+        // invocation while its background refresh is in progress.
+        current.retryAt = usable(current.cached, FRESH_SECONDS)
+          ? 0
+          : options.now() + FAILURE_BACKOFF_SECONDS * 1_000;
         return current.cached;
       } catch {
         current.retryAt = options.now() + FAILURE_BACKOFF_SECONDS * 1_000;
