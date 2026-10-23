@@ -57,31 +57,6 @@ jobs:
           RELEASE_RUN: ${{ inputs.release_run }}
           BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
         run: node scripts/restore-artifact.ts
-      - name: Retire the temporary bootstrap test deployment
-        if: inputs.release_run == ''
-        env:
-          BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
-        run: |
-          node --input-type=module <<'JS'
-          import { bunnyApi, required } from './scripts/bunny.ts';
-          const api = bunnyApi(required('BUNNY_API_KEY'));
-          const path = '/compute/script?search=app-tracking-staging&type=1&includeLinkedPullzones=true&perPage=100&page=1';
-          const list = await api('GET', path);
-          if (list.Items.length >= 100) throw new Error('Unexpected bootstrap discovery size');
-          const matches = list.Items.filter(s => s.Name === 'app-tracking-staging');
-          if (matches.length > 1) throw new Error('Ambiguous bootstrap target');
-          if (matches.length === 1) {
-            const script = await api('GET', `/compute/script/${matches[0].Id}`);
-            const zones = script.LinkedPullZones;
-            if (zones?.length !== 1 || zones[0].PullZoneName !== 'sebastian-app-tracking-staging')
-              throw new Error('Unexpected bootstrap links');
-            await api('DELETE', `/compute/script/${script.Id}?deleteLinkedPullZones=true`);
-          }
-          const after = await api('GET', path);
-          if (after.Items.some(s => s.Name === 'app-tracking-staging'))
-            throw new Error('Bootstrap test deployment still exists');
-          console.log('Temporary bootstrap test deployment retired.');
-          JS
       - name: Retain verified release for rollback
         if: inputs.release_run == ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
