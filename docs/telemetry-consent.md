@@ -141,8 +141,15 @@ Evaluate before deriving a project hash or touching usage counters:
    informed decision for this process/deployment when the stored state is
    undecided. Record its source/time for registration, but do not persist a grant
    for later invocations after the environment value disappears. Boolean `1`
-   or `true` is not consent. An agent can set consent only with direct human
-   authorization; the server cannot verify that interaction.
+   or `true` is not consent. Preserve the original environment-grant declaration
+   and consent timestamp with its identity for identical registration retries;
+   do not rewrite the timestamp on each invocation. Its presence never enables
+   a later invocation without the same valid environment value. When that value
+   is absent, stop collection/upload and discard unsent usage, retaining only
+   authority/decision metadata for deletion or explicit recovery. Resuming that
+   same nonexpired grant reuses its identity and immutable declaration; it does
+   not create an installation per invocation. An agent can set consent only
+   with direct human authorization; the server cannot verify that interaction.
 3. CI requires the current explicit grant **and**
    `APP_TRACKING_CI=telemetry-v1` and an isolated `APP_TRACKING_STATE_DIR` for
    this tool/CI run. Reuse within that run, never across jobs/runs or with a

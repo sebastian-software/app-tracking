@@ -176,5 +176,26 @@
       "retain": ["installation_id", "token", "deletion_status"],
       "new_identity": false
     }
+  },
+  {
+    "name": "an environment grant is not a persistent enable setting",
+    "state": "enabled",
+    "grant_source": "environment",
+    "expected": {
+      "collect": false,
+      "upload": false,
+      "delete": false
+    }
+  },
+  {
+    "name": "an existing environment grant needs its current value",
+    "state": "enabled",
+    "grant_source": "environment",
+    "environment_consent": "telemetry-v1",
+    "expected": {
+      "collect": true,
+      "upload": true,
+      "delete": false
+    }
   }
 ]
