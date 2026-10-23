@@ -8,15 +8,18 @@
   "scripts": {
     "dev": "node scripts/dev.ts",
     "build": "node scripts/build.ts",
-    "test": "node --test test/*.test.ts",
+    "test": "node --test test/*.test.ts test/storage/*.test.ts",
     "typecheck": "tsc --noEmit",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "check": "pnpm format:check && pnpm typecheck && pnpm test && pnpm build && node scripts/check-build.ts",
-    "smoke:upstreams": "node scripts/smoke-upstreams.ts"
+    "check": "pnpm format:check && pnpm typecheck && pnpm test && pnpm build && node scripts/check-build.ts && node scripts/storage/build-proof.ts",
+    "smoke:upstreams": "node scripts/smoke-upstreams.ts",
+    "db:migrate": "node scripts/storage/migrate.ts",
+    "test:storage": "node test/storage/integration.ts"
   },
   "devDependencies": {
     "@bunny.net/edgescript-sdk": "0.13.0",
+    "@neondatabase/serverless": "1.2.0",
     "@types/node": "24.19.2",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",

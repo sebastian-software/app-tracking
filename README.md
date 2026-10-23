@@ -122,3 +122,6 @@ the live deployment is configured.
 Available under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your
 option. [ADR 0007](docs/adr/0007-dual-license.md) records the decision.
 [Third-party notices](THIRD_PARTY_NOTICES.md) cover the SDK bundled for Bunny.
+
+The [storage proof runbook](docs/storage-proof.md) describes the synthetic
+Bunny–PlanetScale transaction tests and their evidence boundary.

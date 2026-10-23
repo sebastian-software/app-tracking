@@ -4,6 +4,11 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      storage_proof:
+        description: Run the temporary synthetic Bunny–PlanetScale integration proof
+        required: false
+        type: boolean
+        default: false
       release_run:
         description: Successful release run to restore; leave empty to deploy main
         required: false
@@ -16,7 +21,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   deploy:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && !inputs.storage_proof
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -66,4 +71,47 @@ jobs:
             dist/edge.js
             dist/release.json
           retention-days: 90
+          if-no-files-found: error
+
+  storage-proof:
+    if: github.event_name == 'workflow_dispatch' && inputs.storage_proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      MIGRATION_DATABASE_URL: ${{ secrets.PROOF_MIGRATION_DATABASE_URL }}
+      RUNTIME_DATABASE_URL: ${{ secrets.PROOF_RUNTIME_DATABASE_URL }}
+      RUNTIME_ROLE: ${{ secrets.PROOF_RUNTIME_ROLE }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa
+        with:
+          run_install: false
+          cache: true
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Prove database migrations, constraints, locks, and rollback
+        run: pnpm test:storage
+      - name: Build isolated probe
+        run: node scripts/storage/build-proof.ts
+      - name: Publish temporary probe and verify real HTTP driver
+        env:
+          BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
+        run: node scripts/storage/run-proof.ts
+      - name: Remove temporary probe after failure or cancellation
+        if: always()
+        env:
+          BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
+        run: node scripts/storage/cleanup-proof.ts
+      - name: Retain sanitized measurements
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: storage-proof-results
+          path: dist/storage-proof-results.json
+          retention-days: 30
           if-no-files-found: error
