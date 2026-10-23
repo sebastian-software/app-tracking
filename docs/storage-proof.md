@@ -57,7 +57,9 @@ MIGRATION_DATABASE_URL=... RUNTIME_ROLE=... node scripts/storage/grant-runtime.t
 
 Supply secrets through the execution environment, not literal shell history
 or committed files. The examples show variable names, not real values.
-`psql` must be installed; it uses TLS certificate verification by default.
+`psql` 16 or newer must be installed. Remote connections use TLS certificate
+verification with the system trust store (`PGSSLROOTCERT=system`), unless an
+explicit trusted CA file is supplied through that environment variable.
 Only disposable local PostgreSQL tests use `sslmode=disable` on loopback.
 
 The migration runner holds one transaction/advisory lock while checking the

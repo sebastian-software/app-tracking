@@ -5,6 +5,8 @@ export function psql(url: string, sql: string): Promise<string> {
   const parsed = new URL(url);
   if (!["postgres:", "postgresql:"].includes(parsed.protocol))
     throw new Error("Invalid database URL");
+  const local = ["127.0.0.1", "localhost", "[::1]"].includes(parsed.hostname);
+  const plaintext = local && parsed.searchParams.get("sslmode") === "disable";
   return new Promise((resolve, reject) => {
     const child = execFile(
       "psql",
@@ -17,7 +19,8 @@ export function psql(url: string, sql: string): Promise<string> {
           PGDATABASE: decodeURIComponent(parsed.pathname.slice(1)),
           PGUSER: decodeURIComponent(parsed.username),
           PGPASSWORD: decodeURIComponent(parsed.password),
-          PGSSLMODE: parsed.searchParams.get("sslmode") || "verify-full",
+          PGSSLMODE: plaintext ? "disable" : "verify-full",
+          PGSSLROOTCERT: plaintext ? undefined : process.env.PGSSLROOTCERT || "system",
           PGCONNECT_TIMEOUT: "10",
           PGOPTIONS: "-c timezone=UTC -c statement_timeout=10000",
         },
