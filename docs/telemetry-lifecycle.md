@@ -116,10 +116,10 @@ the one-row-per-batch variant also exercises the receipt page limit; its largest
 observed local handler-plus-TCP-call duration was 229.20 ms.
 This is a page-work sample, not an end-to-end maximum data-size or capacity
 benchmark. Each page remains bounded independently of total installation size.
-[PlanetScale run 40308408097](https://github.com/sebastian-software/app-tracking/actions/runs/40308408097)
-passed 78 ingestion and 63 deletion/retention checks with the real HTTP driver.
+[PlanetScale run 40311044070](https://github.com/sebastian-software/app-tracking/actions/runs/40311044070)
+passed 78 ingestion and 73 deletion/retention checks with the real HTTP driver.
 The 32,768-row, 32,768-receipt fixture required 33 deletion calls; maximum
-observed handler-plus-driver duration from Actions was 402.06 ms. The fixed
+observed handler-plus-driver duration from Actions was 489.68 ms. The fixed
 maintenance command also completed. These are Node handler/driver observations,
 not a deployment or latency measurement of a public Bunny deletion route.
 
