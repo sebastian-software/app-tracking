@@ -50,8 +50,9 @@ preselected consent or interrupting an ordinary command with a forced choice.
 > and are not queried for reporting; deleting active data does not edit a backup
 > in place. Provider-managed restore is described in the retention policy.
 > Application logs never contain your reports or credentials. Separately
-> processed provider security/transport records follow the released processor
-> notice and verified operational retention bounds.
+> processed provider security/transport records follow the applicable provider
+> agreement and published policies. We do not independently verify a universal
+> maximum for all provider-internal records; see the current processor disclosure.
 >
 > Reporting is off until you opt in. Declining does not limit the tool or its
 > independently configurable update checks. You can inspect the effective

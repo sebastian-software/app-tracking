@@ -7,21 +7,21 @@ constants live in [policy JSON](../contracts/telemetry-v1-policy.json), with
 
 ## Data lifetime
 
-| Data                                | Visibility, expiry, and physical cleanup                                                                                                                                              |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Attributable usage                  | A row for day D expires at UTC start(D) + 90 days. Queries exclude it immediately; scheduled physical cleanup runs within 24 h                                                        |
-| Batch receipt                       | Original hash/IDs/receipt time survive 90 days after first receipt; never extend on retry. Remove within 24 h after expiry                                                            |
-| Active installation                 | Retained while active; expires exactly 90 days after registration or last new batch, whichever is later. It becomes unusable without waiting for cleanup                              |
-| Revocation/expiry tombstone         | Tool, ID, token hash, status/completion state, and original revoked/expired time only, for 90 days after that transition; no counters/project hashes. Remove within 24 h after expiry |
-| Consent declaration                 | Current revision/time/context while active; remove with active installation details. Retain no separate perpetual consent history                                                     |
-| Unsent local usage                  | Seven UTC dates plus clock grace, at most four MiB/64 batches/4,096 open dimensions; discard on withdrawal or veto                                                                    |
-| Pending local deletion              | Minimal credential/status for at most 90 days after withdrawal, unless acknowledged or explicitly forgotten earlier                                                                   |
-| Usage-derived views                 | Compute from nonexpired attributable rows in v1. No durable rollups or public usage exports are enabled; no usage series survives its sources                                         |
-| Database backups/WAL                | Provider-managed, at most seven days for normal operation, including manual/protected copies. Not queried for reporting or exported to the repository                                 |
-| App/CDN request logs                | Disabled; no payload, ID, hash, URL, credential, SQL parameter, or per-request application log                                                                                        |
-| Provider security/transport records | Not a measurement source. Require a documented maximum of 30 days for linkable operational records before enablement; distinguish statutory exceptions/account records                |
-| Bounded operational counters        | At most seven days, labels limited to tool/day/status category; no installation, project, IP, or payload labels. No anonymity claim                                                   |
-| Rate-limit state                    | Expires after 60 seconds for the authenticated rolling-minute window; scheduled physical cleanup within 24 h; no permanent IP-derived installation identity                           |
+| Data                                | Visibility, expiry, and physical cleanup                                                                                                                                                                                                                            |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Attributable usage                  | A row for day D expires at UTC start(D) + 90 days. Queries exclude it immediately; scheduled physical cleanup runs within 24 h                                                                                                                                      |
+| Batch receipt                       | Original hash/IDs/receipt time survive 90 days after first receipt; never extend on retry. Remove within 24 h after expiry                                                                                                                                          |
+| Active installation                 | Retained while active; expires exactly 90 days after registration or last new batch, whichever is later. It becomes unusable without waiting for cleanup                                                                                                            |
+| Revocation/expiry tombstone         | Tool, ID, token hash, status/completion state, and original revoked/expired time only, for 90 days after that transition; no counters/project hashes. Remove within 24 h after expiry                                                                               |
+| Consent declaration                 | Current revision/time/context while active; remove with active installation details. Retain no separate perpetual consent history                                                                                                                                   |
+| Unsent local usage                  | Seven UTC dates plus clock grace, at most four MiB/64 batches/4,096 open dimensions; discard on withdrawal or veto                                                                                                                                                  |
+| Pending local deletion              | Minimal credential/status for at most 90 days after withdrawal, unless acknowledged or explicitly forgotten earlier                                                                                                                                                 |
+| Usage-derived views                 | Compute from nonexpired attributable rows in v1. No durable rollups or public usage exports are enabled; no usage series survives its sources                                                                                                                       |
+| Database backups/WAL                | Provider-managed, at most seven days for normal operation, including manual/protected copies. Not queried for reporting or exported to the repository                                                                                                               |
+| App/CDN request logs                | Disabled; no payload, ID, hash, URL, credential, SQL parameter, or per-request application log                                                                                                                                                                      |
+| Provider security/transport records | Not a measurement source. Follow the applicable provider agreement and published policy; no service-wide maximum is asserted for provider-internal records. Disclose verified product settings, unknown periods, and statutory/account-record exceptions separately |
+| Bounded operational counters        | At most seven days, labels limited to tool/day/status category; no installation, project, IP, or payload labels. No anonymity claim                                                                                                                                 |
+| Rate-limit state                    | Expires after 60 seconds for the authenticated rolling-minute window; scheduled physical cleanup within 24 h; no permanent IP-derived installation identity                                                                                                         |
 
 The 90-day usage horizon supports rolling weekly/monthly measurements without
 an indefinite repository/installation history. Seven dates of submission cover
@@ -132,3 +132,37 @@ about an existing account. Issue #11 records actual deployment/legal evidence.
 The implemented [lifecycle runbook](telemetry-lifecycle.md) records deletion,
 read-time visibility, authenticated scheduled cleanup, health, and the isolated
 synthetic recovery proof. Public telemetry remains gated by issue #11.
+
+## Provider-owned operational records
+
+The service controls its reporting retention, backup policy, logging settings,
+and any operational dataset it creates. It does not set Bunny's or PlanetScale's
+internal security/account-record retention. `provider_security_max_days: null`
+explicitly means no independently verified, universal provider-internal maximum;
+it is not zero retention, permission for indefinite application reporting, or a
+change to the 90-day/seven-day application and backup bounds. This metadata field
+is not a wire field or a client retention rule.
+
+The existing Bunny processor agreement is in place. Apply that agreement and
+current provider policies, including transfer/subprocessor information, rather
+than claiming that the agreement is an encryption switch or proves a numeric
+internal log deadline. The application records no request-level logs, and
+provisioning disables CDN access logs, permanent storage, and forwarding.
+Bunny may still process transport metadata and internal security records.
+
+PlanetScale [describes seven-day centralized Postgres log retention](https://planetscale.com/postgres).
+The runtime's effective statement, slow-query, and sample logging are disabled;
+error bind-parameter logging is zero. These settings were checked against the
+actual runtime role. Product log retention does not establish the retention of
+all provider-internal security or account records. Bunny's corresponding
+internal maximum is not independently verified through the current dashboard.
+Do not present either unknown period as zero or promise a universal 30-day cap.
+
+Published sources checked on 2026-10-26:
+[Bunny processor information](https://bunny.net/gdpr/),
+[Bunny privacy policy](https://bunny.net/privacy/),
+[Bunny subprocessors](https://bunny.net/gdpr/sub-processors/),
+[PlanetScale Postgres](https://planetscale.com/postgres), and
+[PlanetScale DPA](https://planetscale.com/legal/data-processing-addendum).
+Review material provider changes against the notice; do not use their internal
+records as an alternate reporting source.

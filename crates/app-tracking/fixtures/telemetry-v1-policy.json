@@ -72,7 +72,7 @@
     }
   },
   "max_header_bytes": 16384,
-  "provider_security_max_days": 30,
+  "provider_security_max_days": null,
   "operational_counter_days": 7,
   "rate_limit_state_seconds": 60,
   "maintenance_page_rows": 1000,

@@ -41,9 +41,10 @@ Before setting the repository Actions variable
 - Pull Zone access logging, permanent log storage, forwarding, and error cache
   remain disabled. The application logs no reports, credentials, identifiers,
   URLs, SQL, or provider exceptions. Internal security/transport processing is
-  separate: verify the 30-day maximum for linkable operational records against
-  current provider/account evidence, including exceptions, rather than claiming
-  that disabled CDN logging proves it. Do not enable an extra logging product.
+  separate: record the applicable agreement, published product limits, and unknown
+  internal periods as described in the [provider-record disclosure](telemetry-retention.md#provider-owned-operational-records).
+  Disabled CDN logging does not establish their retention. Do not promise an
+  unverified universal cap or enable an extra logging product.
 - Only the app-specific runtime credential enters the encrypted Edge Script
   secret. It has no schema/table/admin/maintenance privileges. Migration and
   maintenance authority stays in encrypted repository Actions secrets.
