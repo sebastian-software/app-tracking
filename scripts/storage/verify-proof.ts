@@ -63,7 +63,7 @@ export async function verifyProof(base: string, secret: string) {
   async function success(route: string, body: unknown, pad = false) {
     const started = performance.now();
     const response = await send(route, body, pad);
-    clientTimes.push(performance.now() - started);
+    const clientElapsed = performance.now() - started;
     assert.equal(response.status, 200);
     const result = (await response.json()) as Result;
     diagnostic = {
@@ -76,6 +76,7 @@ export async function verifyProof(base: string, secret: string) {
     assert.equal(result.subrequests, 1);
     assert.ok(result.elapsed_ms < 3000);
     measurements.push(result);
+    clientTimes.push(clientElapsed);
     return result;
   }
   async function registration() {
