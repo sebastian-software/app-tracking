@@ -70,15 +70,15 @@ export async function deletionIntegration(admin: string, runtime: string) {
     await expect(await reg(item), 201);
     return item;
   }
-  async function seed(item: Item, rows: number) {
-    const batchIds = Array.from({ length: Math.ceil(rows / 256) }, () => uuid7());
+  async function seed(item: Item, rows: number, rowsPerBatch = 256) {
+    const batchIds = Array.from({ length: Math.ceil(rows / rowsPerBatch) }, () => uuid7());
     await sql(`INSERT INTO app_tracking.telemetry_batches
       SELECT 'dalo',${q(item.id)},b::uuid,repeat('a',64),clock_timestamp()
       FROM jsonb_array_elements_text(${q(JSON.stringify(batchIds))}::jsonb) b;
       INSERT INTO app_tracking.usage_counts
       SELECT 'dalo',${q(item.id)},b::uuid,n::smallint,current_date,'1.0.0','status',1,repeat('a',64),1
       FROM jsonb_array_elements_text(${q(JSON.stringify(batchIds))}::jsonb) WITH ORDINALITY x(b,ord)
-      CROSS JOIN generate_series(1,256) n WHERE (ord-1)*256+n<=${rows};
+      CROSS JOIN generate_series(1,${rowsPerBatch}) n WHERE (ord-1)*${rowsPerBatch}+n<=${rows};
       INSERT INTO app_tracking.daily_quotas VALUES('dalo',${q(item.id)},current_date,${rows});`);
   }
   try {
@@ -171,7 +171,7 @@ export async function deletionIntegration(admin: string, runtime: string) {
     checks++;
     phase = "page_budget_measurement";
     const volume = await fresh();
-    await seed(volume, 32768);
+    await seed(volume, 32768, 1);
     const latencies: number[] = [];
     let calls = 0;
     while (true) {
@@ -282,6 +282,7 @@ export async function deletionIntegration(admin: string, runtime: string) {
     return {
       checks,
       fixture_rows: 32768,
+      fixture_receipts: 32768,
       deletion_calls: calls,
       max_client_page_ms: Math.max(...latencies),
       transport: process.env.INGESTION_HTTP_DRIVER === "1" ? "PlanetScale HTTP" : "PostgreSQL TCP",
