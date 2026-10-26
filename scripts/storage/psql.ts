@@ -56,6 +56,7 @@ export function psql(url: string, sql: string): Promise<string> {
         } else resolve(stdout.trim());
       },
     );
+    child.stdin?.on("error", () => {}); // The child exit callback owns redacted failure reporting.
     child.stdin?.end("\\set VERBOSITY verbose\n" + sql);
   });
 }

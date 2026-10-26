@@ -25,6 +25,10 @@ function request(
 function setup() {
   const calls: { operation: string; args: unknown[] }[] = [];
   const storage: TelemetryStorage = {
+    async deleteV1(...args) {
+      calls.push({ operation: "delete", args });
+      return { result: { status: "deleted" }, subrequests: 1, database_ms: 1 };
+    },
     async registerV1(...args) {
       calls.push({ operation: "register", args });
       return {
@@ -256,7 +260,7 @@ test("transport rejects queries, malformed routes, cookies, compression, excess 
   );
   const method = await handle(request(path, fixture.registration, {}, "POST"));
   assert.equal(method.status, 405);
-  assert.equal(method.headers.get("allow"), "PUT");
+  assert.equal(method.headers.get("allow"), "PUT, DELETE");
   assert.equal(calls.length, 0);
 });
 test("missing/malformed credentials and declared overflow cannot write", async () => {
@@ -364,4 +368,77 @@ test("caller cancellation reaches an in-flight write and returns an unknown outc
     subrequests: 1,
     database_ms: 1,
   });
+});
+
+test("DELETE requires only its installation credential and returns an empty no-store 204", async () => {
+  const { handle, calls } = setup();
+  const response = await handle(
+    new Request(`https://example.invalid${path}`, {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${token}` },
+    }),
+  );
+  assert.equal(response.status, 204);
+  assert.equal(await response.text(), "");
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(response.headers.has("content-type"), false);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].operation, "delete");
+  assert.equal(
+    calls[0].args[2],
+    await sha256(`app-tracking-token-v1\n${fixture.installation_id}\n${token}`),
+  );
+});
+test("DELETE rejects nonempty bodies, malformed IDs and query variants before touching storage", async () => {
+  const { handle, calls } = setup();
+  for (const raw of ["null", "{}", " ", "\n"])
+    assert.equal((await handle(request(path, raw, {}, "DELETE"))).status, 400);
+  for (const suffix of ["?x=1", "?", "#fragment"]) {
+    const response = await handle(
+      new Request(`https://example.invalid${path}${suffix}`, {
+        method: "DELETE",
+        headers: { authorization: `Bearer ${token}` },
+      }),
+    );
+    assert.equal(response.status, 400);
+  }
+  assert.equal(calls.length, 0);
+  const empty = await handle(
+    new Request(`https://example.invalid${path}`, {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${token}`, "content-length": "0" },
+      body: "",
+    }),
+  );
+  assert.equal(empty.status, 204);
+});
+test("pending and failed deletion never produce a completion acknowledgement", async () => {
+  const { storage } = setup();
+  const req = () =>
+    new Request(`https://example.invalid${path}`, {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${token}` },
+    });
+  storage.deleteV1 = async () => ({
+    result: { status: "pending" },
+    subrequests: 1,
+    database_ms: 1,
+  });
+  let response = await createTelemetryHandler(storage)(req());
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get("retry-after"), "60");
+  assert.equal(await code(response), "service_unavailable");
+  storage.deleteV1 = async () => {
+    throw new Error("Private provider and credential detail");
+  };
+  response = await createTelemetryHandler(storage)(req());
+  assert.equal(await code(response), "service_unavailable");
+  storage.deleteV1 = async () => ({
+    result: { status: "", error: "unauthorized" },
+    subrequests: 1,
+    database_ms: 1,
+  });
+  response = await createTelemetryHandler(storage)(req());
+  assert.equal(response.status, 401);
+  assert.equal(await code(response), "unauthorized");
 });

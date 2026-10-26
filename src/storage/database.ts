@@ -135,6 +135,13 @@ export function createStorage(url: string) {
         signal,
       );
     },
+    deleteV1(tool: string, id: string, tokenHash: string, signal: AbortSignal) {
+      return query(
+        "SELECT app_tracking.delete_installation_v1($1,$2::uuid,$3) AS result",
+        [tool, id, tokenHash],
+        signal,
+      );
+    },
     revoke(tool: string, id: string, tokenHash: string) {
       return query("SELECT app_tracking.revoke_installation($1,$2::uuid,$3) AS result", [
         tool,

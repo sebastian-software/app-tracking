@@ -1,40 +1,21 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { psql, quote as q } from "../../scripts/storage/psql.ts";
-import { createStorage, type StorageResult } from "../../src/storage/database.ts";
-import { createTelemetryHandler, type TelemetryStorage } from "../../src/telemetry/handler.ts";
+import { createTelemetryHandler } from "../../src/telemetry/handler.ts";
 import {
   canonicalBatch,
   batch as validateBatch,
   sha256,
   policy,
 } from "../../src/telemetry/contract.ts";
+import { integrationStorage } from "./adapter.ts";
 import { uuid7, maxRows } from "./fixture.ts";
 
 // Faithful HTTP handler + real SQL functions. Live runs select the actual HTTP
 // driver; container CI uses the unprivileged psql transport for the same functions.
 export async function ingestionIntegration(admin: string, runtime: string) {
   const sql = (text: string) => psql(admin, text);
-  const run = async (text: string) => ({
-    result: JSON.parse(await psql(runtime, text)) as StorageResult,
-    subrequests: 1,
-    database_ms: 0,
-  });
-  const storage: TelemetryStorage =
-    process.env.INGESTION_HTTP_DRIVER === "1"
-      ? createStorage(runtime)
-      : {
-          registerV1(tool, id, token, revision, consented, mode) {
-            return run(
-              `SELECT app_tracking.register_installation_v1(${q(tool)},${q(id)},${q(token)},${q(revision)},${q(consented)},${q(mode)})`,
-            );
-          },
-          submitV1(tool, id, token, batch, hash, revision, rows) {
-            return run(
-              `SELECT app_tracking.accept_batch_v1(${q(tool)},${q(id)},${q(token)},${q(batch)},${q(hash)},${q(revision)},${q(JSON.stringify(rows))}::jsonb)`,
-            );
-          },
-        };
+  const storage = integrationStorage(runtime);
   const handle = createTelemetryHandler(storage);
   const ids: string[] = [];
   let checks = 0,
@@ -108,6 +89,8 @@ export async function ingestionIntegration(admin: string, runtime: string) {
   try {
     const a = identity();
     const regs = await Promise.all([register(a), register(a)]);
+    if (regs.some((r) => ![200, 201].includes(r.status)))
+      console.error(JSON.stringify({ registration_statuses: regs.map((r) => r.status) }));
     assert.deepEqual(regs.map((r) => r.status).sort(), [200, 201]);
     checks++;
     await expect(

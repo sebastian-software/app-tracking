@@ -149,3 +149,5 @@ jobs:
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Verify gated ingestion using real PlanetScale HTTP calls
         run: node scripts/storage/test-ingestion.ts
+      - name: Verify authenticated scheduled-maintenance command
+        run: node scripts/storage/run-retention.ts

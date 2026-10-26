@@ -128,4 +128,6 @@ Bunny–PlanetScale transaction tests and their evidence boundary.
 
 The [gated ingestion runbook](docs/telemetry-ingestion.md) describes implemented
 registration and batch validation, transactional storage, and synthetic live
-evidence. Public telemetry remains disabled pending deletion and operations work.
+evidence. The [lifecycle runbook](docs/telemetry-lifecycle.md) covers bounded
+installation deletion, scheduled retention, and ordinary recovery. Public
+telemetry remains disabled pending production operations work.

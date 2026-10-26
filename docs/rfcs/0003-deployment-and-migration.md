@@ -129,9 +129,13 @@ mechanism. Admin access requires separately reviewed maintainer authorization.
 ## Maintenance, observability, and recovery
 
 Start with bounded maintenance work invoked by a scheduled GitHub Actions job
-against an authenticated service operation. Retention cleanup must not depend
+against an authenticated database maintenance function. The app-scoped migration
+credential authorizes that fixed operation; the reporting runtime has no
+maintenance permission. This needs no public maintenance endpoint. Retention cleanup must not depend
 on public user traffic. Long cleanup passes need resumable chunks and a durable
-progress marker; a timed-out run cannot silently count as completed.
+progress marker; a timed-out run cannot silently count as completed. The
+[lifecycle runbook](../telemetry-lifecycle.md) records the hourly workflow,
+committed-page progress, completion health, and strict 204 deletion semantics.
 
 The initial operator signals are version freshness and failures, report
 acceptance/replay/rejection totals, database latency/errors, and age of the last
