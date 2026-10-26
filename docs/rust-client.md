@@ -138,15 +138,13 @@ status, unsupported distributions, zero disabled/offline traffic, and twelve
 concurrent processes sharing one lookup and one notice. Normal checks contact
 no public source or Bunny endpoint.
 
-To release, update the crate version, run these checks from a clean committed
-checkout, inspect `cargo package --list -p app-tracking`, then publish:
+Release Please owns the crate version, root `Cargo.lock`, changelog, tag, and
+GitHub release. Follow the [release runbook](releasing.md): merge feature/fix
+PRs first, inspect the generated release PR and its CI, then merge that release
+PR. The same workflow publishes the exact tagged source to crates.io through
+Trusted Publishing. Do not bump, tag, or publish routine releases manually.
 
-```sh
-cargo publish --locked -p app-tracking
-```
-
-Use Cargo's configured credential provider or registry token; never commit a
-token. Tag the published commit `app-tracking-v<VERSION>`. Retain `Cargo.lock`
-for release verification. Publication is separate from consumer rollout and
-from deploying the version service. A crate cannot be overwritten after
-publication; later fixes use a new version.
+Publication is separate from consumer rollout and deploying the version
+service. A crate cannot be overwritten after publication; later fixes use a
+new version. The private Node package is build tooling, not a second published
+package or an independently maintained release version.
