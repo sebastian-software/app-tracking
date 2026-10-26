@@ -53,7 +53,7 @@ LOGIN role inherits only the stable, non-login `app_tracking_owner` role,
 which owns this logical database and its schema/functions. It has no
 `CREATEDB`, `CREATEROLE`, superuser, or cross-application membership. Runtime
 uses a different managed LOGIN role with no inherited roles, database CONNECT,
-schema usage, and execution on the three named functions. No table grants or
+schema usage, and execution on the named application functions. No table grants or
 `pg_read_all_data`/`pg_write_all_data` membership are needed.
 
 An administrator bootstraps the empty logical database, ownership, CONNECT
@@ -236,3 +236,8 @@ Primary references checked on 2026-10-24:
 - [Bunny runtime](https://bunny.net/docs/scripting/runtime)
 - [Bunny limits](https://bunny.net/docs/scripting/limits)
 - [Bunny encrypted secrets](https://bunny.net/docs/scripting/secrets)
+
+The subsequent [gated ingestion implementation](telemetry-ingestion.md) adds the
+public v1 functions, command catalog, upload limits, and real HTTP-handler tests.
+The original synthetic functions remain available to this isolated storage proof;
+the public handler only calls the v1 functions.

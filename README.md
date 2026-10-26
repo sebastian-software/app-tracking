@@ -125,3 +125,7 @@ option. [ADR 0007](docs/adr/0007-dual-license.md) records the decision.
 
 The [storage proof runbook](docs/storage-proof.md) describes the synthetic
 Bunny–PlanetScale transaction tests and their evidence boundary.
+
+The [gated ingestion runbook](docs/telemetry-ingestion.md) describes implemented
+registration and batch validation, transactional storage, and synthetic live
+evidence. Public telemetry remains disabled pending deletion and operations work.

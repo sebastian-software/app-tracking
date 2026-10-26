@@ -16,6 +16,7 @@ neonConfig.fetchFunction = (
 export interface StorageResult {
   status: string;
   received_at?: string;
+  error?: string;
 }
 export interface UsageRow {
   day: string;
@@ -50,13 +51,15 @@ export function createStorage(url: string) {
     throw new StorageError("configuration");
   }
   const sql = neon(url);
-  async function query(text: string, values: unknown[]) {
+  async function query(text: string, values: unknown[], signal?: AbortSignal) {
     const trace = { subrequests: 0 };
     const start = performance.now();
     try {
       const result = await sql.query(text, values, {
         fetchOptions: {
-          signal: AbortSignal.timeout(2800),
+          signal: signal
+            ? AbortSignal.any([signal, AbortSignal.timeout(2800)])
+            : AbortSignal.timeout(2800),
           redirect: "error",
           cache: "no-store",
           appTrackingTrace: trace,
@@ -99,6 +102,37 @@ export function createStorage(url: string) {
       return query(
         "SELECT app_tracking.accept_batch($1,$2::uuid,$3,$4::uuid,$5,$6::jsonb) AS result",
         [tool, id, tokenHash, batch, hash, JSON.stringify(rows)],
+      );
+    },
+    registerV1(
+      tool: string,
+      id: string,
+      tokenHash: string,
+      revision: string,
+      consentedAt: string,
+      mode: "local" | "ci",
+      signal: AbortSignal,
+    ) {
+      return query(
+        "SELECT app_tracking.register_installation_v1($1,$2::uuid,$3,$4,$5::timestamptz,$6) AS result",
+        [tool, id, tokenHash, revision, consentedAt, mode],
+        signal,
+      );
+    },
+    submitV1(
+      tool: string,
+      id: string,
+      tokenHash: string,
+      batch: string,
+      hash: string,
+      revision: string,
+      rows: UsageRow[],
+      signal: AbortSignal,
+    ) {
+      return query(
+        "SELECT app_tracking.accept_batch_v1($1,$2::uuid,$3,$4::uuid,$5,$6,$7::jsonb) AS result",
+        [tool, id, tokenHash, batch, hash, revision, JSON.stringify(rows)],
+        signal,
       );
     },
     revoke(tool: string, id: string, tokenHash: string) {

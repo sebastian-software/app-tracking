@@ -12,10 +12,10 @@
     "typecheck": "tsc --noEmit",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "check": "pnpm format:check && pnpm typecheck && pnpm test && pnpm build && node scripts/check-build.ts && node scripts/storage/build-proof.ts",
+    "check": "pnpm format:check && pnpm typecheck && pnpm test && pnpm build && node scripts/check-build.ts && node scripts/storage/build-proof.ts && node scripts/storage/build-ingestion.ts && node scripts/check-ingestion-build.ts",
     "smoke:upstreams": "node scripts/smoke-upstreams.ts",
     "db:migrate": "node scripts/storage/migrate.ts",
-    "test:storage": "node test/storage/integration.ts"
+    "test:storage": "node test/storage/run.ts"
   },
   "devDependencies": {
     "@bunny.net/edgescript-sdk": "0.13.0",
