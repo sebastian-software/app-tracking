@@ -74,27 +74,34 @@ export async function storageIntegration(admin: string, runtime: string, role: s
     // Hold the installation lock in a separate real transaction. The write must wait.
     const locked = uuid7();
     const holder = sql(
-      `BEGIN; SELECT installation_id FROM app_tracking.reporting_installations WHERE installation_id=${q(a.id)} FOR UPDATE; SELECT pg_sleep(0.7); COMMIT;`,
+      `BEGIN; SELECT installation_id FROM app_tracking.reporting_installations WHERE installation_id=${q(a.id)} FOR UPDATE; SELECT pg_sleep(6); COMMIT;`,
     );
     // Observe the actual pg_sleep query rather than assuming timing establishes the lock.
     let held = false;
     for (let i = 0; i < 30; i++) {
       held =
         (await sql(
-          `SELECT EXISTS(SELECT FROM pg_stat_activity WHERE pid<>pg_backend_pid() AND state='active' AND query LIKE '%pg_sleep(0.7)%')`,
+          `SELECT EXISTS(SELECT FROM pg_stat_activity WHERE pid<>pg_backend_pid() AND state='active' AND query LIKE '%pg_sleep(6)%')`,
         )) === "t";
       if (held) break;
       await new Promise((resolve) => setTimeout(resolve, 20));
     }
     assert.ok(held, "Could not observe the held lock");
-    const began = performance.now();
-    await run(submit(locked));
-    assert.ok(
-      performance.now() - began >= 300,
-      "Write did not serialize behind the installation lock",
-    );
-    await holder;
-    checks += 2;
+    // A distant runner can consume a short sleep in connection establishment.
+    // Assert the configured database lock timeout instead of a wall-clock minimum.
+    try {
+      await assert.rejects(run(submit(locked)), /55P03/);
+      assert.equal(
+        await sql(
+          `SELECT count(*) FROM app_tracking.telemetry_batches WHERE installation_id=${q(a.id)} AND batch_id=${q(locked)}`,
+        ),
+        "0",
+      );
+    } finally {
+      await holder;
+    }
+    assert.equal(JSON.parse(await run(submit(locked))).status, "accepted");
+    checks += 4;
     // A response deliberately discarded after commit is an unknown outcome to the caller.
     const lost = uuid7();
     await run(submit(lost));
