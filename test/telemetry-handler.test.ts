@@ -305,3 +305,63 @@ test("storage failures and unexpected results are redacted; timed out writes rem
   assert.equal(response.status, 429);
   assert.equal(response.headers.get("retry-after"), "60");
 });
+
+test("success waits for the storage acknowledgement", async () => {
+  const { storage } = setup();
+  let entered!: () => void,
+    finish!: (value: Awaited<ReturnType<TelemetryStorage["submitV1"]>>) => void;
+  const started = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  storage.submitV1 = () => {
+    entered();
+    return new Promise((resolve) => {
+      finish = resolve;
+    });
+  };
+  let acknowledged = false;
+  const pending = createTelemetryHandler(storage)(request("/v1/usage-batches", fixture.batch));
+  void pending.then(() => {
+    acknowledged = true;
+  });
+  await started;
+  assert.equal(acknowledged, false);
+  finish({
+    result: { status: "accepted", received_at: fixture.now },
+    subrequests: 1,
+    database_ms: 1,
+  });
+  assert.equal((await pending).status, 200);
+});
+test("caller cancellation reaches an in-flight write and returns an unknown outcome", async () => {
+  const { storage } = setup();
+  let entered!: () => void,
+    finish!: (value: Awaited<ReturnType<TelemetryStorage["submitV1"]>>) => void;
+  let databaseSignal: AbortSignal | undefined;
+  const started = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  storage.submitV1 = (...args) => {
+    databaseSignal = args[7];
+    entered();
+    return new Promise((resolve) => {
+      finish = resolve;
+    });
+  };
+  const controller = new AbortController();
+  const req = new Request(request("/v1/usage-batches", fixture.batch), {
+    signal: controller.signal,
+  });
+  const pending = createTelemetryHandler(storage)(req);
+  await started;
+  controller.abort();
+  const response = await pending;
+  assert.equal(response.status, 503);
+  assert.equal(await code(response), "service_unavailable");
+  assert.equal(databaseSignal?.aborted, true);
+  finish({
+    result: { status: "accepted", received_at: fixture.now },
+    subrequests: 1,
+    database_ms: 1,
+  });
+});

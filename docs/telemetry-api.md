@@ -11,7 +11,9 @@ The [JSON Schema](../contracts/telemetry-v1.schema.json) owns wire shapes;
 [policy values](../contracts/telemetry-v1-policy.json) own exact limits and the
 initial command catalog. This page owns semantics and validation order. The
 [synthetic vectors](../test/fixtures/telemetry/) are consumer conformance inputs.
-A future server and Rust implementation must pass them at their real boundaries.
+The gated server implementation passes them at its HTTP boundary; the future
+Rust telemetry client must pass them at its own boundary. See the
+[ingestion runbook](telemetry-ingestion.md) for implementation and live-test evidence.
 
 ## Measurement and fields
 
@@ -94,7 +96,9 @@ a person exists, or the binary is authentic. A token holder can fabricate counts
 | `POST /v1/usage-batches`                     | `200 accepted` or `200 duplicate`                                 |
 | `DELETE /v1/installations/{installation_id}` | Empty `204` after revocation and primary deletion commit          |
 
-These are future routes. All telemetry responses, including errors, carry
+Registration and batch ingestion are implemented in the gated candidate; DELETE
+remains issue #8. The production service remains version-only. All telemetry
+responses, including errors, carry
 `Cache-Control: no-store`; no telemetry route uses CDN cache or conditional GET.
 No query strings, cookies, redirects, browser CORS permission, or arbitrary
 upstream destinations are supported. The fixed user agent is
