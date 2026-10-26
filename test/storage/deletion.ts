@@ -5,6 +5,7 @@ import { runMaintenance } from "../../scripts/storage/maintenance.ts";
 import { createTelemetryHandler } from "../../src/telemetry/handler.ts";
 import { canonicalBatch, batch as validateBatch, sha256 } from "../../src/telemetry/contract.ts";
 import { uuid7, maxRows } from "./fixture.ts";
+import { withUsageLock } from "./lock.ts";
 import { integrationStorage } from "./adapter.ts";
 
 export async function deletionIntegration(admin: string, runtime: string) {
@@ -77,11 +78,13 @@ export async function deletionIntegration(admin: string, runtime: string) {
     await sql(`INSERT INTO app_tracking.telemetry_batches
       SELECT 'dalo',${q(item.id)},b::uuid,repeat('a',64),clock_timestamp()
       FROM jsonb_array_elements_text(${q(JSON.stringify(batchIds))}::jsonb) b;
+      ANALYZE app_tracking.telemetry_batches;
       INSERT INTO app_tracking.usage_counts
       SELECT 'dalo',${q(item.id)},b::uuid,n::smallint,current_date,'1.0.0','status',1,repeat('a',64),1
       FROM jsonb_array_elements_text(${q(JSON.stringify(batchIds))}::jsonb) WITH ORDINALITY x(b,ord)
       CROSS JOIN generate_series(1,${rowsPerBatch}) n WHERE (ord-1)*${rowsPerBatch}+n<=${rows};
-      INSERT INTO app_tracking.daily_quotas VALUES('dalo',${q(item.id)},current_date,${rows});`);
+      INSERT INTO app_tracking.daily_quotas VALUES('dalo',${q(item.id)},current_date,${rows});
+      ANALYZE app_tracking.usage_counts;`);
   }
   try {
     const a = await fresh(),
@@ -156,6 +159,17 @@ export async function deletionIntegration(admin: string, runtime: string) {
       "service_unavailable",
     );
     await expect(await del(lost), 204);
+    phase = "blocked_purge";
+    const blocked = await fresh();
+    await expect(await post(blocked), 200);
+    await withUsageLock(admin, blocked.id, async () => {
+      await expect(await del(blocked), 503, "service_unavailable");
+      assert.equal(await count("usage_counts", blocked), "1");
+      assert.equal(await count("reporting_usage_v1", blocked), "0");
+      checks += 2;
+      await expect(await post(blocked), 410, "installation_revoked");
+    });
+    await expect(await del(blocked), 204);
     phase = "bounded_progress";
     const large = await fresh();
     await seed(large, 2500);

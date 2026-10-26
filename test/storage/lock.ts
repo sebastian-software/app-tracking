@@ -3,7 +3,21 @@ import { psqlEnvironment, quote } from "../../scripts/storage/psql.ts";
 
 // The lock holder acknowledges acquisition over stdout and stays alive until
 // the competing operation finishes. No sleeps, cross-session visibility, or RTT assumptions.
-export async function withInstallationLock(url: string, id: string, work: () => Promise<void>) {
+export function withInstallationLock(url: string, id: string, work: () => Promise<void>) {
+  return withLockedSQL(
+    url,
+    `SELECT installation_id FROM app_tracking.reporting_installations WHERE installation_id=${quote(id)} FOR UPDATE;`,
+    work,
+  );
+}
+export function withUsageLock(url: string, id: string, work: () => Promise<void>) {
+  return withLockedSQL(
+    url,
+    `SELECT installation_id FROM app_tracking.usage_counts WHERE installation_id=${quote(id)} FOR UPDATE;`,
+    work,
+  );
+}
+async function withLockedSQL(url: string, statement: string, work: () => Promise<void>) {
   let readyResolve!: () => void, readyReject!: (e: Error) => void;
   const ready = new Promise<void>((resolve, reject) => {
     readyResolve = resolve;
@@ -37,9 +51,7 @@ export async function withInstallationLock(url: string, id: string, work: () => 
   // Attach a rejection handler immediately while acquisition is pending.
   void closed.catch(() => {});
   child.stdin?.on("error", () => {});
-  child.stdin?.write(
-    `BEGIN;\nSELECT installation_id FROM app_tracking.reporting_installations WHERE installation_id=${quote(id)} FOR UPDATE;\n\\echo APP_TRACKING_LOCK_READY\n`,
-  );
+  child.stdin?.write(`BEGIN;\n${statement}\n\\echo APP_TRACKING_LOCK_READY\n`);
   try {
     await ready;
     await work();
