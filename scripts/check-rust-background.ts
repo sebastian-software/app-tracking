@@ -112,7 +112,9 @@ try {
   const arrival = new Promise<void>((resolve) => {
     arrived = resolve;
   });
+  const parentStarted = performance.now();
   const parent = await run("ordinary");
+  console.log(JSON.stringify({ parent_process_ms: Math.round(performance.now() - parentStarted) }));
   assert.deepEqual(parent, { code: 7, stdout: '{"command":"ok"}\n', stderr: "" });
   await Promise.race([
     arrival,
@@ -125,9 +127,20 @@ try {
   assert.equal(pending.authority.registered, false, "Parent exited before registration ACK");
   release!();
   release = undefined;
-  await waitFor(
-    async () => JSON.parse(await readFile(await statePath(), "utf8")).authority.registered,
-  );
+  try {
+    await waitFor(
+      async () => JSON.parse(await readFile(await statePath(), "utf8")).authority.registered,
+    );
+  } catch (error) {
+    const state = JSON.parse(await readFile(await statePath(), "utf8"));
+    console.log(
+      JSON.stringify({
+        worker_failures: state.failures,
+        worker_terminal_status: state.terminal_status,
+      }),
+    );
+    throw error;
+  }
   await waitFor(async () => (await status())?.unsent_invocations === 2);
   assert.equal((await run("flush")).code, 0);
   assert.equal(requests, 1, "Flush must honor minimum retry/attempt interval");
