@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, readdir, writeFile, rm } from "node:fs/promises";
+import {
+  mkdtemp,
+  readFile,
+  readdir,
+  writeFile,
+  rm,
+  mkdir,
+  copyFile,
+  chmod,
+} from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,12 +17,20 @@ import { createTelemetryHandler } from "../src/telemetry/handler.ts";
 import { fixtureStorage } from "./check-rust-telemetry.ts";
 
 const root = await mkdtemp(join(tmpdir(), "app-tracking-background-"));
-const executable = join(
+const builtExecutable = join(
   process.env.CARGO_TARGET_DIR ?? "target",
   "debug",
   "examples",
   `background-consumer${process.platform === "win32" ? ".exe" : ""}`,
 );
+const executableDirectory = join(root, "binary with spaces");
+await mkdir(executableDirectory);
+const executable = join(
+  executableDirectory,
+  process.platform === "win32" ? "consumer.exe" : "consumer",
+);
+await copyFile(builtExecutable, executable);
+await chmod(executable, 0o700);
 const handler = createTelemetryHandler(fixtureStorage());
 let release: (() => void) | undefined;
 let arrived: (() => void) | undefined;

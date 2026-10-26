@@ -42,6 +42,10 @@ API remains compatible; CLI consumers adopt the new background entry deliberatel
   latency. This is not a promise of zero filesystem/scheduler overhead.
 - A worker can outlive its parent and has no inherited command output streams.
   CI/container/job teardown can still kill it; delivery is bounded and best effort.
+- Windows uses a narrow Win32 process-start boundary with handle inheritance
+  disabled. The stable standard-library API at the MSRV cannot express this;
+  null stdio alone leaves other inherited pipes open. Unsafe code remains
+  denied elsewhere; the single Windows module documents its FFI invariants.
 - Hosts must implement and test the reserved early entry on supported platforms.
   A real process test holds the server acknowledgement until the parent exits.
 - This changes delivery ownership, not report fields, purposes, consent revision,
@@ -52,3 +56,6 @@ API remains compatible; CLI consumers adopt the new background entry deliberatel
 
 - 2026-10-26: Replace foreground telemetry waiting with a bounded subprocess
   worker after production timing evidence and selection of nonblocking delivery.
+
+Process API references: [Windows process creation](https://learn.microsoft.com/en-us/windows/win32/procthread/creating-processes) and the
+[Rust handle-inheritance limitation](https://github.com/rust-lang/rust/issues/161158).
