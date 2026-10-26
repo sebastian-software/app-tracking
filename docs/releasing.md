@@ -10,8 +10,10 @@ private root Node package is development/build tooling; it is not published.
    patch, `feat:` a minor, and breaking changes follow the configured pre-1.0
    policy. Documentation and CI changes alone do not require a crate release.
 2. After a push to `main`, `.github/workflows/publish.yml` runs Release Please.
-   Its release PR updates the workspace member's `Cargo.toml`, root `Cargo.lock`,
-   root `CHANGELOG.md`, and `.release-please-manifest.json` together. Review the
+   The Rust strategy targets `crates/app-tracking`, with the `cargo-workspace`
+   plugin updating the root lockfile. Its release PR updates the member's
+   `Cargo.toml` and `CHANGELOG.md`, root `Cargo.lock`, and
+   `.release-please-manifest.json` together. Review the
    version, notes, and CI before merging the release PR.
 3. Merging that PR creates `app-tracking-v<VERSION>` and a public GitHub release.
    The same workflow checks out the tag, packages and verifies the crate using
@@ -60,8 +62,15 @@ Versions through 0.3.0 were published manually. The 0.3.0 GitHub release was
 backfilled at the existing tag; its crate and source remain unchanged. The
 manifest starts at 0.3.0 so automation does not try to publish that version again.
 
-The published 0.3.0 commit is in PR #36. Merge that PR with a merge commit to
-preserve the tagged commit in `main`'s ancestry, then merge this automation PR.
-This one-time exception avoids treating already released background-client
-changes as new changes. Future feature and release PRs can use the normal
-squash-merge flow.
+The manual 0.3.0 tag points to `cce58849e115c29486c10795c415b2fe13a1823f`.
+PR #36 was integrated with rewritten commit IDs. Its main-branch equivalent,
+`2255931ac5c7b90d8737aec062ddcf538e5e45e6`, has exactly the same tree
+(`73f3625c4d3055dd1556ecd932b8b9300762277b`). The configuration's
+`last-release-sha` sets this equivalent commit as the historical lower bound,
+so already shipped features are not collected again. The original tag and
+published crate remain unchanged. Later automated release commits stop history
+collection before that bound; it does not override subsequent release versions.
+
+Normal feature and release PRs can use squash merges. The release-plan check
+exercises the actual pinned Release Please implementation against the virtual
+workspace, including the manual baseline and a later automated release.

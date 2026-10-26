@@ -27,8 +27,8 @@ jobs:
       issues: write
       pull-requests: write
     outputs:
-      release_created: ${{ steps.release.outputs.release_created || steps.recovery.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name || steps.recovery.outputs.tag_name }}
+      release_created: ${{ steps.release.outputs['crates/app-tracking--release_created'] || steps.recovery.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs['crates/app-tracking--tag_name'] || steps.recovery.outputs.tag_name }}
     steps:
       - name: Maintain release PR and create GitHub release
         if: github.event_name == 'push' || inputs.recover_tag == ''

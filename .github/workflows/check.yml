@@ -23,6 +23,12 @@ jobs:
           run_install: false
           cache: true
       - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Verify Release Please plans with the action's implementation version
+        env:
+          RELEASE_PLEASE_MODULE: ${{ runner.temp }}/release-please/node_modules/release-please
+        run: |
+          npm install --prefix "$RUNNER_TEMP/release-please" --ignore-scripts --no-save --no-audit --no-fund release-please@17.6.0
+          node scripts/check-release-plan.mjs
       - run: pnpm check
   storage:
     runs-on: ubuntu-latest
