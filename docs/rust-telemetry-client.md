@@ -251,7 +251,8 @@ startup is not a universal 200 ms wall-clock guarantee. Each CI/live harness run
 prints its own sanitized process measurements. These observations are not
 production Internet latency or capacity claims.
 
-The crate version is 0.3.0. Package verification includes all source, examples,
-licenses, policy, identity, and telemetry vectors. Publication uses the existing
-Cargo credential provider and `app-tracking-v0.3.0` tag, separately from consumer
-adoption and service deployment. No telemetry is enabled merely by upgrading.
+Package verification includes all source, examples, licenses, policy, identity,
+and telemetry vectors. The [release runbook](releasing.md) defines Release
+Please versioning, GitHub releases, and crates.io Trusted Publishing, separately
+from consumer adoption and service deployment. No telemetry is enabled merely
+by upgrading.

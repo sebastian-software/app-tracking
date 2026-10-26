@@ -63,6 +63,9 @@ policy. It performs no telemetry collection. See the
 [0.1 integration and release guide](docs/rust-client.md) for the API, process
 lifetime, verification commands, and publishing procedure.
 
+[Release Please](docs/releasing.md) manages crate version bumps, changelogs,
+GitHub releases, and crates.io publication through one release-PR workflow.
+
 The 0.2 `project` module supplies consent-gated repository normalization
 and SHA-256 project identity. Its [v1 contract](docs/project-identity.md) defines
 provider rules, source precedence, unknown context, and shared conformance
