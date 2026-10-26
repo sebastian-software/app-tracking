@@ -34,8 +34,13 @@ try {
   await waitForRevision(target.base, revision, authenticatedFetch);
   await verifyDeployment(target.base, revision, authenticatedFetch, true);
   console.log(JSON.stringify(await verifyTelemetry({ base: target.base, proofToken: token })));
-  for (const path of ["/health", "/v1/versions/palamedes/github/stable"]) {
+  for (const [method, path] of [
+    ["POST", "/v1/usage-batches"],
+    ["PUT", "/v1/installations/00000000-0000-7000-8000-000000000001"],
+    ["DELETE", "/v1/installations/00000000-0000-7000-8000-000000000001"],
+  ]) {
     const response = await fetch(new URL(path, target.base), {
+      method,
       redirect: "error",
       signal: AbortSignal.timeout(10_000),
     });

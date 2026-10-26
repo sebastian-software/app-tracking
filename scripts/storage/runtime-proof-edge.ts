@@ -16,12 +16,14 @@ const service = createService(
   () => (telemetry ??= createTelemetryService(env("PROOF_DATABASE_URL"))),
 );
 BunnySDK.net.http.serve(async (request) => {
+  const path = new URL(request.url).pathname;
+  const privateRoute = path === "/v1/usage-batches" || /^\/v1\/installations\//.test(path);
   const provided = request.headers.get("X-App-Tracking-Proof") ?? "";
   let difference = provided.length ^ token.length;
   for (let n = 0; n < token.length; n++)
     difference |= token.charCodeAt(n) ^ (provided.charCodeAt(n) || 0);
   const response =
-    difference === 0
+    !privateRoute || difference === 0
       ? await service(request)
       : Response.json(
           { error: { code: "not_found" } },

@@ -16,7 +16,8 @@ gh workflow run deploy.yml --ref BRANCH -f production_proof=true
 This publishes the same service composition and HTTP database driver to a
 short-lived, authenticated Bunny endpoint. It tests versions/cache policy,
 registration, ingestion/replay/rejection, scoped deletion, retention, and
-anonymous access denial. Its encrypted runtime/test secrets and linked Pull
+anonymous telemetry access denial. Public version/health data remains public,
+including CDN cache hits. Its encrypted runtime/test secrets and linked Pull
 Zone are removed afterward. It uses owned synthetic reports only; it is not a
 permanent staging environment or evidence that the public consumer is enabled.
 The `ingestion_test` input remains the broader real-database concurrency suite.
