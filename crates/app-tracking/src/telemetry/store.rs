@@ -4,8 +4,18 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 pub(super) struct Store {
-    _lock: File,
+    _lock: Lock,
     dir: PathBuf,
+}
+
+pub(super) struct Lock(File);
+
+impl Drop for Lock {
+    fn drop(&mut self) {
+        // Closing one descriptor need not release a lock if another inherited
+        // or duplicated handle still references it. End ownership explicitly.
+        let _ = self.0.unlock();
+    }
 }
 
 fn regular_private(path: &Path) -> Result<(), Error> {
@@ -49,10 +59,10 @@ impl Store {
     pub fn allow_explicit_forget(&self) -> Result<(), Error> {
         regular_private(&self.dir.join("state.json"))
     }
-    pub fn network_guard(&self) -> Result<Option<File>, Error> {
+    pub fn network_guard(&self) -> Result<Option<Lock>, Error> {
         let guard = open_private(&self.dir.join("network.lock"), true)?;
         match guard.try_lock() {
-            Ok(()) => Ok(Some(guard)),
+            Ok(()) => Ok(Some(Lock(guard))),
             Err(TryLockError::WouldBlock) => Ok(None),
             Err(_) => Err(Error::State),
         }
@@ -96,6 +106,7 @@ impl Store {
             Err(TryLockError::WouldBlock) => return Err(Error::Busy),
             Err(_) => return Err(Error::State),
         }
+        let lock = Lock(lock);
         // A crash before rename leaves an uncommitted private write. It must
         // never become new authority or survive a later withdrawal as old usage.
         let pending = dir.join("state.new");
@@ -147,5 +158,28 @@ impl Store {
             .and_then(|d| d.sync_all())
             .map_err(|_| Error::State)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn completed_lock_ownership_ends_even_if_a_descriptor_was_duplicated() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("lock");
+        let file = open_private(&path, true).unwrap();
+        file.try_lock().unwrap();
+        let duplicated = file.try_clone().unwrap();
+        let guard = Lock(file);
+        drop(guard);
+        let next = open_private(&path, false).unwrap();
+        assert!(
+            next.try_lock().is_ok(),
+            "a surviving duplicate must not prolong completed ownership"
+        );
+        next.unlock().unwrap();
+        drop(duplicated);
     }
 }
