@@ -96,7 +96,10 @@ jobs:
           cache: true
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Prove database migrations, constraints, locks, and rollback
-        run: pnpm test:storage
+        run: |
+          for attempt in 1 2 3; do
+            pnpm test:storage
+          done
       - name: Build isolated probe
         run: node scripts/storage/build-proof.ts
       - name: Publish temporary probe and verify real HTTP driver
