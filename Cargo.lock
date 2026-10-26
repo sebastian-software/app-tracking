@@ -15,6 +15,7 @@ dependencies = [
  "thiserror",
  "time",
  "ureq",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

@@ -10,7 +10,10 @@ repository = "https://github.com/sebastian-software/app-tracking"
 authors = ["Sebastian Software GmbH"]
 
 [workspace.lints.rust]
-unsafe_code = "forbid"
+# Unsafe is denied everywhere except the audited Windows process-start boundary.
+# Stable std::process cannot disable inherited handles at the workspace MSRV.
+unsafe_code = "deny"
+unsafe_op_in_unsafe_fn = "deny"
 
 [workspace.lints.rustdoc]
 broken_intra_doc_links = "deny"

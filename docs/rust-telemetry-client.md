@@ -184,6 +184,11 @@ are null; Unix workers have a separate process group, Windows workers detach
 from the console and foreground process group. A best-effort reaper waits on a
 separate thread only while the parent remains alive. No daemon, shell, installed
 helper, scheduler, or new async runtime is required.
+On Windows, a small Win32 boundary explicitly disables all handle inheritance.
+Stable `std::process::Command` cannot do that at the MSRV; null stdio alone
+can still leak other pipe handles and delay a caller waiting for output closure.
+`windows-sys` supplies the bindings. Unsafe code is denied elsewhere, with one
+module-scoped exception and documented buffer/handle ownership at each FFI call.
 
 `worker.json` is version-1, private local handoff metadata (at most 4 KiB), not a
 new reporting-state or wire schema. It contains only a job nonce, generation,

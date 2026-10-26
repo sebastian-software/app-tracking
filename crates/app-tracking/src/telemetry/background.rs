@@ -1,5 +1,6 @@
 use super::{Action, Client, Error, Kind, Policy, Request, RunResult, Store, now_ms, wire};
 use serde::{Deserialize, Serialize};
+#[cfg(not(windows))]
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
@@ -7,6 +8,11 @@ use std::time::{Duration, Instant};
 pub const BACKGROUND_WORKER_ARGUMENT: &str = "--app-tracking-worker-v1";
 const JOB_LIFETIME_MS: u64 = 30_000;
 const REQUEST_BUDGET: Duration = Duration::from_secs(5);
+
+#[cfg(windows)]
+#[allow(unsafe_code)] // Only CreateProcessW with no handle inheritance; see the module's safety proof.
+#[path = "windows_spawn.rs"]
+mod windows_spawn;
 
 /// Local versioned handoff metadata only. Payload and credential stay in the
 /// existing private state; the process argument carries only a random job nonce.
@@ -46,6 +52,16 @@ pub(super) fn start(
             created_ms: now,
         })?;
     }
+    spawn_worker(&nonce)
+}
+
+#[cfg(windows)]
+fn spawn_worker(nonce: &str) -> Result<(), Error> {
+    windows_spawn::spawn(nonce).map_err(|_| Error::Background)
+}
+
+#[cfg(not(windows))]
+fn spawn_worker(nonce: &str) -> Result<(), Error> {
     let mut command = Command::new(std::env::current_exe().map_err(|_| Error::Background)?);
     command
         .arg(BACKGROUND_WORKER_ARGUMENT)
@@ -57,13 +73,6 @@ pub(super) fn start(
     {
         use std::os::unix::process::CommandExt;
         command.process_group(0);
-    }
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        // DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP. No console or inherited
-        // foreground Ctrl+C group; no attempt to escape a CI/container job.
-        command.creation_flags(0x0000_0008 | 0x0000_0200);
     }
     let mut child = command.spawn().map_err(|_| Error::Background)?;
     // Reap while a long-lived host remains alive, without joining this thread.
