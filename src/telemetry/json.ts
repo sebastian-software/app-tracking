@@ -151,3 +151,25 @@ export async function readJSON(
     else reader.releaseLock();
   }
 }
+
+export async function readEmptyBody(request: Request, signal: AbortSignal): Promise<void> {
+  const declared = request.headers.get("content-length");
+  if (declared !== null && (!/^\d+$/.test(declared) || Number(declared) !== 0))
+    throw new TelemetryError("invalid_request");
+  const reader = request.body?.getReader();
+  if (!reader) return;
+  let done = false;
+  try {
+    while (true) {
+      const chunk = await abortable(reader.read(), signal);
+      if (chunk.done) {
+        done = true;
+        return;
+      }
+      if (chunk.value.byteLength) throw new TelemetryError("invalid_request");
+    }
+  } finally {
+    if (!done) void reader.cancel().catch(() => {});
+    else reader.releaseLock();
+  }
+}

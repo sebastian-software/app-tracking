@@ -24,6 +24,11 @@ export async function ingestionIntegration(admin: string, runtime: string) {
     process.env.INGESTION_HTTP_DRIVER === "1"
       ? createStorage(runtime)
       : {
+          deleteV1(tool, id, token) {
+            return run(
+              `SELECT app_tracking.delete_installation_v1(${q(tool)},${q(id)},${q(token)})`,
+            );
+          },
           registerV1(tool, id, token, revision, consented, mode) {
             return run(
               `SELECT app_tracking.register_installation_v1(${q(tool)},${q(id)},${q(token)},${q(revision)},${q(consented)},${q(mode)})`,

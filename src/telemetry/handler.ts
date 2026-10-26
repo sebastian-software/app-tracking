@@ -13,9 +13,12 @@ import {
   uuid7,
   type ErrorCode,
 } from "./contract.ts";
-import { abortable, readJSON } from "./json.ts";
+import { abortable, readJSON, readEmptyBody } from "./json.ts";
 
-export type TelemetryStorage = Pick<ReturnType<typeof createStorage>, "registerV1" | "submitV1">;
+export type TelemetryStorage = Pick<
+  ReturnType<typeof createStorage>,
+  "registerV1" | "submitV1" | "deleteV1"
+>;
 const encoder = new TextEncoder();
 // Exported for integration tests and future gated composition only. The production
 // version entry point deliberately does not import or enable this handler.
@@ -28,8 +31,10 @@ export function createTelemetryHandler(storage: TelemetryStorage) {
     if (url.search || url.hash || request.url.includes("?") || request.url.includes("#"))
       return failure("invalid_request");
     if (installation && !uuid7.test(installation[1])) return failure("invalid_request");
-    const allowed = installation ? "PUT" : "POST";
-    if (request.method !== allowed) return failure("method_not_allowed", { Allow: allowed });
+    const deleting = !!installation && request.method === "DELETE";
+    const allowed = installation ? "PUT, DELETE" : "POST";
+    if (!(installation ? ["PUT", "DELETE"] : ["POST"]).includes(request.method))
+      return failure("method_not_allowed", { Allow: allowed });
     let headerBytes = 0;
     for (const [name, value] of request.headers) {
       if (headerBytes + name.length + value.length + 4 > policy.max_header_bytes)
@@ -39,9 +44,10 @@ export function createTelemetryHandler(storage: TelemetryStorage) {
     if (headerBytes > policy.max_header_bytes || request.headers.has("cookie"))
       return failure("invalid_request");
     if (
-      !/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(
-        request.headers.get("content-type") ?? "",
-      ) ||
+      (!deleting &&
+        !/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(
+          request.headers.get("content-type") ?? "",
+        )) ||
       request.headers.has("content-encoding")
     )
       return failure("unsupported_media_type");
@@ -54,6 +60,16 @@ export function createTelemetryHandler(storage: TelemetryStorage) {
       AbortSignal.timeout(policy.server_request_deadline_ms),
     ]);
     try {
+      if (deleting && installation) {
+        await readEmptyBody(request, signal);
+        const id = installation[1];
+        const tokenHash = await sha256(`app-tracking-token-v1\n${id}\n${credential}`);
+        if (signal.aborted) throw new TelemetryError("service_unavailable");
+        const { result } = await abortable(storage.deleteV1("dalo", id, tokenHash, signal), signal);
+        const outcome = checkedResult(result);
+        if (outcome.status !== "deleted") throw new TelemetryError("service_unavailable");
+        return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });
+      }
       const input = await readJSON(
         request,
         installation ? policy.max_registration_bytes : policy.max_batch_bytes,

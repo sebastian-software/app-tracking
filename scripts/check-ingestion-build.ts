@@ -11,7 +11,9 @@ globalThis.fetch = async (input, init) => {
   calls.push(call);
   const result = call.query.includes("register_installation_v1")
     ? { status: "registered" }
-    : { status: "accepted", received_at: fixture.now };
+    : call.query.includes("delete_installation_v1")
+      ? { status: "deleted" }
+      : { status: "accepted", received_at: fixture.now };
   return Response.json({
     fields: [{ name: "result", dataTypeID: 3802 }],
     rows: [[JSON.stringify(result)]],
@@ -57,6 +59,18 @@ try {
   );
   assert.equal(calls[1].params[4], fixture.payload_sha256);
   assert.ok(!JSON.stringify(calls).includes(token));
+  const deleted = await handle(
+    new Request(`https://example.invalid/v1/installations/${fixture.installation_id}`, {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${token}` },
+    }),
+  );
+  assert.ok(deleted instanceof Response);
+  assert.equal(deleted.status, 204);
+  assert.equal(await deleted.text(), "");
+  assert.equal(calls.length, 3);
+  assert.match(calls[2].query, /delete_installation_v1\(\$1,/);
+  assert.equal(calls[2].params.length, 3);
   const meta = JSON.parse(await readFile("dist/edge.meta.json", "utf8"));
   assert.ok(
     !Object.keys(meta.inputs).some((p) => p.includes("/telemetry/") || p.includes("/storage/")),
