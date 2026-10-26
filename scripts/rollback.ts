@@ -6,7 +6,7 @@ import { publish } from "./release.ts";
 import { verifyDeployment, waitForRevision } from "./verify-deployment.ts";
 import type { Target } from "./provision.ts";
 // Restore an immutable artifact from a previously verified release, never rebuilt source.
-const manifest: { revision: string; sha256: string } = JSON.parse(
+const manifest: { revision: string; sha256: string; telemetry?: boolean } = JSON.parse(
   await readFile("rollback/release.json", "utf8"),
 );
 if (!/^[a-f0-9]{40}$/.test(manifest.revision)) throw new Error("Invalid rollback revision");
@@ -18,7 +18,13 @@ if (
 )
   throw new Error("Rollback artifact integrity failure");
 const target: Target = JSON.parse(await readFile(".deployment/target.json", "utf8"));
-await publish(bunnyApi(required("BUNNY_API_KEY")), target, code, manifest.revision);
+const api = bunnyApi(required("BUNNY_API_KEY"));
+const telemetryEnabled = manifest.telemetry === true && process.env.TELEMETRY_ENABLED === "1";
+await api("PUT", `/compute/script/${target.scriptId}/secrets`, {
+  Name: "APP_TRACKING_TELEMETRY_ENABLED",
+  Secret: telemetryEnabled ? "1" : "0",
+});
+await publish(api, target, code, manifest.revision);
 await waitForRevision(target.base, manifest.revision);
-await verifyDeployment(target.base, manifest.revision);
+await verifyDeployment(target.base, manifest.revision, fetch, telemetryEnabled);
 console.log("Rollback restored the verified artifact; CDN purge and contract checks passed.");

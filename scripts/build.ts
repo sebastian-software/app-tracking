@@ -9,7 +9,10 @@ const sdk = fileURLToPath(
   new URL("../esm-bunny/lib.mjs", import.meta.resolve("@bunny.net/edgescript-sdk")),
 );
 const revision = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
-const notices = await readFile("THIRD_PARTY_NOTICES.md", "utf8");
+const notices =
+  (await readFile("THIRD_PARTY_NOTICES.md", "utf8")) +
+  "\n" +
+  (await readFile("STORAGE_PROOF_NOTICES.md", "utf8"));
 await mkdir("dist", { recursive: true });
 for (const [name, entry] of [
   ["edge", "src/edge.ts"],
@@ -20,7 +23,8 @@ for (const [name, entry] of [
     outfile: `dist/${name}.js`,
     bundle: true,
     format: "esm",
-    platform: "neutral",
+    platform: "browser",
+    conditions: ["browser"],
     target: "es2022",
     define: { __APP_REVISION__: JSON.stringify(revision) },
     alias: { "@bunny.net/edgescript-sdk": sdk },

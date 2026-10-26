@@ -16,7 +16,11 @@ if (import.meta.main) {
   if (!code.includes(revision))
     throw new Error("Bundle revision does not match deployment revision");
   await publish(bunnyApi(required("BUNNY_API_KEY")), target, code, revision);
-  await writeFile("dist/release.json", JSON.stringify({ revision, sha256: hash }) + "\n");
+  await writeFile(
+    "dist/release.json",
+    JSON.stringify({ revision, sha256: hash, telemetry: process.env.TELEMETRY_ENABLED === "1" }) +
+      "\n",
+  );
   console.log(
     "Bundle published and zone purge requested; endpoint verification is still required.",
   );

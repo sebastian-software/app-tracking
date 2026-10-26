@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { catalog, versionPath } from "../src/catalog.ts";
 import { record } from "../src/contract.ts";
+import { FRESH_SECONDS, MAX_AGE_SECONDS } from "../src/resolver.ts";
 export async function verifyDeployment(
   base: string,
   revision: string,
   fetcher: typeof fetch = fetch,
+  telemetryEnabled = false,
 ) {
   const url = new URL(base);
   assert.equal(url.protocol, "https:");
@@ -27,6 +29,7 @@ export async function verifyDeployment(
   for (const entry of catalog) {
     const path = versionPath(entry);
     let hit = false;
+    let stale = false;
     for (let n = 0; n < 8; n++) {
       const response = await get(path);
       assert.equal(response.status, 200);
@@ -34,9 +37,17 @@ export async function verifyDeployment(
       assert.ok(data);
       assert.equal(data.tool_id, entry.tool);
       assert.equal(data.distribution, entry.distribution);
-      assert.equal(data.stale, false);
       const age = Date.now() - Date.parse(String(data.checked_at));
-      assert.ok(age >= -300_000 && age < 3_600_000, "Version result is not fresh");
+      assert.ok(age >= -300_000 && age < MAX_AGE_SECONDS * 1_000, "Version result expired");
+      assert.equal(typeof data.stale, "boolean");
+      stale = data.stale === true;
+      assert.ok(stale || age < FRESH_SECONDS * 1_000, "Old snapshot was labeled fresh");
+      if (stale) {
+        assert.ok(age >= FRESH_SECONDS * 1_000 - 5_000, "Fresh snapshot was labeled stale");
+        assert.equal(response.headers.get("cache-control"), "no-store");
+        assert.notEqual(response.headers.get("cdn-cache")?.toUpperCase(), "HIT");
+        break;
+      }
       const tag = response.headers.get("etag");
       assert.ok(tag);
       hit ||= response.headers.get("cdn-cache")?.toUpperCase() === "HIT";
@@ -57,7 +68,7 @@ export async function verifyDeployment(
       }
       await new Promise((r) => setTimeout(r, 500));
     }
-    assert.ok(hit, "No CDN cache HIT was observed within the bounded probe");
+    assert.ok(stale || hit, "No CDN cache HIT was observed within the bounded probe");
     for (const invalid of [path + "?unexpected=1"]) {
       const response = await get(invalid);
       assert.equal(response.status, 400, "The cache served an invalid query");
@@ -68,14 +79,40 @@ export async function verifyDeployment(
   for (const path of ["/health", "/v1/admin/usage", "/v1/usage-batches"]) {
     for (let n = 0; n < 2; n++) {
       const response = await get(path);
-      assert.equal(response.status, path === "/health" ? 200 : 404);
+      assert.equal(
+        response.status,
+        path === "/health" ? 200 : path === "/v1/usage-batches" && telemetryEnabled ? 405 : 404,
+      );
       assert.equal(response.headers.get("cache-control"), "no-store");
       assert.notEqual(response.headers.get("cdn-cache")?.toUpperCase(), "HIT");
     }
   }
-  console.log(
-    "Deployment contract, revision, CDN hits, conditional requests, and cache bypass passed.",
-  );
+  if (telemetryEnabled) {
+    for (const [method, path] of [
+      ["PUT", "/v1/installations/00000000-0000-7000-8000-000000000001"],
+      ["DELETE", "/v1/installations/00000000-0000-7000-8000-000000000001"],
+      ["POST", "/v1/usage-batches"],
+    ]) {
+      for (let n = 0; n < 2; n++) {
+        const response = await fetcher(new URL(path, base), {
+          method,
+          headers: { "Content-Type": "application/json", "App-Tracking-Tool": "palamedes" },
+          ...(method === "DELETE" ? {} : { body: "{}" }),
+          redirect: "error",
+          signal: AbortSignal.timeout(10_000),
+        });
+        assert.equal(response.headers.get("x-app-revision"), revision);
+        assert.equal(response.status, 401);
+        assert.equal(response.headers.get("cache-control"), "no-store");
+        assert.notEqual(response.headers.get("cdn-cache")?.toUpperCase(), "HIT");
+        assert.deepEqual(await response.json(), {
+          schema_version: 1,
+          error: { code: "unauthorized" },
+        });
+      }
+    }
+  }
+  console.log("Deployment revision, version age/cache policy, and private cache bypass passed.");
 }
 export async function waitForRevision(
   base: string,
@@ -104,5 +141,5 @@ if (import.meta.main) {
   const revision = process.env.RELEASE_REVISION;
   if (!base || !revision) throw new Error("DEPLOYMENT_BASE and RELEASE_REVISION are required");
   await waitForRevision(base, revision);
-  await verifyDeployment(base, revision);
+  await verifyDeployment(base, revision, fetch, process.env.TELEMETRY_ENABLED === "1");
 }

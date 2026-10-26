@@ -20,8 +20,7 @@ export type TelemetryStorage = Pick<
   "registerV1" | "submitV1" | "deleteV1"
 >;
 const encoder = new TextEncoder();
-// Exported for integration tests and future gated composition only. The production
-// version entry point deliberately does not import or enable this handler.
+// Shared by the explicitly gated production composition and integration tests.
 export function createTelemetryHandler(storage: TelemetryStorage) {
   return async (request: Request): Promise<Response> => {
     const url = new URL(request.url);

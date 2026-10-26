@@ -3,7 +3,8 @@
 Issue [#8](https://github.com/sebastian-software/app-tracking/issues/8) implements
 the gated installation DELETE route and scheduled retention work. The
 [v1 API](telemetry-api.md) and [retention policy](telemetry-retention.md) own the
-public behavior. The production edge bundle remains version-only until #11.
+public behavior. The production composition gates telemetry separately from version delivery;
+[operations](operations.md) owns activation and live readiness evidence.
 
 ## Deletion and completion
 

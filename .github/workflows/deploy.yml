@@ -1,4 +1,4 @@
-name: Deploy version service
+name: Deploy app-tracking
 on:
   push:
     branches: [main]
@@ -14,6 +14,11 @@ on:
         required: false
         type: boolean
         default: false
+      production_proof:
+        description: Verify the production composition on a temporary authenticated Bunny endpoint
+        required: false
+        type: boolean
+        default: false
       release_run:
         description: Successful release run to restore; leave empty to deploy main
         required: false
@@ -26,9 +31,11 @@ concurrency:
   cancel-in-progress: false
 jobs:
   deploy:
-    if: github.ref == 'refs/heads/main' && !inputs.storage_proof && !inputs.ingestion_test
+    if: github.ref == 'refs/heads/main' && !inputs.storage_proof && !inputs.ingestion_test && !inputs.production_proof
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      TELEMETRY_ENABLED: ${{ vars.APP_TRACKING_TELEMETRY_ENABLED == '1' && '1' || '0' }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
@@ -51,6 +58,14 @@ jobs:
           SCRIPT_NAME: app-tracking
           ZONE_NAME: sebastian-app-tracking
         run: node scripts/provision.ts
+      - name: Configure isolated telemetry runtime
+        if: inputs.release_run == ''
+        env:
+          BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
+          MIGRATION_DATABASE_URL: ${{ secrets.APP_TRACKING_MIGRATION_DATABASE_URL }}
+          RUNTIME_DATABASE_URL: ${{ secrets.APP_TRACKING_RUNTIME_DATABASE_URL }}
+          MIGRATION_OWNER_ROLE: app_tracking_owner
+        run: node scripts/configure-telemetry.ts
       - name: Publish and verify
         if: inputs.release_run == ''
         env:
@@ -60,6 +75,7 @@ jobs:
         run: |
           node scripts/release.ts
           node scripts/verify-deployment.ts
+          if [ "$TELEMETRY_ENABLED" = "1" ]; then node scripts/verify-telemetry.ts; fi
       - name: Restore a previously verified bundle
         if: inputs.release_run != ''
         env:
@@ -77,6 +93,9 @@ jobs:
             dist/release.json
           retention-days: 90
           if-no-files-found: error
+      - name: Retry cleanup of this run's synthetic identity
+        if: always()
+        run: node scripts/verify-telemetry.ts --cleanup
 
   storage-proof:
     if: github.event_name == 'workflow_dispatch' && inputs.storage_proof
@@ -160,7 +179,50 @@ jobs:
       - run: cargo +${{ steps.rust.outputs.version }} build --locked --examples
       - name: Verify gated ingestion using real PlanetScale HTTP calls
         run: |
+          node scripts/storage/check-runtime.ts
           node scripts/storage/test-ingestion.ts
           node scripts/storage/test-rust-telemetry.ts
       - name: Verify authenticated scheduled-maintenance command
         run: node scripts/storage/run-retention.ts
+
+  production-proof:
+    if: github.event_name == 'workflow_dispatch' && inputs.production_proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa
+        with:
+          run_install: false
+          cache: true
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm check
+      - name: Verify effective query logging
+        env:
+          RUNTIME_DATABASE_URL: ${{ secrets.APP_TRACKING_RUNTIME_DATABASE_URL }}
+        run: node scripts/storage/check-runtime.ts
+      - name: Verify the shared Bunny runtime with owned synthetic reports
+        env:
+          BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
+          RUNTIME_DATABASE_URL: ${{ secrets.APP_TRACKING_RUNTIME_DATABASE_URL }}
+        run: node scripts/storage/run-runtime-proof.ts
+      - name: Verify scheduled retention and deletion health
+        env:
+          MIGRATION_DATABASE_URL: ${{ secrets.APP_TRACKING_MIGRATION_DATABASE_URL }}
+        run: |
+          node scripts/storage/run-retention.ts
+          node scripts/storage/check-operations.ts
+      - name: Retry fixture cleanup
+        if: always()
+        run: node scripts/verify-telemetry.ts --cleanup
+      - name: Remove this run's temporary Bunny endpoint
+        if: always()
+        env:
+          BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
+        run: node scripts/storage/cleanup-proof.ts

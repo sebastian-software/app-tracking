@@ -11,6 +11,8 @@ export const SETTINGS = {
   EnableLogging: false,
   LogForwardingEnabled: false,
   LoggingSaveToStorage: false,
+  RequestLimit: 20,
+  BurstSize: 40,
   EdgeScriptExecutionPhase: 0,
 };
 interface Script {

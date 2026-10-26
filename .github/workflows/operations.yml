@@ -1,0 +1,37 @@
+name: Telemetry operations
+on:
+  schedule:
+    - cron: "43 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: telemetry-operations
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: vars.APP_TRACKING_TELEMETRY_ENABLED == '1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa
+        with:
+          run_install: false
+          cache: true
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Probe registration, ingestion, replay, rejection, and deletion
+        run: node scripts/verify-telemetry.ts
+      - name: Check maintenance age and deletion backlog
+        env:
+          MIGRATION_DATABASE_URL: ${{ secrets.APP_TRACKING_MIGRATION_DATABASE_URL }}
+        run: node scripts/storage/check-operations.ts
+      - name: Retry this run's pending synthetic deletion
+        if: always()
+        run: node scripts/verify-telemetry.ts --cleanup
