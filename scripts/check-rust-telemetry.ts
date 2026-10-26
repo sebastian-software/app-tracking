@@ -311,9 +311,7 @@ export async function checkRustTelemetry(storage?: TelemetryStorage, admin?: str
 
     phase = "batch conflict";
     fault = "conflict";
-    await due("shared");
-    assert.equal((await run("shared", "flush")).action, "paused");
-    await settle();
+    await eventually("shared", "flush", "paused");
     assert.equal((await run("shared", "status")).terminal_status, 409);
     assert.equal((await state("shared")).batches.length, 1);
     checks += 3;
@@ -353,9 +351,7 @@ export async function checkRustTelemetry(storage?: TelemetryStorage, admin?: str
         );
         assert.equal(response.status, 204);
       }
-      await due(name);
-      assert.equal((await run(name, "flush")).action, "paused");
-      await settle();
+      await eventually(name, "flush", "paused");
       assert.equal(
         (await run(name, "status")).terminal_status,
         name === "unauthorized" ? 401 : 410,
