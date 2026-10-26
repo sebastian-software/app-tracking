@@ -11,6 +11,7 @@ interface Result {
   instance: string;
   ordinal: number;
   heap_used_bytes: number | null;
+  memory_source: string;
   rss_bytes: number | null;
 }
 export async function verifyProof(base: string, secret: string) {
@@ -182,6 +183,7 @@ export async function verifyProof(base: string, secret: string) {
       observed_instances: new Set(measurements.map((r) => r.instance)).size,
       first_observed_invocation: Math.min(...measurements.map((r) => r.ordinal)),
       maximum_observed_heap_bytes: heap.length ? Math.max(...heap) : null,
+      memory_sources: [...new Set(measurements.map((r) => r.memory_source))],
       memory_scope: "runtime heap snapshots; not peak active memory or process RSS",
       cache: "no shared cache hits",
       telemetry_routes_enabled: false,

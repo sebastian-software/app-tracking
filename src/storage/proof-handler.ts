@@ -32,6 +32,7 @@ export function createProofHandler(databaseUrl: string, secret: string) {
       request.headers.has("content-encoding")
     )
       return reply({ error: "media_type" }, 415);
+    let phase = "read_body";
     try {
       const reader = request.body?.getReader();
       if (!reader) return reply({ error: "body_required" }, 400);
@@ -53,9 +54,11 @@ export function createProofHandler(databaseUrl: string, secret: string) {
         bytes.set(chunk, offset);
         offset += chunk.length;
       }
+      phase = "parse_body";
       const input: Input = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
       if (!input || typeof input.id !== "string" || typeof input.token_hash !== "string")
         return reply({ error: "invalid_input" }, 400);
+      phase = "database";
       let output;
       if (url.pathname === "/proof/register") {
         if (typeof input.consented_at !== "string") return reply({ error: "invalid_input" }, 400);
@@ -86,25 +89,40 @@ export function createProofHandler(databaseUrl: string, secret: string) {
       }
       // This deliberately models a lost application acknowledgement AFTER commit.
       if (input.discard_ack) return reply({ error: "acknowledgement_discarded" }, 503);
-      const deno = (
-        globalThis as unknown as {
-          Deno?: { memoryUsage?: () => { heapUsed: number; rss: number } };
+      phase = "memory";
+      let memory: { heapUsed: number; rss: number } | undefined;
+      let memorySource = "unavailable";
+      const globals = globalThis as unknown as {
+        Deno?: { memoryUsage?: () => { heapUsed: number; rss: number } };
+        process?: { memoryUsage?: () => { heapUsed: number; rss: number } };
+      };
+      for (const source of ["Deno", "process"] as const) {
+        try {
+          const provider = globals[source];
+          if (typeof provider?.memoryUsage === "function") {
+            memory = provider.memoryUsage();
+            memorySource = source;
+            break;
+          }
+        } catch {
+          /* Optional diagnostics cannot change a committed operation's acknowledgement. */
         }
-      ).Deno;
-      const memory = deno?.memoryUsage?.();
+      }
+      phase = "response";
       return reply({
         ...output,
         elapsed_ms: performance.now() - started,
         request_bytes: length,
         instance,
         ordinal,
+        memory_source: memorySource,
         heap_used_bytes: memory?.heapUsed ?? null,
         rss_bytes: memory?.rss ?? null,
       });
     } catch (error) {
       return reply(
-        { error: error instanceof StorageError ? error.code : "invalid_input" },
-        error instanceof StorageError ? 503 : 400,
+        { error: error instanceof StorageError ? error.code : `probe_failure_${phase}` },
+        error instanceof StorageError ? 503 : 500,
       );
     }
   };
