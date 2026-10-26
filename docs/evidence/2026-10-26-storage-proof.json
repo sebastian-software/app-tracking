@@ -1,0 +1,21 @@
+{
+  "checks": 12,
+  "rows_per_maximum_batch": 256,
+  "maximum_request_bytes": 65536,
+  "samples": 11,
+  "first_maximum_ms": 550.014367,
+  "first_maximum_client_ms": 813.9937749999999,
+  "startup_attempts": 2,
+  "first_maximum_invocation": 1,
+  "p50_maximum_ms": 199.79074300000048,
+  "max_maximum_ms": 550.014367,
+  "max_database_ms": 537.2396249999999,
+  "subrequests_per_operation": 1,
+  "observed_instances": 3,
+  "first_observed_invocation": 1,
+  "maximum_observed_heap_bytes": null,
+  "memory_sources": ["unavailable"],
+  "memory_scope": "runtime heap snapshots; not peak active memory or process RSS",
+  "cache": "no shared cache hits",
+  "telemetry_routes_enabled": false
+}

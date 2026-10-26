@@ -47,7 +47,9 @@ PlanetScale's current
 supports Postgres over HTTP using its SQL endpoint, including non-interactive
 transactions. This supersedes the older assumption that only the WebSocket
 mode is supported. Pin and test the actual driver version; documentation is
-evidence of a candidate contract, not a successful Bunny integration test.
+evidence of a candidate contract. The subsequent [live storage proof](../storage-proof.md)
+records the tested versions, provider configuration, latency, correctness checks,
+and unavailable memory measurements; it does not establish untested capacity.
 
 Use the [RFC 0001](0001-service-api-and-data-model.md) database function or an
 equally proven transaction boundary for ingestion. Do not require persistent
@@ -198,7 +200,10 @@ disable an existing service as a side effect of deploying this one.
 
 ## Decisions still needed before rollout
 
-- Runtime/driver proof, database region/tier, and hostname. The implementation
+- Resolve the [storage proof's measurement limits](../storage-proof.md#evidence-and-outstanding-decisions),
+  including unavailable edge memory observations, before claiming a measured
+  memory budget. Runtime/driver and database region/tier are recorded in
+  [ADR 0006](../adr/0006-bunny-hosting-and-planetscale-storage.md). The implementation
   license is selected in [ADR 0007](../adr/0007-dual-license.md).
 - Actual legal/processor review and released notice for the configured service.
   The telemetry contract, identity, consent, retry, and retention requirements
