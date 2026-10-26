@@ -220,7 +220,9 @@ test("v1 success/error/deletion fixtures conform to strict schemas", () => {
 });
 
 test("policy command catalog agrees with the wire schema", () => {
-  assert.deepEqual(schema.$defs.row.properties.command.enum, policy.tools.dalo.commands);
+  assert.deepEqual(schema.$defs.row.properties.command.enum, [
+    ...new Set(Object.values(policy.tools).flatMap((tool: any) => tool.commands)),
+  ]);
   assert.equal(schema.$defs.batch.properties.rows.maxItems, policy.max_rows);
   assert.equal(schema.$defs.row.properties.count.maximum, policy.max_row_count);
   assert.ok(policy.receipt_retention_days * DAY > policy.batch_max_age_seconds * 1000 + 2 * GRACE);
@@ -308,4 +310,19 @@ test("retry deadlines are capped and never earlier than server suppression", () 
   assert.equal(delay(1, 90000), 86400);
   assert.equal(delay(3, 1), 1800);
   assert.equal(delay(1, 120), 120);
+});
+
+test("tool-specific schemas do not accept another tool's command catalog", () => {
+  const palamedes = {
+    ...fixture.batch,
+    tool_id: "palamedes",
+    rows: [{ ...fixture.batch.rows[0], command: "extract" }],
+  };
+  assert.equal(validate("batch")(palamedes), true);
+  assert.equal(validate("registration")({ ...fixture.registration, tool_id: "palamedes" }), true);
+  assert.equal(validate("batch")({ ...palamedes, tool_id: "dalo" }), false);
+  assert.equal(
+    validate("batch")({ ...palamedes, rows: [{ ...palamedes.rows[0], command: "sync" }] }),
+    false,
+  );
 });

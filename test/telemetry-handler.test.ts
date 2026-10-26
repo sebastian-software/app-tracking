@@ -45,7 +45,10 @@ function setup() {
       const error =
         args[5] !== "telemetry-v1"
           ? "consent_required"
-          : args[6].some((r) => !policy.tools.dalo.commands.includes(r.command))
+          : args[6].some(
+                (r) =>
+                  !policy.tools[args[0] as keyof typeof policy.tools].commands.includes(r.command),
+              )
             ? "invalid_request"
             : undefined;
       return {
@@ -441,4 +444,24 @@ test("pending and failed deletion never produce a completion acknowledgement", a
   response = await createTelemetryHandler(storage)(req());
   assert.equal(response.status, 401);
   assert.equal(await code(response), "unauthorized");
+});
+
+test("Palamedes registration and scoped deletion reach the right tool", async () => {
+  const { handle, calls } = setup();
+  assert.equal(
+    (await handle(request(path, { ...fixture.registration, tool_id: "palamedes" }))).status,
+    201,
+  );
+  assert.equal(calls[0].args[0], "palamedes");
+  const deleting = (tool?: string) =>
+    new Request(`https://example.invalid${path}`, {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${token}`, ...(tool ? { "App-Tracking-Tool": tool } : {}) },
+    });
+  assert.equal((await handle(deleting("palamedes"))).status, 204);
+  assert.equal(calls[1].args[0], "palamedes");
+  assert.equal((await handle(deleting())).status, 204);
+  assert.equal(calls[2].args[0], "dalo");
+  assert.equal(await code(await handle(deleting("unknown"))), "unsupported_tool");
+  assert.equal(calls.length, 3);
 });

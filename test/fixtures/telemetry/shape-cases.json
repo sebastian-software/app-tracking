@@ -180,7 +180,7 @@
     "changes": [
       {
         "path": ["tool_id"],
-        "value": "palamedes"
+        "value": "unknown"
       }
     ],
     "valid": false

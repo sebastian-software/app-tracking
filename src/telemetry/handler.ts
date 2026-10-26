@@ -65,7 +65,10 @@ export function createTelemetryHandler(storage: TelemetryStorage) {
         const id = installation[1];
         const tokenHash = await sha256(`app-tracking-token-v1\n${id}\n${credential}`);
         if (signal.aborted) throw new TelemetryError("service_unavailable");
-        const { result } = await abortable(storage.deleteV1("dalo", id, tokenHash, signal), signal);
+        // Older Dalo clients predate the multi-tool deletion header.
+        const tool = request.headers.get("App-Tracking-Tool") ?? "dalo";
+        if (!Object.hasOwn(policy.tools, tool)) return failure("unsupported_tool");
+        const { result } = await abortable(storage.deleteV1(tool, id, tokenHash, signal), signal);
         const outcome = checkedResult(result);
         if (outcome.status !== "deleted") throw new TelemetryError("service_unavailable");
         return new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } });

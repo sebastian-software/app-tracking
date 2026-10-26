@@ -56,6 +56,19 @@
         "instructions",
         "other"
       ]
+    },
+    "palamedes": {
+      "commands": [
+        "extract",
+        "lint",
+        "audit",
+        "report",
+        "catalogmerge",
+        "catalogconvert",
+        "catalogcompile",
+        "plugin",
+        "other"
+      ]
     }
   },
   "max_header_bytes": 16384,
