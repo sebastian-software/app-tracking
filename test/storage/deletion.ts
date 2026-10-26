@@ -13,7 +13,9 @@ export async function deletionIntegration(admin: string, runtime: string) {
     handle = createTelemetryHandler(storage);
   const ids: string[] = [];
   let checks = 0,
-    phase = "deletion";
+    phase = "deletion",
+    measuredCalls = 0,
+    lastStatus = 0;
   const identity = () => {
     const item = {
       id: uuid7(),
@@ -169,9 +171,10 @@ export async function deletionIntegration(admin: string, runtime: string) {
     assert.equal((await runMaintenance(admin, 100, 1000)).complete, true);
     await expect(await del(large), 204);
     checks++;
-    phase = "page_budget_measurement";
+    phase = "volume_seed";
     const volume = await fresh();
     await seed(volume, 32768, 1);
+    phase = "page_budget_measurement";
     const latencies: number[] = [];
     let calls = 0;
     while (true) {
@@ -179,6 +182,8 @@ export async function deletionIntegration(admin: string, runtime: string) {
         response = await del(volume);
       latencies.push(performance.now() - started);
       calls++;
+      measuredCalls = calls;
+      lastStatus = response.status;
       assert.ok([204, 503].includes(response.status));
       if (response.status === 204) break;
       assert.ok(calls < 40);
@@ -288,8 +293,20 @@ export async function deletionIntegration(admin: string, runtime: string) {
       transport: process.env.INGESTION_HTTP_DRIVER === "1" ? "PlanetScale HTTP" : "PostgreSQL TCP",
       public_routes_enabled: false,
     };
-  } catch {
-    console.error(JSON.stringify({ deletion_test_phase: phase, completed_checks: checks }));
+  } catch (error) {
+    const state =
+      error instanceof Error
+        ? error.message.match(/Database operation failed \(([0-9A-Z]{5})\)/)?.[1]
+        : undefined;
+    console.error(
+      JSON.stringify({
+        deletion_test_phase: phase,
+        completed_checks: checks,
+        measured_calls: measuredCalls,
+        last_status: lastStatus,
+        sqlstate: state,
+      }),
+    );
     throw new Error("Deletion integration failed; inspect privately");
   } finally {
     for (const id of ids)
