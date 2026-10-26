@@ -263,7 +263,8 @@ Deletion commits bounded purge steps. The first committed step revokes reporting
 authority and excludes the installation from reporting visibility. A large purge
 may return `503 service_unavailable` with `Retry-After: 60` while primary data
 remains; the client keeps deletion pending and retries the same ID/credential.
-The scheduled worker can finish the purge between attempts. Only a call observing
+A physical-purge lock/statement timeout preserves the revocation while rolling
+back that page. The scheduled worker can finish the purge between attempts. Only a call observing
 a fully committed primary purge returns `204`; a timeout, partial purge, or failed
 acknowledgement never does. No progress field, `202`, or new success shape is
 introduced. The [lifecycle runbook](telemetry-lifecycle.md) records these bounded

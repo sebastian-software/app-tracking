@@ -283,6 +283,19 @@ export async function deletionIntegration(admin: string, runtime: string) {
       "0",
     );
     checks++;
+    phase = "reader_timezone";
+    const timezone = await fresh();
+    await expect(await post(timezone), 200);
+    await sql(
+      `UPDATE app_tracking.reporting_installations SET last_activity_at=clock_timestamp()-interval '2160 hours'-interval '30 minutes' WHERE installation_id=${q(timezone.id)}`,
+    );
+    assert.equal(
+      await sql(
+        `BEGIN; SET LOCAL timezone='Europe/Berlin'; SELECT count(*) FROM app_tracking.reporting_usage_v1 WHERE installation_id=${q(timezone.id)}; ROLLBACK;`,
+      ),
+      "0",
+    );
+    checks++;
     phase = "permissions";
     for (const forbidden of [
       "SELECT app_tracking.maintain_v1(1)",

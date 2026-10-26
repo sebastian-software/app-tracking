@@ -27,7 +27,9 @@ A larger installation may need several steps. A committed partial purge returns
 `503 service_unavailable` with `Retry-After: 60`; the client keeps deletion
 pending and retries the same credential/ID. The scheduled worker can finish the
 same purge between attempts. A failed/aborted call is also an unknown outcome;
-never interpret it as completion. No new public status endpoint or asynchronous
+never interpret it as completion. A physical-purge lock/statement timeout rolls
+back that page while preserving the authenticated revocation and pending marker;
+no contribution becomes visible again because physical cleanup was blocked. No new public status endpoint or asynchronous
 success acknowledgement is added. Repeated completed deletion does not renew
 the tombstone time.
 
@@ -40,7 +42,8 @@ first-registration time validation after garbage collection.
 
 `app_tracking.reporting_usage_v1` is the authoritative visibility view for future
 reporting: it joins only active, nonexpired installations and excludes usage at
-the exact ninety-day UTC cutoff. A committed revocation disappears from a new
+the exact ninety-day UTC cutoff. Inactivity uses 2,160 elapsed hours, so a
+reader's session timezone or a daylight-saving transition cannot extend visibility. A committed revocation disappears from a new
 query even while a large physical purge is pending. One installation's deletion
 never removes another installation's contributions to the same project.
 
@@ -107,10 +110,10 @@ PlanetScale restore or a reason to roll back the shared provider cluster.
 
 ## Evidence
 
-The local suite passed 26 storage, 72 ingestion, 63 deletion/retention, and 11
+The local suite passed 26 storage, 72 ingestion, 73 deletion/retention, and 11
 isolated recovery checks. A 32,768-row fixture required 33 deletion calls;
 the one-row-per-batch variant also exercises the receipt page limit; its largest
-observed local handler-plus-TCP-call duration was 80.75 ms.
+observed local handler-plus-TCP-call duration was 229.20 ms.
 This is a page-work sample, not an end-to-end maximum data-size or capacity
 benchmark. Each page remains bounded independently of total installation size.
 [PlanetScale run 40308408097](https://github.com/sebastian-software/app-tracking/actions/runs/40308408097)
@@ -124,3 +127,12 @@ An earlier live run stopped at initial registration before useful status
 instrumentation. Its cause was not established; the subsequent diagnostic and
 full-receipt runs passed. This is not an availability guarantee. Client retry
 semantics and the operational monitoring in #11 remain required.
+
+The synthetic volume loader runs PostgreSQL `ANALYZE` after bulk insertion.
+A controlled cold-statistics fixture without it exhausted the 2.5-second SQL
+budget. The corrected DELETE preserved revocation and zero reporting visibility;
+a subsequent analyzed page completed quickly. Row-count limits bound writes,
+not optimizer cost under arbitrary stale statistics. Normal database statistics,
+statement/lock deadlines, and maintenance-failure monitoring remain operational
+requirements. A separate deterministic test holds a usage-row lock, verifies
+pending revocation survives, releases it, and then observes completed deletion.
