@@ -70,14 +70,14 @@ the disclosure, resolves policy, and designates one native invocation owner.
 There is no implicit reporting or consent from an update check. CI requires a
 separate explicit isolated scope; offline can count locally after consent.
 
-Use the [telemetry integration guide](https://github.com/sebastian-software/app-tracking/blob/main/docs/rust-telemetry-client.md)
+Use the [telemetry integration guide](https://github.com/sebastian-software/app-tracking/blob/app-tracking-v0.2.0/docs/rust-telemetry-client.md)
 for the API, state ownership, privacy boundaries, and known delivery losses.
 `app_tracking::project` normalizes repository context lazily after consent; see
-[normalization v1](https://github.com/sebastian-software/app-tracking/blob/main/docs/project-identity.md)
+[normalization v1](https://github.com/sebastian-software/app-tracking/blob/app-tracking-v0.2.0/docs/project-identity.md)
 and the packaged golden fixtures. The client makes at most one synchronous
 telemetry request per run with a 200 ms network deadline, without a worker.
 Production telemetry enablement and consumer adoption are separate steps.
 
 The update integration guide and release procedure live in the
-[repository documentation](https://github.com/sebastian-software/app-tracking/blob/main/docs/rust-client.md).
+[repository documentation](https://github.com/sebastian-software/app-tracking/blob/app-tracking-v0.2.0/docs/rust-client.md).
 Licensed under MIT OR Apache-2.0.

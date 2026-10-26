@@ -5,6 +5,19 @@
 //! [`Client::run`] after command work; preserve stdout and the command's status.
 //! Each call makes at most one synchronous request with a 200 ms network budget.
 //! See the repository's `docs/rust-telemetry-client.md` for lifecycle and storage.
+//!
+//! ```no_run
+//! use app_tracking::telemetry::{Client, Invocation, Policy};
+//! use app_tracking::project::{Origin, RepositoryContext};
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let client = Client::new("https://updates.example.com", "/private/profile/tracking", "dalo")?;
+//! let policy = Policy::default(); // Host supplies actual policy; default is no consent.
+//! let _ = client.run(&policy,
+//!     Some(Invocation { command: "sync", tool_version: "1.10.0" }),
+//!     || RepositoryContext { origin: Origin::Absent, package_json: None }, false);
+//! # Ok(())
+//! # }
+//! ```
 
 mod policy;
 mod state;
@@ -234,7 +247,16 @@ impl Client {
         // Controls return Busy while a bounded request owns this separate lock;
         // ordinary counter writes continue using only the short state lock.
         let _network = store.network_guard()?.ok_or(Error::Busy)?;
-        let mut state = self.load(&store, policy)?;
+        let mut state = match self.load(&store, policy) {
+            Ok(state) => state,
+            Err(Error::State) if matches!(control, Control::ForgetUnverified) => {
+                // Explicit loss recovery can discard corrupt/unknown state,
+                // but never a foreign symlink or a nonprivate state file.
+                store.allow_explicit_forget()?;
+                State::new(&self.scope(policy))
+            }
+            Err(error) => return Err(error),
+        };
         state.prune(now)?;
         match control {
             Control::Enable => {
@@ -513,7 +535,13 @@ impl Client {
         // counters stay intact, and withdrawal cannot be undone by a late ACK.
         let store = Store::claim(&self.directory(policy), false)?.ok_or(Error::State)?;
         let mut state = self.load(&store, policy)?;
-        if state.generation != request.generation || state.attempt != request.attempt {
+        if state.generation != request.generation
+            || state.attempt != request.attempt
+            || state
+                .authority
+                .as_ref()
+                .is_none_or(|a| a.id != request.id || a.token != request.token)
+        {
             return Ok(Action::Suppressed);
         }
         let action = self.finish(&mut state, request, response, now)?;
@@ -621,7 +649,9 @@ impl Client {
                 duplicate,
             } => {
                 let batch = request.batch.as_ref().ok_or(Error::State)?;
-                state.batches.retain(|b| b.id != batch.id);
+                state
+                    .batches
+                    .retain(|b| b.id != batch.id || b.hash != batch.hash);
                 if !duplicate {
                     state.authority.as_mut().ok_or(Error::State)?.last_remote_ms = received_ms;
                 }
