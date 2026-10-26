@@ -1,8 +1,8 @@
 # Opt-in telemetry contract: v1
 
 Status: implementation contract for issues #6–#12; telemetry is not enabled or
-implemented by this document. The deployed service and Rust crate remain
-version-only. This contract does not certify a production deployment or consent
+implemented by this document. The deployed service remains version-only; the [0.2 Rust telemetry client](rust-telemetry-client.md)
+is an explicit host API without automatic consumer opt-in. This contract does not certify a production deployment or consent
 flow. [ADR 0004](adr/0004-independent-updates-and-opt-in-telemetry.md) owns the
 decision; [client consent](telemetry-consent.md) and
 [retention](telemetry-retention.md) own the corresponding policies.
@@ -11,8 +11,8 @@ The [JSON Schema](../contracts/telemetry-v1.schema.json) owns wire shapes;
 [policy values](../contracts/telemetry-v1-policy.json) own exact limits and the
 initial command catalog. This page owns semantics and validation order. The
 [synthetic vectors](../test/fixtures/telemetry/) are consumer conformance inputs.
-The gated server implementation passes them at its HTTP boundary; the future
-Rust telemetry client must pass them at its own boundary. See the
+The gated server implementation passes them at its HTTP boundary; the Rust client verifies shared consent/canonical vectors and runs against the
+same HTTP handler through real child processes. See the
 [ingestion runbook](telemetry-ingestion.md) for implementation and live-test evidence.
 
 ## Measurement and fields
@@ -48,7 +48,7 @@ context; no null, empty string, sentinel hash, or guessed directory identity.
 Keep unknown-project invocation counts visible in reporting. A monorepo or
 repository cloned by several developers has one project identity across tools.
 [ADR 0005](adr/0005-repository-derived-project-identity.md) owns this meaning;
-issue #9 owns executable URL-normalization rules. Schema validation cannot prove
+the [normalization v1 contract](project-identity.md) owns executable URL rules. Schema validation cannot prove
 that a hash came from a repository.
 
 `mode` is immutable registration context (`local` or `ci`), inherited by every

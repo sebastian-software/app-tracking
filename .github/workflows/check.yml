@@ -70,6 +70,17 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -c 'CREATE DATABASE app_tracking_restore OWNER app_tracking_owner;'
           psql -X -v ON_ERROR_STOP=1 -c 'REVOKE ALL ON DATABASE app_tracking_restore FROM PUBLIC; GRANT CONNECT ON DATABASE app_tracking_restore TO app_tracking_migrator,app_tracking_runtime;'
           psql -X -v ON_ERROR_STOP=1 -c 'REVOKE ALL ON DATABASE app_tracking FROM PUBLIC; GRANT CONNECT ON DATABASE app_tracking TO app_tracking_migrator,app_tracking_runtime;'
+      - name: Read MSRV from Cargo.toml
+        id: rust
+        run: |
+          node --input-type=module <<'JS'
+          import { readFileSync, appendFileSync } from 'node:fs';
+          const version = /^rust-version = "([0-9.]+)"$/m.exec(readFileSync('Cargo.toml', 'utf8'))?.[1];
+          if (!version) throw new Error('Missing workspace rust-version');
+          appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
+          JS
+      - run: rustup toolchain install '${{ steps.rust.outputs.version }}' --profile minimal
+      - run: cargo +${{ steps.rust.outputs.version }} build --locked --examples
       - name: Test real PostgreSQL storage
         env:
           MIGRATION_DATABASE_URL: postgresql://app_tracking_migrator@localhost/app_tracking?sslmode=disable
@@ -77,4 +88,6 @@ jobs:
           RUNTIME_DATABASE_URL: postgresql://app_tracking_runtime@localhost/app_tracking?sslmode=disable
           RUNTIME_ROLE: app_tracking_runtime
           RESTORE_TEST_CONTAINER: ${{ job.services.postgres.id }}
-        run: pnpm test:storage
+        run: |
+          pnpm test:storage
+          node scripts/storage/test-rust-telemetry.ts

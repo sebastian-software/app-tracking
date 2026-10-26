@@ -1,7 +1,8 @@
 # Telemetry consent and client behavior: v1
 
-This is the client contract for future implementation, not a description of
-functionality in the current `app-tracking` crate. The
+The [0.2 Rust client](rust-telemetry-client.md) implements this contract through
+explicit host calls. Production telemetry and consumer controls are not enabled
+by this library implementation. The
 [wire contract](telemetry-api.md) owns requests and exact time boundaries;
 [retention](telemetry-retention.md) owns server data lifetime and launch evidence.
 
@@ -79,8 +80,8 @@ website privacy page is not automatically a notice for this new service.
 ## Consent states and controls
 
 The host supplies semantic operations equivalent to the following table. Their
-CLI spelling belongs to the consumer issue; none exists in the current client.
-A future host should group them under a discoverable `telemetry` command.
+CLI spelling belongs to the consumer issue; the library supplies semantic
+controls. A host should group them under a discoverable `telemetry` command.
 
 | State/action          | Required local behavior                                                                                                     | Network behavior                                             |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |

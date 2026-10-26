@@ -6,11 +6,11 @@ distribution, channel, and local cache directory. Nothing runs on import or
 construction. This is the shared client from issue #3; consumer migration and
 release evidence belong to the adoption issues.
 
-The repository additionally implements the unreleased
-[`app_tracking::project` module](project-identity.md) from issue #9. It is an
-explicit, consent-gated identity operation and is never used by update checks.
-The published 0.1.0 version does not yet contain this module. A later crate
-release and consumer adoption remain separate from this implementation.
+The 0.2 crate additionally implements the explicit
+[`app_tracking::project` module](project-identity.md) and
+[telemetry lifecycle](rust-telemetry-client.md). Update checks never invoke
+those operations. Existing 0.1 update consumers can upgrade without enabling
+telemetry or changing the update API.
 
 ## Host integration
 
@@ -127,6 +127,7 @@ cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 cargo test --locked --workspace
 cargo build --locked --examples
 node scripts/check-rust-consumer.ts
+node scripts/check-rust-telemetry.ts
 RUSTDOCFLAGS="-D warnings" cargo doc --locked --workspace --no-deps
 cargo package --locked -p app-tracking
 ```

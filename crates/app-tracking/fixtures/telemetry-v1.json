@@ -1,0 +1,55 @@
+{
+  "now": "2026-10-23T12:00:00.000Z",
+  "installation_id": "01a168a1-da00-7000-8000-000000000001",
+  "registration": {
+    "schema_version": 1,
+    "tool_id": "dalo",
+    "consent_revision": "telemetry-v1",
+    "consented_at": "2026-10-17T12:00:00.000Z",
+    "mode": "local"
+  },
+  "batch": {
+    "schema_version": 1,
+    "tool_id": "dalo",
+    "installation_id": "01a168a1-da00-7000-8000-000000000001",
+    "batch_id": "01a168a1-da00-7000-8000-000000000002",
+    "consent_revision": "telemetry-v1",
+    "rows": [
+      {
+        "day": "2026-10-23",
+        "tool_version": "1.10.0",
+        "command": "sync",
+        "count": 12,
+        "project_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "project_id_version": 1
+      },
+      {
+        "day": "2026-10-22",
+        "tool_version": "1.10.0",
+        "command": "status",
+        "count": 2
+      }
+    ]
+  },
+  "canonical_utf8": "{\"batch_id\":\"01a168a1-da00-7000-8000-000000000002\",\"consent_revision\":\"telemetry-v1\",\"installation_id\":\"01a168a1-da00-7000-8000-000000000001\",\"rows\":[{\"command\":\"status\",\"count\":2,\"day\":\"2026-10-22\",\"tool_version\":\"1.10.0\"},{\"command\":\"sync\",\"count\":12,\"day\":\"2026-10-23\",\"project_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"project_id_version\":1,\"tool_version\":\"1.10.0\"}],\"schema_version\":1,\"tool_id\":\"dalo\"}",
+  "payload_sha256": "e53ba8a86e1d22fcbebca01938c771a65b86285426f522c0b9b49794adce6530",
+  "registration_ack": {
+    "schema_version": 1,
+    "installation_id": "01a168a1-da00-7000-8000-000000000001",
+    "status": "registered"
+  },
+  "batch_ack": {
+    "schema_version": 1,
+    "installation_id": "01a168a1-da00-7000-8000-000000000001",
+    "batch_id": "01a168a1-da00-7000-8000-000000000002",
+    "status": "accepted",
+    "payload_sha256": "e53ba8a86e1d22fcbebca01938c771a65b86285426f522c0b9b49794adce6530",
+    "received_at": "2026-10-23T12:00:00.000Z"
+  },
+  "error": {
+    "schema_version": 1,
+    "error": {
+      "code": "installation_revoked"
+    }
+  }
+}

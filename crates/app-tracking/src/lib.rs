@@ -1,5 +1,6 @@
 //! Advisory version checks and explicit, consent-gated [`project`] identity.
-//! No automatic telemetry collection, output, environment-variable policy,
+//! [`telemetry`] supplies an opt-in lifecycle only when explicitly called by a
+//! host. No automatic collection, output, environment-variable policy,
 //! installation, or background worker is provided.
 //!
 //! Call [`UpdateClient::check`] once at a host-controlled point in a command. The
@@ -20,6 +21,7 @@
 //! ```
 mod cache;
 pub mod project;
+pub mod telemetry;
 mod wire;
 
 use std::cmp::Ordering;

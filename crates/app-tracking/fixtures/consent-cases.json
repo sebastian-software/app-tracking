@@ -1,0 +1,201 @@
+[
+  {
+    "name": "undecided",
+    "expected": {
+      "collect": false,
+      "upload": false,
+      "delete": false
+    }
+  },
+  {
+    "name": "legacy automatic reporting is not consent",
+    "legacy_reporting": true,
+    "expected": {
+      "collect": false,
+      "upload": false,
+      "delete": false
+    }
+  },
+  {
+    "name": "explicit current grant",
+    "state": "enabled",
+    "expected": {
+      "collect": true,
+      "upload": true,
+      "delete": false
+    }
+  },
+  {
+    "name": "declined overrides environment enable",
+    "state": "declined",
+    "environment_consent": "telemetry-v1",
+    "expected": {
+      "collect": false,
+      "upload": false,
+      "delete": false
+    }
+  },
+  {
+    "name": "withdrawn overrides environment enable",
+    "state": "withdrawn",
+    "environment_consent": "telemetry-v1",
+    "expected": {
+      "collect": false,
+      "upload": false,
+      "delete": false
+    }
+  },
+  {
+    "name": "revision-specific environment consent",
+    "environment_consent": "telemetry-v1",
+    "expected": {
+      "collect": true,
+      "upload": true,
+      "delete": false
+    }
+  },
+  {
+    "name": "boolean environment is not consent",
+    "environment_consent": "1",
+    "expected": {
+      "collect": false,
+      "upload": false,
+      "delete": false
+    }
+  },
+  {
+    "name": "new revision needs new grant",
+    "state": "enabled",
+    "revision": "telemetry-v2",
+    "expected": {
+      "collect": false,
+      "upload": false,
+      "delete": false
+    }
+  },
+  {
+    "name": "hard veto wins",
+    "state": "enabled",
+    "do_not_track": true,
+    "expected": {
+      "collect": false,
+      "upload": false,
+      "delete": false
+    }
+  },
+  {
+    "name": "offline still counts after consent",
+    "state": "enabled",
+    "offline": true,
+    "expected": {
+      "collect": true,
+      "upload": false,
+      "delete": false
+    }
+  },
+  {
+    "name": "CI does not inherit local reporting",
+    "state": "enabled",
+    "ci": true,
+    "expected": {
+      "collect": false,
+      "upload": false,
+      "delete": false
+    }
+  },
+  {
+    "name": "explicit isolated CI",
+    "state": "enabled",
+    "ci": true,
+    "ci_revision": "telemetry-v1",
+    "isolated_ci_state": true,
+    "expected": {
+      "collect": true,
+      "upload": true,
+      "delete": false
+    }
+  },
+  {
+    "name": "CI without isolation stays disabled",
+    "state": "enabled",
+    "ci": true,
+    "ci_revision": "telemetry-v1",
+    "expected": {
+      "collect": false,
+      "upload": false,
+      "delete": false
+    }
+  },
+  {
+    "name": "offline deletion stays pending",
+    "state": "enabled",
+    "action": "delete",
+    "offline": true,
+    "expected": {
+      "collect": false,
+      "upload": false,
+      "delete": false,
+      "pending_deletion": true,
+      "retain": ["installation_id", "token", "deletion_status"]
+    }
+  },
+  {
+    "name": "explicit deletion allowed under DNT",
+    "state": "enabled",
+    "action": "delete",
+    "do_not_track": true,
+    "expected": {
+      "collect": false,
+      "upload": false,
+      "delete": true,
+      "pending_deletion": true,
+      "retain": ["installation_id", "token", "deletion_status"]
+    }
+  },
+  {
+    "name": "withdrawal discards unsent usage",
+    "state": "enabled",
+    "action": "withdraw",
+    "expected": {
+      "collect": false,
+      "upload": false,
+      "delete": false,
+      "discard_usage": true
+    }
+  },
+  {
+    "name": "reset while offline does not start new identity",
+    "state": "enabled",
+    "action": "reset",
+    "offline": true,
+    "expected": {
+      "collect": false,
+      "upload": false,
+      "delete": false,
+      "pending_deletion": true,
+      "retain": ["installation_id", "token", "deletion_status"],
+      "new_identity": false
+    }
+  },
+  {
+    "name": "an environment grant is not a persistent enable setting",
+    "state": "enabled",
+    "grant_source": "environment",
+    "expected": {
+      "collect": false,
+      "upload": false,
+      "delete": false
+    }
+  },
+  {
+    "name": "an existing environment grant needs its current value",
+    "state": "enabled",
+    "grant_source": "environment",
+    "environment_consent": "telemetry-v1",
+    "expected": {
+      "collect": true,
+      "upload": true,
+      "delete": false
+    }
+  }
+]

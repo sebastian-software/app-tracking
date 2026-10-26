@@ -147,7 +147,20 @@ jobs:
           run_install: false
           cache: true
       - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Read MSRV from Cargo.toml
+        id: rust
+        run: |
+          node --input-type=module <<'JS'
+          import { readFileSync, appendFileSync } from 'node:fs';
+          const version = /^rust-version = "([0-9.]+)"$/m.exec(readFileSync('Cargo.toml', 'utf8'))?.[1];
+          if (!version) throw new Error('Missing workspace rust-version');
+          appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
+          JS
+      - run: rustup toolchain install '${{ steps.rust.outputs.version }}' --profile minimal
+      - run: cargo +${{ steps.rust.outputs.version }} build --locked --examples
       - name: Verify gated ingestion using real PlanetScale HTTP calls
-        run: node scripts/storage/test-ingestion.ts
+        run: |
+          node scripts/storage/test-ingestion.ts
+          node scripts/storage/test-rust-telemetry.ts
       - name: Verify authenticated scheduled-maintenance command
         run: node scripts/storage/run-retention.ts
