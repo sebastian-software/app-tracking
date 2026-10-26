@@ -7,8 +7,8 @@ Git subprocess, environment lookup, logging, storage, or telemetry upload in
 the component. The host supplies context; the component selects, validates,
 normalizes, and hashes it.
 
-This API is unreleased. The published update-only crate remains 0.1.0. Consent
-storage, invocation accounting, and adoption are later delivery steps.
+The 0.2 crate includes this API and the [opt-in telemetry lifecycle](rust-telemetry-client.md).
+The 0.1 update-only API remains independent; consumer adoption is a separate step.
 
 ## Host boundary and source selection
 

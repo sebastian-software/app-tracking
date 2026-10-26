@@ -8,8 +8,8 @@
 ## Shared client boundary
 
 The implemented [Rust update client](../rust-client.md) supplies version checks
-for Dalo and Palamedes through a runtime-independent wire contract. The telemetry
-client lifecycle below remains proposed. Sharing a library must not
+for Dalo and Palamedes through a runtime-independent wire contract. The [0.2 telemetry client](../rust-telemetry-client.md) implements the consent,
+queue, and deletion lifecycle. Consumer adoption remains separate. Sharing a library must not
 force one tool's installation-channel policy, command names, or output behavior
 on another. Additional runtimes can implement the same protocol later.
 
@@ -29,8 +29,8 @@ The maintained [telemetry API](../telemetry-api.md),
 [retention policy](../telemetry-retention.md) settle the v1 contract from issue #5.
 They own exact schemas, limits, per-tool/context identity, consent precedence,
 CI opt-in, disclosure, withdrawal/offline deletion/reset, retry, and retention.
-Telemetry is still unimplemented and disabled. The existing Rust crate only
-performs update checks; these documents do not change it.
+Production telemetry remains disabled. The Rust library implements the lifecycle
+through explicit host calls; it never opts consumers in automatically.
 
 The client executes at most one bounded synchronous telemetry request per
 invocation after command work. There is no detached upload worker, subprocess,
@@ -43,8 +43,7 @@ real concurrency, queue, transport, and latency evidence in the adoption issues.
 The maintained [normalization v1 contract](../project-identity.md) and executable
 fixtures now define the implemented identity component from issue #9. They own
 the exact supported forms and conservative rejection rules; the design rationale
-below does not broaden that support. The component remains unreleased and does
-not enable telemetry collection.
+below does not broaden that support. The component ships with the 0.2 client and does not enable collection automatically.
 
 Resolve project context only for consenting reporting. A global operation need
 not have a project. A missing or rejected identity does not discard otherwise

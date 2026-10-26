@@ -1,15 +1,15 @@
-# app-tracking 0.1
+# app-tracking 0.2
 
-The repository also contains an **unreleased** consent-gated project identity
-module, `app_tracking::project`, with no discovery I/O or automatic collection.
-See the [normalization v1 contract](https://github.com/sebastian-software/app-tracking/blob/main/docs/project-identity.md)
-and the packaged `fixtures/project-identity-v1.json` golden vectors. The published
-0.1.0 release remains the update-only client described below.
+Shared advisory update checks and explicit opt-in usage reporting for Rust CLI
+tools. Nothing runs on import or construction. Update checks remain independent
+of telemetry and never read project metadata or create reporting state. The
+library prints nothing and never installs or executes an update.
 
-A synchronous Rust client for the app-tracking version API. This release performs
-update checks only. It creates no installation identity, repository hash, usage
-counter, telemetry queue, or analytics request. It prints nothing and never
-installs or executes an update.
+## Update checks
+
+The synchronous update client uses a public version API with a separate cache.
+It creates no installation identity, project hash, usage counter, or telemetry
+request. The update API from 0.1 remains compatible.
 
 ```rust,no_run
 use app_tracking::{Mode, Tool, UpdateClient};
@@ -61,6 +61,23 @@ Wrappers and native entry points must share the cache and designate one check
 owner. Usually the native CLI owns the check and wrappers do not call it.
 Library embedding does not automatically check anything.
 
-The integration guide and release procedure live in the
+## Opt-in telemetry
+
+`app_tracking::telemetry::Client` supplies explicit consent controls, local
+inspection/redacted preview, durable counters and immutable batches, bounded
+registration/upload retries, withdrawal, and pending deletion. The host presents
+the disclosure, resolves policy, and designates one native invocation owner.
+There is no implicit reporting or consent from an update check. CI requires a
+separate explicit isolated scope; offline can count locally after consent.
+
+Use the [telemetry integration guide](https://github.com/sebastian-software/app-tracking/blob/main/docs/rust-telemetry-client.md)
+for the API, state ownership, privacy boundaries, and known delivery losses.
+`app_tracking::project` normalizes repository context lazily after consent; see
+[normalization v1](https://github.com/sebastian-software/app-tracking/blob/main/docs/project-identity.md)
+and the packaged golden fixtures. The client makes at most one synchronous
+telemetry request per run with a 200 ms network deadline, without a worker.
+Production telemetry enablement and consumer adoption are separate steps.
+
+The update integration guide and release procedure live in the
 [repository documentation](https://github.com/sebastian-software/app-tracking/blob/main/docs/rust-client.md).
 Licensed under MIT OR Apache-2.0.

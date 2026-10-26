@@ -1,7 +1,7 @@
 [package]
 name = "app-tracking"
-version = "0.1.0"
-description = "Bounded update checks and consent-gated project identity for CLI tools"
+version = "0.2.0"
+description = "Independent update checks and explicit opt-in usage reporting for CLI tools"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -16,9 +16,10 @@ include = ["src/**", "examples/**", "fixtures/**", "README.md", "LICENSE-MIT", "
 workspace = true
 
 [dependencies]
+getrandom = "0.4.3"
 semver = "1"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = "1.0.154"
 sha2 = { version = "0.11.1", default-features = false }
 tempfile = "3"
 thiserror = "2"

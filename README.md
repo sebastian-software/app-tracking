@@ -63,10 +63,14 @@ policy. It performs no telemetry collection. See the
 [0.1 integration and release guide](docs/rust-client.md) for the API, process
 lifetime, verification commands, and publishing procedure.
 
-The unreleased `project` module supplies consent-gated repository normalization
+The 0.2 `project` module supplies consent-gated repository normalization
 and SHA-256 project identity. Its [v1 contract](docs/project-identity.md) defines
 provider rules, source precedence, unknown context, and shared conformance
 fixtures. It performs no automatic discovery or reporting.
+
+The [0.2 telemetry client](docs/rust-telemetry-client.md) implements explicit
+consent, durable local batches, retries, withdrawal, and deletion. It does not
+enable production telemetry or opt any consumer in automatically.
 
 ## Implementation plan
 
