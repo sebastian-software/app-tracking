@@ -2,8 +2,9 @@
 //!
 //! Hosts present the disclosure, resolve policy, and designate exactly one CLI
 //! invocation owner. Construction/import performs no I/O or collection. Call
-//! [`Client::run`] after command work; preserve stdout and the command's status.
-//! Each call makes at most one synchronous request with a 200 ms network budget.
+//! [`Client::run_in_background`] after command work; preserve stdout and status.
+//! The host handles the reserved worker entry before parsing ordinary commands.
+//! No telemetry network waiting runs in the ordinary command process.
 //! See the repository's `docs/rust-telemetry-client.md` for lifecycle and storage.
 //!
 //! ```no_run
@@ -12,18 +13,20 @@
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let client = Client::new("https://updates.example.com", "/private/profile/tracking", "dalo")?;
 //! let policy = Policy::default(); // Host supplies actual policy; default is no consent.
-//! let _ = client.run(&policy,
+//! let _ = client.run_in_background(&policy,
 //!     Some(Invocation { command: "sync", tool_version: "1.10.0" }),
 //!     || RepositoryContext { origin: Origin::Absent, package_json: None }, false);
 //! # Ok(())
 //! # }
 //! ```
 
+mod background;
 mod policy;
 mod state;
 mod store;
 mod wire;
 
+pub use background::BACKGROUND_WORKER_ARGUMENT;
 pub use policy::{CONSENT_REVISION, Decision, EffectivePolicy, GrantSource, Policy};
 use serde::{Deserialize, Serialize};
 use state::{Authority, Grant, State};
@@ -47,6 +50,8 @@ pub enum Error {
     Randomness,
     #[error("resolve the previous identity before a new consent grant")]
     PreviousIdentity,
+    #[error("background telemetry worker unavailable")]
+    Background,
 }
 
 /// Host controls. Enable requires an affirmative informed human decision after
@@ -87,6 +92,7 @@ pub enum Action {
     DeletionComplete,
     RetryScheduled,
     Paused,
+    BackgroundStarted,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -235,7 +241,7 @@ impl Client {
     }
 
     /// Persist a semantic control locally. No network request is made here.
-    /// Follow Delete/Reset with run(None, ...) to attempt at most one deletion;
+    /// Follow Delete/Reset with run_in_background(None, ...) to schedule one deletion;
     /// subsequent ordinary invocations can retry pending deletion when online.
     pub fn control(&self, control: Control, policy: &Policy) -> Result<Status, Error> {
         self.control_at(control, policy, now_ms()?)
@@ -258,6 +264,9 @@ impl Client {
             Err(error) => return Err(error),
         };
         state.prune(now)?;
+        if !matches!(control, Control::Enable) {
+            store.discard_worker()?;
+        }
         match control {
             Control::Enable => {
                 if state.decision == Decision::Enabled
@@ -364,7 +373,10 @@ impl Client {
             return Ok(State::new(&self.scope(policy)));
         };
         let mut state = self.load(&store, policy)?;
-        self.reconcile(&mut state, policy, now_ms()?)?;
+        let effective = self.reconcile(&mut state, policy, now_ms()?)?;
+        if !effective.upload && !effective.delete {
+            store.discard_worker()?;
+        }
         store.save(&mut state)?;
         Ok(state)
     }
@@ -418,6 +430,47 @@ impl Client {
         )
     }
 
+    /// Persist counts and launch at most one due request in this executable.
+    /// The host must intercept [`BACKGROUND_WORKER_ARGUMENT`] before ordinary
+    /// command execution and call [`Self::run_background_worker`] with its token.
+    /// No network request or child wait runs in the calling process. Launch
+    /// failures preserve the durable queue and existing retry suppression.
+    pub fn run_in_background(
+        &self,
+        policy: &Policy,
+        invocation: Option<Invocation<'_>>,
+        project: impl FnOnce() -> crate::project::RepositoryContext,
+        flush: bool,
+    ) -> Result<RunResult, Error> {
+        if std::env::args_os().nth(1).as_deref()
+            == Some(std::ffi::OsStr::new(BACKGROUND_WORKER_ARGUMENT))
+        {
+            return Ok(RunResult {
+                counted: false,
+                action: Action::Suppressed,
+            });
+        }
+        self.run_attempt_at(
+            policy,
+            invocation,
+            project,
+            flush,
+            now_ms()?,
+            true,
+            |request, now| {
+                background::start(self, policy, request, now)?;
+                Ok(None)
+            },
+        )
+    }
+
+    /// Consume one private, recently prepared operation. This never counts a
+    /// command, discovers a repository, retries in a loop, or spawns a worker.
+    /// The token is an opaque local job nonce, not a reporting credential.
+    pub fn run_background_worker(&self, policy: &Policy, token: &str) -> Result<RunResult, Error> {
+        background::run(self, policy, token)
+    }
+
     fn run_at(
         &self,
         policy: &Policy,
@@ -426,6 +479,28 @@ impl Client {
         flush: bool,
         now: u64,
         transport: impl FnOnce(&Request, u64) -> Response,
+    ) -> Result<RunResult, Error> {
+        self.run_attempt_at(
+            policy,
+            invocation,
+            project,
+            flush,
+            now,
+            false,
+            |request, now| Ok(Some(transport(request, now))),
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)] // One shared state transition for foreground/background delivery.
+    fn run_attempt_at(
+        &self,
+        policy: &Policy,
+        invocation: Option<Invocation<'_>>,
+        project: impl FnOnce() -> crate::project::RepositoryContext,
+        flush: bool,
+        now: u64,
+        background: bool,
+        transport: impl FnOnce(&Request, u64) -> Result<Option<Response>, Error>,
     ) -> Result<RunResult, Error> {
         let create = !policy.veto() && policy.context_allowed() && policy.environment_grant();
         let Some(store) = Store::claim(&self.directory(policy), create)? else {
@@ -436,6 +511,9 @@ impl Client {
         };
         let mut state = self.load(&store, policy)?;
         let effective = self.reconcile(&mut state, policy, now)?;
+        if !effective.upload && !effective.delete {
+            store.discard_worker()?;
+        }
         if effective.collect {
             let today = wire::day(now)?;
             let future_grant = if let Some(grant) = &state.grant {
@@ -500,7 +578,7 @@ impl Client {
         let due = (effective.upload || effective.delete)
             && state.terminal_status.is_none()
             && now >= state.next_attempt_ms;
-        let network = if due { store.network_guard()? } else { None };
+        let mut network = if due { store.network_guard()? } else { None };
         let request = if network.is_some() {
             self.prepare(&mut state, policy, flush, now)?
         } else {
@@ -518,9 +596,17 @@ impl Client {
                 },
             });
         };
-        let response = transport(&request, now);
+        if background {
+            // The child must acquire its own OS lock. State already reserves
+            // this attempt; the launch path rechecks generation/attempt first.
+            drop(network.take());
+        }
+        let response = transport(&request, now)?;
         drop(network);
-        let action = self.acknowledge(policy, &request, response, now)?;
+        let action = match response {
+            Some(response) => self.acknowledge(policy, &request, response, now)?,
+            None => Action::BackgroundStarted,
+        };
         Ok(RunResult { counted, action })
     }
 
@@ -534,7 +620,18 @@ impl Client {
         // Reacquire only to acknowledge this exact generation/attempt. New
         // counters stay intact, and withdrawal cannot be undone by a late ACK.
         let store = Store::claim(&self.directory(policy), false)?.ok_or(Error::State)?;
-        let mut state = self.load(&store, policy)?;
+        self.acknowledge_locked(&store, policy, request, response, now)
+    }
+
+    fn acknowledge_locked(
+        &self,
+        store: &Store,
+        policy: &Policy,
+        request: &Request,
+        response: Response,
+        now: u64,
+    ) -> Result<Action, Error> {
+        let mut state = self.load(store, policy)?;
         if state.generation != request.generation
             || state.attempt != request.attempt
             || state

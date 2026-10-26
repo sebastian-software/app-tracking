@@ -198,14 +198,21 @@ after draining, the next ordinary closure/upload is due 24 hours later. An
 explicit flush can make closure due sooner, but cannot bypass suppression.
 
 Registration, upload, or pending deletion is at most **one HTTP request per
-invocation** with a 200 ms total client network deadline. Registration success
-therefore does not send a batch in the same invocation. Run synchronously after
-the host's command work, without a detached worker, upload subprocess, or daemon.
-No automatic multi-request retry occurs before exit. Filesystem/scheduling time
-is additional; the later client implementation must measure the resulting
-latency. Concurrent invocations claim a due attempt atomically before networking.
-The separate update request has its own 200 ms network budget; worst-case
-combined network waiting can reach 400 ms when both are due.
+eligible invocation**, performed by a short-lived background process of the same
+binary. The ordinary command durably records counts and starts that worker
+without waiting for networking or its exit. Registration success does not send
+a batch in that worker. There is no permanent daemon or automatic retry loop.
+The worker's request has a five-second total DNS/connect/TLS/headers/body budget;
+local filesystem, process startup, and scheduling are additional. Concurrent
+invocations reserve attempts before launch and use the existing network lock.
+The worker rechecks current persisted consent, policy, scope, generation, and
+expiry before sending; it never counts itself or discovers a project. Explicit
+flush and deletion schedule one operation and expose pending/completed status.
+A killed/blocked worker retains the immutable queue and backoff for a later
+invocation; CI/container teardown may prevent its last transmission. The separate
+update request retains its synchronous 200 ms budget and independent settings.
+The older explicit Rust `run` API remains available for synchronous callers;
+new CLI integrations use the background API.
 
 For unknown outcomes, connection errors, 429, 503, and intermediary 5xx, retry
 identical bytes/meaning and identity after 1 min, 5 min, 30 min, 1 h, 6 h, then

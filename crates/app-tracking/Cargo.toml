@@ -1,6 +1,6 @@
 [package]
 name = "app-tracking"
-version = "0.2.1"
+version = "0.3.0"
 description = "Independent update checks and explicit opt-in usage reporting for CLI tools"
 edition.workspace = true
 rust-version.workspace = true
