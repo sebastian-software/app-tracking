@@ -191,7 +191,7 @@ fn version_valid(text: &str) -> bool {
 impl Client {
     /// HTTPS origin without credentials, path, query, or fragment. Numeric
     /// loopback HTTP is accepted solely for synthetic integration tests.
-    /// Initial telemetry catalog supports `dalo`; update tools are independent.
+    /// Telemetry catalog supports `dalo` and `palamedes`; update tools are independent.
     pub fn new(origin: &str, state_root: impl Into<PathBuf>, tool: &str) -> Result<Self, Error> {
         let uri: ureq::http::Uri = origin.parse().map_err(|_| Error::Configuration)?;
         let loopback = uri
@@ -414,7 +414,7 @@ impl Client {
             project,
             flush,
             now_ms()?,
-            |request, now| wire::send(&self.origin, request, now),
+            |request, now| wire::send(&self.origin, &self.tool, request, now),
         )
     }
 

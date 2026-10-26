@@ -4,8 +4,8 @@
 registration, durable batches, and deletion. Import and construction do nothing
 automatically. The existing `UpdateClient` API and cache remain independent;
 declining telemetry never disables updates. The production service still exposes
-version routes only. Issue #11 owns production telemetry enablement; Dalo
-adoption belongs to #12.
+version routes only. Issue #11 owns production telemetry enablement; Palamedes adoption belongs to #15 and is the first v2 consumer; Dalo adoption
+belongs to #12.
 
 ## Host integration
 
@@ -40,7 +40,7 @@ status. npm wrappers do not count again. Embedded library use does not call the
 client automatically. Exclude help/version, completions, manpages, telemetry
 controls, assistant maintenance, and automatic/background work. Pass `None`
 when only retrying a pending operation or explicitly flushing. The initial
-catalog accepts Dalo; unmapped categories become `other`, never arbitrary data.
+catalog accepts Dalo and Palamedes; unmapped categories become `other`, never arbitrary data.
 Installed SemVer is limited by the wire contract. Pass no arguments or errors.
 
 Project discovery belongs inside the lazy closure, which is invoked only for
@@ -211,7 +211,7 @@ startup is not a universal 200 ms wall-clock guarantee. Each CI/live harness run
 prints its own sanitized process measurements. These observations are not
 production Internet latency or capacity claims.
 
-The crate version is 0.2.0. Package verification includes all source, examples,
+The crate version is 0.2.1. Package verification includes all source, examples,
 licenses, policy, identity, and telemetry vectors. Publication uses the existing
-Cargo credential provider and `app-tracking-v0.2.0` tag, separately from consumer
+Cargo credential provider and `app-tracking-v0.2.1` tag, separately from consumer
 adoption and service deployment. No telemetry is enabled merely by upgrading.

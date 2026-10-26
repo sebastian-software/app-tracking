@@ -100,7 +100,7 @@ export async function ingestionIntegration(admin: string, runtime: string) {
     );
     await expect(await register(a, { ...a.declaration, mode: "ci" }), 409, "registration_conflict");
     await expect(
-      await register(a, { ...a.declaration, tool_id: "palamedes" }),
+      await register(a, { ...a.declaration, tool_id: "unknown" }),
       400,
       "unsupported_tool",
     );
@@ -323,11 +323,93 @@ export async function ingestionIntegration(admin: string, runtime: string) {
     checks++;
     const catalog = JSON.parse(
       await sql(
-        "SELECT json_agg(command ORDER BY command) FROM app_tracking.command_catalog_v1 WHERE accept_new",
+        "SELECT json_agg(command ORDER BY command) FROM app_tracking.command_catalog_v1 WHERE accept_new AND tool_id='dalo'",
       ),
     );
     assert.deepEqual(catalog, [...policy.tools.dalo.commands].sort());
     checks++;
+    phase = "palamedes_tool_isolation";
+    const dual = await fresh();
+    const palamedes = {
+      ...dual,
+      token: randomBytes(32).toString("hex"),
+      declaration: { ...dual.declaration, tool_id: "palamedes" },
+    };
+    await expect(await register(palamedes), 201);
+    const palamedesBatch = {
+      ...body(palamedes),
+      tool_id: "palamedes",
+      rows: policy.tools.palamedes.commands.map((command) => ({
+        day: new Date().toISOString().slice(0, 10),
+        tool_version: "2.0.0",
+        command,
+        count: 1,
+      })),
+    };
+    await expect(await post(palamedes, palamedesBatch), 200);
+    await expect(await post(palamedes, palamedesBatch), 200);
+    const palamedesTotal = await sql(
+      `SELECT sum(count) FROM app_tracking.usage_counts WHERE tool_id='palamedes' AND installation_id=${q(dual.id)}`,
+    );
+    assert.equal(Number(palamedesTotal), policy.tools.palamedes.commands.length);
+    checks++;
+    await expect(
+      await post(palamedes, {
+        ...palamedesBatch,
+        batch_id: uuid7(),
+        rows: [{ ...palamedesBatch.rows[0], command: "sync" }],
+      }),
+      400,
+      "invalid_request",
+    );
+    await expect(
+      await post(dual, {
+        ...body(dual),
+        rows: [{ ...palamedesBatch.rows[0], command: "extract" }],
+      }),
+      400,
+      "invalid_request",
+    );
+    const deletion = (tool?: string, credential = palamedes.token) =>
+      handle(
+        new Request(`https://example.invalid/v1/installations/${dual.id}`, {
+          method: "DELETE",
+          headers: {
+            authorization: `Bearer ${credential}`,
+            ...(tool ? { "App-Tracking-Tool": tool } : {}),
+          },
+        }),
+      );
+    await expect(await deletion(), 401, "unauthorized");
+    const deleted = await deletion("palamedes");
+    assert.equal(deleted.status, 204);
+    assert.equal(await deleted.text(), "");
+    checks++;
+    assert.equal(
+      await sql(
+        `SELECT state FROM app_tracking.reporting_installations WHERE tool_id='dalo' AND installation_id=${q(dual.id)}`,
+      ),
+      "active",
+    );
+    assert.equal(
+      await sql(
+        `SELECT count(*) FROM app_tracking.usage_counts WHERE tool_id='palamedes' AND installation_id=${q(dual.id)}`,
+      ),
+      "0",
+    );
+    checks += 2;
+    const legacyDeletion = await deletion(undefined, dual.token);
+    assert.equal(legacyDeletion.status, 204);
+    checks++;
+    for (const [tool, settings] of Object.entries(policy.tools)) {
+      const actual = JSON.parse(
+        await sql(
+          `SELECT json_agg(command ORDER BY command) FROM app_tracking.command_catalog_v1 WHERE accept_new AND tool_id=${q(tool)}`,
+        ),
+      );
+      assert.deepEqual(actual, [...settings.commands].sort());
+      checks++;
+    }
     return {
       checks,
       transport: process.env.INGESTION_HTTP_DRIVER === "1" ? "PlanetScale HTTP" : "PostgreSQL TCP",
@@ -340,7 +422,7 @@ export async function ingestionIntegration(admin: string, runtime: string) {
   } finally {
     for (const id of ids)
       await sql(
-        `DELETE FROM app_tracking.reporting_installations WHERE installation_id=${q(id)} AND tool_id='dalo'`,
+        `DELETE FROM app_tracking.reporting_installations WHERE installation_id=${q(id)} AND tool_id IN ('dalo','palamedes')`,
       );
   }
 }

@@ -311,7 +311,7 @@ pub(super) fn acknowledgement(
     }
 }
 
-pub(super) fn send(origin: &str, request: &Request, now: u64) -> Response {
+pub(super) fn send(origin: &str, tool: &str, request: &Request, now: u64) -> Response {
     let agent: ureq::Agent = ureq::Agent::config_builder()
         .timeout_global(Some(crate::NETWORK_BUDGET))
         .max_redirects(0)
@@ -340,6 +340,7 @@ pub(super) fn send(origin: &str, request: &Request, now: u64) -> Response {
             .send(request.body.as_bytes()),
         Kind::Delete => agent
             .delete(&url)
+            .header("App-Tracking-Tool", tool)
             .header("Authorization", &authorization)
             .header("Accept", "application/json")
             .call(),

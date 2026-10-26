@@ -71,12 +71,13 @@ function keys(value: Record<string, unknown>, required: string[], optional: stri
 }
 function envelope(value: unknown): asserts value is Record<string, unknown> & {
   schema_version: 1;
-  tool_id: "dalo";
+  tool_id: string;
   consent_revision: string;
 } {
   if (!record(value)) throw new TelemetryError("invalid_request");
   if (value.schema_version !== 1) throw new TelemetryError("unsupported_schema");
-  if (value.tool_id !== "dalo") throw new TelemetryError("unsupported_tool");
+  if (typeof value.tool_id !== "string" || !Object.hasOwn(policy.tools, value.tool_id))
+    throw new TelemetryError("unsupported_tool");
   // Revision decisions happen after authentication inside the database transaction.
   if (
     typeof value.consent_revision !== "string" ||

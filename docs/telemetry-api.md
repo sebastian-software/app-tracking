@@ -32,13 +32,15 @@ assistant maintenance, telemetry controls, and automatic/background executions
 can count. Embedded library calls never report automatically. JSON output and
 non-TTY execution can count after consent; neither establishes agent use.
 
-Initial telemetry registration supports **Dalo only**. Palamedes version checks
-remain supported, but reporting is unavailable until its reviewed command
-catalog and consumer adoption are added. The Dalo catalog contains top-level
-command categories; nested operations collapse into their category. Classify
-new unmapped command categories locally as `other`, never as arbitrary strings.
-Adding a category within the same disclosed purpose requires a reviewed catalog
-change; adding a dimension or purpose requires a new consent revision.
+Telemetry registration supports **Dalo and Palamedes**, with a separate reviewed
+command catalog per tool. Dalo uses top-level categories. Palamedes uses `extract`,
+`lint`, `audit`, `report`, `catalogmerge`, `catalogconvert`, `catalogcompile`,
+`plugin`, and `other`. The automatic Git merge driver and watch rebuilds are not
+separate invocations. External plugin names and arguments are never categories.
+Embedded Rust/Node APIs and build integrations do not report automatically.
+Classify new unmapped command categories locally as `other`, never arbitrary
+strings. Adding a category within the same disclosed purpose requires a reviewed
+catalog change; adding a dimension or purpose requires a new consent revision.
 
 Each row contains UTC `day`, exact SemVer `tool_version` (at most 128 ASCII
 characters; core numeric components at most ten decimal digits), allowlisted `command`,
@@ -95,6 +97,13 @@ a person exists, or the binary is authentic. A token holder can fabricate counts
 | `PUT /v1/installations/{installation_id}`    | `201 registered`, or `200 duplicate` for an identical declaration |
 | `POST /v1/usage-batches`                     | `200 accepted` or `200 duplicate`                                 |
 | `DELETE /v1/installations/{installation_id}` | Empty `204` after revocation and primary deletion commit          |
+
+DELETE carries `App-Tracking-Tool: dalo` or `App-Tracking-Tool: palamedes`.
+Omission selects Dalo for compatibility with the published 0.2.0 client. The
+header selects an installation scope; it does not replace credential validation.
+An unknown tool is rejected, and neither tool's credential grants access to the
+other tool even when an installation UUID is reused. PUT/POST select their tool
+through the validated JSON body.
 
 Registration, batch ingestion, and deletion are implemented in the gated candidate. The production service remains version-only. All telemetry
 responses, including errors, carry

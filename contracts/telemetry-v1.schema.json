@@ -52,7 +52,13 @@
             "audit",
             "approve",
             "instructions",
-            "other"
+            "other",
+            "extract",
+            "lint",
+            "report",
+            "catalogmerge",
+            "catalogconvert",
+            "catalogcompile"
           ]
         },
         "count": {
@@ -82,7 +88,7 @@
           "const": 1
         },
         "tool_id": {
-          "const": "dalo"
+          "enum": ["dalo", "palamedes"]
         },
         "consent_revision": {
           "const": "telemetry-v1"
@@ -111,7 +117,7 @@
           "const": 1
         },
         "tool_id": {
-          "const": "dalo"
+          "enum": ["dalo", "palamedes"]
         },
         "installation_id": {
           "$ref": "#/$defs/uuid7"
@@ -130,7 +136,93 @@
             "$ref": "#/$defs/row"
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "tool_id": {
+                "const": "dalo"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "rows": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "command": {
+                      "enum": [
+                        "init",
+                        "install",
+                        "migrate",
+                        "project",
+                        "promote",
+                        "target",
+                        "source",
+                        "agent",
+                        "plugin",
+                        "tool",
+                        "hook",
+                        "binary",
+                        "plan",
+                        "team",
+                        "status",
+                        "next",
+                        "sync",
+                        "autosync",
+                        "adopt",
+                        "resolve",
+                        "doctor",
+                        "audit",
+                        "approve",
+                        "instructions",
+                        "other"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "tool_id": {
+                "const": "palamedes"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "rows": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "command": {
+                      "enum": [
+                        "extract",
+                        "lint",
+                        "audit",
+                        "report",
+                        "catalogmerge",
+                        "catalogconvert",
+                        "catalogcompile",
+                        "plugin",
+                        "other"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "registration_ack": {
       "type": "object",

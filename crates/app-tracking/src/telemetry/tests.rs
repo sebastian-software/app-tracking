@@ -872,6 +872,11 @@ fn delete_response(status: &str, headers: &str, body: &str) -> Response {
                 .to_ascii_lowercase()
                 .contains("user-agent: app-tracking-telemetry-client")
         );
+        assert!(
+            request
+                .to_ascii_lowercase()
+                .contains("app-tracking-tool: palamedes")
+        );
         assert!(!request.to_ascii_lowercase().contains("cookie:"));
         socket.write_all(reply.as_bytes()).unwrap();
     });
@@ -884,7 +889,7 @@ fn delete_response(status: &str, headers: &str, body: &str) -> Response {
         body: String::new(),
         batch: None,
     };
-    let result = wire::send(&origin, &request, NOW);
+    let result = wire::send(&origin, "palamedes", &request, NOW);
     thread.join().unwrap();
     result
 }
@@ -944,4 +949,53 @@ fn telemetry_redirects_never_forward_credentials() {
         Response::Retry(_)
     ));
     assert!(matches!(other.accept(), Err(e) if e.kind() == std::io::ErrorKind::WouldBlock));
+}
+
+#[test]
+fn palamedes_consent_and_counters_are_separate_from_dalo() {
+    let (root, dalo, mut policy) = fixture();
+    let palamedes = Client::new("https://example.invalid", root.path(), "palamedes").unwrap();
+    policy.offline = true;
+    dalo.control_at(Control::Enable, &policy, NOW).unwrap();
+    assert!(
+        !palamedes
+            .run_at(
+                &policy,
+                Some(Invocation {
+                    command: "extract",
+                    tool_version: "2.0.0"
+                }),
+                context,
+                false,
+                NOW,
+                |_, _| panic!("offline")
+            )
+            .unwrap()
+            .counted
+    );
+    palamedes.control_at(Control::Enable, &policy, NOW).unwrap();
+    for command in &policy::limits().tools["palamedes"].commands {
+        assert!(
+            palamedes
+                .run_at(
+                    &policy,
+                    Some(Invocation {
+                        command,
+                        tool_version: "2.0.0"
+                    }),
+                    context,
+                    false,
+                    NOW,
+                    |_, _| panic!("offline")
+                )
+                .unwrap()
+                .counted
+        );
+    }
+    let state = load(&palamedes, &policy);
+    assert_eq!(
+        state.open.len(),
+        policy::limits().tools["palamedes"].commands.len()
+    );
+    assert!(load(&dalo, &policy).open.is_empty());
 }
