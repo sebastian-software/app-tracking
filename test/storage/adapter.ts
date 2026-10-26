@@ -20,7 +20,18 @@ export function integrationStorage(runtime: string): TelemetryStorage {
     };
   }
   const run = async (text: string) => ({
-    result: JSON.parse(await psql(runtime, text)) as StorageResult,
+    result: JSON.parse(
+      await psql(runtime, `BEGIN; SET LOCAL statement_timeout='2500ms'; ${text}; COMMIT;`).catch(
+        (error) => {
+          const state =
+            error instanceof Error
+              ? error.message.match(/Database operation failed \(([0-9A-Z]{5})\)/)?.[1]
+              : undefined;
+          console.error(JSON.stringify({ storage_test_sqlstate: state ?? "unavailable" }));
+          throw error;
+        },
+      ),
+    ) as StorageResult,
     subrequests: 1,
     database_ms: 0,
   });
