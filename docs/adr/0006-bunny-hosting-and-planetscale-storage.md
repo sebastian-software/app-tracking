@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-22
-- Last updated: 2026-10-23
+- Last updated: 2026-10-26
 
 ## Context
 
@@ -30,6 +30,18 @@ pass an isolated integration proof before the runtime, driver version, database
 tier, and region are finalized. This ADR
 selects providers, not a claim that every advertised feature has been tested.
 
+App-tracking uses its own logical Postgres database in a shared PlanetScale
+cluster. This avoids a separate cluster baseline for a small service while
+preserving separate database ownership, application credentials, and schema
+migrations. The cluster's capacity, outages, and physical backup/PITR remain
+shared. Separate cluster infrastructure is warranted if measured workload or
+independent operational requirements need it.
+
+The application migrator inherits an app-specific non-login database owner,
+not the provider's cluster-wide administration role. Runtime credentials can
+execute only the reviewed application functions. Initial database/role bootstrap
+uses administrative access once; it is not a standing runtime dependency.
+
 Public source contains design, application code, and non-secret configuration.
 Credentials, private deployment details, and real telemetry remain outside the
 repository. Test and production data and credentials are separate.
@@ -49,7 +61,11 @@ repository. Test and production data and credentials are separate.
 See [RFC 0003](../rfcs/0003-deployment-and-migration.md) for deployment and
 validation gates.
 
-## Changes
+## Change history
 
 - 2026-10-23: Use one directly deployed version service; reserve isolated data
   and database integration checks for the later telemetry implementation.
+
+- 2026-10-26: Use a separate logical database on shared Postgres compute, with
+  app-scoped ownership and migration/runtime roles. This limits baseline cost
+  without granting application credentials access to neighboring services.

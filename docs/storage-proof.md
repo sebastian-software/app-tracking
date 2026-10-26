@@ -42,18 +42,41 @@ synthetic protocol and SQLSTATE-only failures, not the public v1 protocol.
 
 ## Credentials and migrations
 
+Use one logical `app_tracking` database inside the existing shared Postgres
+cluster. It has its own owner, migration and runtime roles. The existing
+application's logical database and credentials are separate. Sharing compute
+adds no second cluster but shares capacity, outages, and cluster backup/PITR.
+Do not use cluster-wide grants to implement application isolation.
+
 Keep `MIGRATION_DATABASE_URL` outside the edge runtime. Its dedicated managed
-migration role must inherit PlanetScale's `postgres` administration role.
-Migrations run as that stable owner so a temporary login does not own the
-schema/functions. Use a separate managed LOGIN role with no inherited
-privileges for runtime calls. Grant only schema usage and execution on the
-three named functions. Never grant it `postgres`, `pg_read_all_data`, or
-`pg_write_all_data`.
+LOGIN role inherits only the stable, non-login `app_tracking_owner` role,
+which owns this logical database and its schema/functions. It has no
+`CREATEDB`, `CREATEROLE`, superuser, or cross-application membership. Runtime
+uses a different managed LOGIN role with no inherited roles, database CONNECT,
+schema usage, and execution on the three named functions. No table grants or
+`pg_read_all_data`/`pg_write_all_data` membership are needed.
+
+An administrator bootstraps the empty logical database, ownership, CONNECT
+policy, and managed role membership once. When an administrator needs temporary
+membership to transfer ownership, grant and revoke that membership in the same
+transaction; it must not survive commit. Revoke PUBLIC access only on this
+new database. Do not change another application's access policy.
+
+Configure runtime/proof login defaults to `statement_timeout='2500ms'` and
+`lock_timeout='1500ms'` before applying function grants. Each login can set
+its own defaults with `ALTER ROLE CURRENT_USER SET ...`; the scoped migrator
+needs no cluster-wide role-administration permission. `grant-runtime.ts`
+checks these defaults and rejects privileged/inherited runtime roles.
 
 ```sh
-MIGRATION_DATABASE_URL=... pnpm db:migrate
+MIGRATION_DATABASE_URL=... MIGRATION_OWNER_ROLE=app_tracking_owner pnpm db:migrate
 MIGRATION_DATABASE_URL=... RUNTIME_ROLE=... node scripts/storage/grant-runtime.ts
 ```
+
+The migration runner validates the owner name before `SET LOCAL ROLE`.
+Its compatibility default remains `postgres`; shared-cluster deployment sets
+`MIGRATION_OWNER_ROLE=app_tracking_owner` explicitly. Use app-scoped ownership
+for shared deployments.
 
 Supply secrets through the execution environment, not literal shell history
 or committed files. The examples show variable names, not real values.
@@ -66,7 +89,8 @@ The migration runner holds one transaction/advisory lock while checking the
 version/SHA-256 journal and applying pending files. Existing migrations are
 immutable after release. Add a new numbered migration for a later change.
 A checksum mismatch or failed DDL rolls back; applying the same set again is
-safe. The journal and schema belong to the migration role, not runtime.
+safe. The journal and schema belong to the stable application owner; the migrator
+manages them through its owner membership. Runtime has no ownership.
 Roll forward schema changes; an application-bundle rollback does not undo data.
 
 Functions use `SECURITY DEFINER` with a fixed `pg_catalog` search path and
@@ -82,10 +106,11 @@ calls and never accepts caller-selected SQL or a database destination.
 
 ## Reproducible database tests
 
-CI starts pinned PostgreSQL 18.6 in a disposable service container and runs:
+CI starts pinned PostgreSQL 18.6 in a disposable service container, creates an
+app-scoped database owner/migrator and an unprivileged runtime role, and runs:
 
 ```sh
-MIGRATION_DATABASE_URL=... RUNTIME_DATABASE_URL=... RUNTIME_ROLE=... pnpm test:storage
+MIGRATION_DATABASE_URL=... MIGRATION_OWNER_ROLE=app_tracking_owner RUNTIME_DATABASE_URL=... RUNTIME_ROLE=... pnpm test:storage
 ```
 
 The same suite runs against an isolated PlanetScale database before the edge
@@ -144,10 +169,18 @@ access; confirm removal rather than treating expiry as completed cleanup.
 
 ## Evidence and outstanding decisions
 
-The implementation is prepared for PlanetScale Postgres 18.6 in Frankfurt.
-The actual tier, backup settings, driver compatibility, and measured live
-budget must be recorded after the live run. Until then, this is a candidate
-boundary with local database evidence, not a successful provider integration.
+On 2026-10-26, the real PlanetScale database suite passed against Postgres
+18.6 aarch64 on a shared PS-5 cluster in AWS Frankfurt (one primary, two
+replicas). The migration role has no database/role creation privilege; the
+runtime role can connect to the new logical database and cannot connect to
+the existing application's logical database. The schema is owned by the
+stable app-specific owner. Synthetic contributions are removed after each run.
+Four retained backups were observed, none protected, with a two-day configured
+retention. No restore was performed or claimed.
+
+The real Bunny/HTTP-driver measurements are still outstanding. This is not
+yet a successful end-to-end provider integration or a production telemetry
+launch.
 
 Normal PlanetScale backup/PITR remains the recovery approach. This proof adds
 no restore service or separate deletion journal. Verify the actual configured

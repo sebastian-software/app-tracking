@@ -14,6 +14,15 @@ export async function storageIntegration(admin: string, runtime: string, role: s
   await migrate(admin);
   checks += 2;
   await grantRuntime(admin, role);
+  if (process.env.MIGRATION_OWNER_ROLE && process.env.MIGRATION_OWNER_ROLE !== "postgres") {
+    assert.equal(
+      await sql(
+        "SELECT rolcreatedb OR rolcreaterole OR rolsuper FROM pg_roles WHERE rolname=current_user",
+      ),
+      "f",
+    );
+    checks++;
+  }
   async function registration() {
     const item = identity();
     ids.push(item.id);

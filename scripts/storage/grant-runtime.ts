@@ -7,16 +7,15 @@ export async function grantRuntime(url: string, role: string): Promise<void> {
     url,
     `DO $check$ BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname=${quote(role)} AND NOT rolsuper
-      AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls)
+      AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls
+      AND rolconfig @> ARRAY['statement_timeout=2500ms', 'lock_timeout=1500ms'])
       OR EXISTS (SELECT FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname=${quote(role)})
     THEN RAISE EXCEPTION 'runtime_role_must_be_unprivileged'; END IF;
     END $check$;
     GRANT USAGE ON SCHEMA app_tracking TO "${role}";
     GRANT EXECUTE ON FUNCTION app_tracking.register_installation(text,uuid,text,text,timestamptz,text),
       app_tracking.accept_batch(text,uuid,text,uuid,text,jsonb),
-      app_tracking.revoke_installation(text,uuid,text) TO "${role}";
-    ALTER ROLE "${role}" SET statement_timeout = '2500ms';
-    ALTER ROLE "${role}" SET lock_timeout = '1500ms';`,
+      app_tracking.revoke_installation(text,uuid,text) TO "${role}";`,
   );
 }
 if (import.meta.main) {

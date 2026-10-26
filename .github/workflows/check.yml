@@ -52,15 +52,26 @@ jobs:
           run_install: false
           cache: true
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      - name: Create unprivileged test runtime role
+      - name: Create scoped migration and runtime roles
         env:
           PGHOST: localhost
           PGUSER: postgres
           PGDATABASE: postgres
-        run: psql -X -v ON_ERROR_STOP=1 -c 'CREATE ROLE app_tracking_runtime LOGIN;'
+        run: |
+          psql -X -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE app_tracking_owner NOLOGIN;
+          CREATE ROLE app_tracking_migrator LOGIN;
+          CREATE ROLE app_tracking_runtime LOGIN;
+          GRANT app_tracking_owner TO app_tracking_migrator;
+          ALTER ROLE app_tracking_runtime SET statement_timeout = '2500ms';
+          ALTER ROLE app_tracking_runtime SET lock_timeout = '1500ms';
+          SQL
+          psql -X -v ON_ERROR_STOP=1 -c 'CREATE DATABASE app_tracking OWNER app_tracking_owner;'
+          psql -X -v ON_ERROR_STOP=1 -c 'REVOKE ALL ON DATABASE app_tracking FROM PUBLIC; GRANT CONNECT ON DATABASE app_tracking TO app_tracking_migrator,app_tracking_runtime;'
       - name: Test real PostgreSQL storage
         env:
-          MIGRATION_DATABASE_URL: postgresql://postgres@localhost/postgres?sslmode=disable
-          RUNTIME_DATABASE_URL: postgresql://app_tracking_runtime@localhost/postgres?sslmode=disable
+          MIGRATION_DATABASE_URL: postgresql://app_tracking_migrator@localhost/app_tracking?sslmode=disable
+          MIGRATION_OWNER_ROLE: app_tracking_owner
+          RUNTIME_DATABASE_URL: postgresql://app_tracking_runtime@localhost/app_tracking?sslmode=disable
           RUNTIME_ROLE: app_tracking_runtime
         run: pnpm test:storage
