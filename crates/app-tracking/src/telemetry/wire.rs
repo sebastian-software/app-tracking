@@ -1,5 +1,5 @@
 use super::{CONSENT_REVISION, Error, Row, state::Batch};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
@@ -215,7 +215,8 @@ pub(super) fn batch_body(
     )
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub(super) enum Kind {
     Register,
     Upload,
@@ -312,8 +313,18 @@ pub(super) fn acknowledgement(
 }
 
 pub(super) fn send(origin: &str, tool: &str, request: &Request, now: u64) -> Response {
+    send_with_budget(origin, tool, request, now, crate::NETWORK_BUDGET)
+}
+
+pub(super) fn send_with_budget(
+    origin: &str,
+    tool: &str,
+    request: &Request,
+    now: u64,
+    budget: std::time::Duration,
+) -> Response {
     let agent: ureq::Agent = ureq::Agent::config_builder()
-        .timeout_global(Some(crate::NETWORK_BUDGET))
+        .timeout_global(Some(budget))
         .max_redirects(0)
         .http_status_as_error(false)
         .max_response_header_size(16_384)

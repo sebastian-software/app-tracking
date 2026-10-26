@@ -11,7 +11,7 @@ import { psql, quote } from "./storage/psql.ts";
 
 // This small storage fixture observes client wire/retry behavior only. It is
 // not evidence for SQL transactions or expiry; optional runs inject real storage.
-function fixtureStorage(): TelemetryStorage {
+export function fixtureStorage(): TelemetryStorage {
   const installations = new Map<string, { token: string; declaration: string; revoked: boolean }>();
   const receipts = new Map<string, { hash: string; received: string }>();
   const result = (value: { status: string; error?: string; received_at?: string }) => ({

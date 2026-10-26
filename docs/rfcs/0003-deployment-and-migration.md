@@ -216,6 +216,6 @@ disable an existing service as a side effect of deploying this one.
   [implemented contract](../version-api.md); deployment evidence belongs in
   [issue #2](https://github.com/sebastian-software/app-tracking/issues/2).
 - Maintainer authentication, public aggregate disclosure, and abuse controls.
-- Measured client latency and queue behavior for the bounded synchronous upload contract.
+- Process-lifetime, latency, and queue behavior for bounded background delivery.
 - Production operating ownership, deployment authorization, recovery evidence,
   and the first consumer's release gates.

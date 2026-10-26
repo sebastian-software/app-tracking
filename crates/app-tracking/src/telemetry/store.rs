@@ -56,6 +56,64 @@ fn open_private(path: &Path, create: bool) -> Result<File, Error> {
 }
 
 impl Store {
+    pub fn discard_worker(&self) -> Result<(), Error> {
+        for name in ["worker.json", "worker.new"] {
+            let path = self.dir.join(name);
+            match fs::symlink_metadata(&path) {
+                Ok(_) => {
+                    regular_private(&path)?;
+                    fs::remove_file(path).map_err(|_| Error::State)?;
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(_) => return Err(Error::State),
+            }
+        }
+        Ok(())
+    }
+
+    pub fn read_worker(&self) -> Result<Option<super::background::Job>, Error> {
+        let path = self.dir.join("worker.json");
+        match fs::symlink_metadata(&path) {
+            Ok(_) => regular_private(&path)?,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(_) => return Err(Error::State),
+        }
+        let mut bytes = Vec::new();
+        File::open(path)
+            .map_err(|_| Error::State)?
+            .take(4097)
+            .read_to_end(&mut bytes)
+            .map_err(|_| Error::State)?;
+        if bytes.len() > 4096 {
+            return Err(Error::State);
+        }
+        serde_json::from_slice(&bytes)
+            .map(Some)
+            .map_err(|_| Error::State)
+    }
+
+    pub fn write_worker(&self, job: &super::background::Job) -> Result<(), Error> {
+        let destination = self.dir.join("worker.json");
+        match fs::symlink_metadata(&destination) {
+            Ok(_) => regular_private(&destination)?,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(_) => return Err(Error::State),
+        }
+        let pending = self.dir.join("worker.new");
+        let mut file = open_private(&pending, true)?;
+        file.set_len(0).map_err(|_| Error::State)?;
+        serde_json::to_writer(&mut file, job).map_err(|_| Error::State)?;
+        file.sync_all().map_err(|_| Error::State)?;
+        drop(file);
+        fs::rename(pending, destination).map_err(|_| Error::State)
+    }
+
+    pub fn consume_worker(&self) -> Result<(), Error> {
+        let path = self.dir.join("worker.json");
+        regular_private(&path)?;
+        fs::remove_file(path).map_err(|_| Error::State)
+    }
+
     pub fn allow_explicit_forget(&self) -> Result<(), Error> {
         regular_private(&self.dir.join("state.json"))
     }

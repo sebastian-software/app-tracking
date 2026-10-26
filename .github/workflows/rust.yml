@@ -41,6 +41,7 @@ jobs:
       - run: cargo +${{ steps.rust.outputs.version }} build --locked --examples
       - run: node scripts/check-rust-consumer.ts
       - run: node scripts/check-rust-telemetry.ts
+      - run: node scripts/check-rust-background.ts
       - run: cargo +${{ steps.rust.outputs.version }} doc --locked --workspace --no-deps
         env:
           RUSTDOCFLAGS: -D warnings

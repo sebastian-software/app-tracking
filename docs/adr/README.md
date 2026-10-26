@@ -12,6 +12,7 @@ direction is decided, not that it is implemented or deployed.
 | [0005](0005-repository-derived-project-identity.md)      | Repository-derived project identity      | Accepted |
 | [0006](0006-bunny-hosting-and-planetscale-storage.md)    | Bunny hosting and PlanetScale storage    | Accepted |
 | [0007](0007-dual-license.md)                             | MIT or Apache-2.0 licensing              | Accepted |
+| [0008](0008-background-telemetry-delivery.md)            | Background telemetry delivery            | Accepted |
 
 Use sequential, zero-padded filenames. An ADR records context, the decision,
 and its consequences. The status vocabulary is Proposed, Accepted, Rejected,

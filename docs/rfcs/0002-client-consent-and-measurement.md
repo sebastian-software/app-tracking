@@ -8,7 +8,7 @@
 ## Shared client boundary
 
 The implemented [Rust update client](../rust-client.md) supplies version checks
-for Dalo and Palamedes through a runtime-independent wire contract. The [0.2 telemetry client](../rust-telemetry-client.md) implements the consent,
+for Dalo and Palamedes through a runtime-independent wire contract. The [Rust telemetry client](../rust-telemetry-client.md) implements the consent,
 queue, and deletion lifecycle. Consumer adoption remains separate. Sharing a library must not
 force one tool's installation-channel policy, command names, or output behavior
 on another. Additional runtimes can implement the same protocol later.
@@ -29,14 +29,16 @@ The maintained [telemetry API](../telemetry-api.md),
 [retention policy](../telemetry-retention.md) settle the v1 contract from issue #5.
 They own exact schemas, limits, per-tool/context identity, consent precedence,
 CI opt-in, disclosure, withdrawal/offline deletion/reset, retry, and retention.
-Production telemetry remains disabled. The Rust library implements the lifecycle
+Production activation is recorded in issue #11. The Rust library implements the lifecycle
 through explicit host calls; it never opts consumers in automatically.
 
-The client executes at most one bounded synchronous telemetry request per
-invocation after command work. There is no detached upload worker, subprocess,
-or permanent daemon. Version checks remain independent, with their existing
-[client contract](../rust-client.md). Server and client implementation still need
-real concurrency, queue, transport, and latency evidence in the adoption issues.
+The native CLI persists counts and uses a short-lived subprocess of the same
+binary for a due telemetry operation. It never waits for network delivery. The
+worker rechecks consent and private durable state and sends at most one request;
+there is no permanent daemon, project discovery, or invocation counting in the
+worker. See [ADR 0008](../adr/0008-background-telemetry-delivery.md) and the
+[client guide](../rust-telemetry-client.md) for lifecycle and failure boundaries.
+Version checks retain their independent [client contract](../rust-client.md).
 
 ## Repository identity
 

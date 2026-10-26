@@ -1,10 +1,9 @@
-# Rust telemetry client: 0.2
+# Rust telemetry client: 0.3
 
 `app_tracking::telemetry::Client` implements explicit opt-in collection,
 registration, durable batches, and deletion. Import and construction do nothing
 automatically. The existing `UpdateClient` API and cache remain independent;
-declining telemetry never disables updates. The production service still exposes
-version routes only. Issue #11 owns production telemetry enablement; Palamedes adoption belongs to #15 and is the first v2 consumer; Dalo adoption
+declining telemetry never disables updates. Production telemetry activation is recorded in issue #11; Palamedes adoption belongs to #15 and is the first v2 consumer; Dalo adoption
 belongs to #12.
 
 ## Host integration
@@ -22,7 +21,7 @@ use app_tracking::telemetry::{Client, Invocation, Policy};
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
 let client = Client::new("https://updates.example.com", "/private/profile/tracking", "dalo")?;
 let policy = Policy::default(); // Map actual host settings/environment below.
-let result = client.run(
+let result = client.run_in_background(
     &policy,
     Some(Invocation { command: "sync", tool_version: "1.10.0" }),
     || RepositoryContext { origin: Origin::Absent, package_json: None },
@@ -79,7 +78,7 @@ the grant. They keep only decision/authority metadata needed for recovery or
 explicit deletion; they do not implicitly contact the server.
 
 `Delete`/`Reset` withdraw first, retain only authority and deletion status, and
-mark deletion pending. Call `run(policy, None, ..., false)` to make one eligible
+mark deletion pending. Call `run_in_background(policy, None, ..., false)` to make one eligible
 attempt, or let later ordinary invocations retry while online. `DO_NOT_TRACK`
 does not veto that explicit deletion; offline does. Pending deletion blocks a
 new Enable. Reset/renewal require completing old deletion and another explicit
@@ -168,12 +167,47 @@ bounds. There is no lossless-delivery promise. Busy stores, queue bounds,
 offline expiry, stopped tools, reset/lost state, and last-unuploaded activity
 can omit usage.
 
-Network waiting is synchronous, at most one request per run, with the existing
-200 ms total DNS/connect/TLS/headers/body budget. No redirect, detached upload,
-subprocess worker, or daemon is used. Bodies are bounded to 2 KiB and headers
-to 16 KiB. Fixed user agent: `app-tracking-telemetry-client`. Filesystem,
-serialization, process startup, and scheduling are additional; independent
-update waiting can add another 200 ms when due.
+### Background worker ownership
+
+Use `run_in_background` for ordinary CLI invocations and explicit flush/deletion
+attempts. It saves counters and reserves a due immutable operation before
+spawning this same executable with `BACKGROUND_WORKER_ARGUMENT` and a random
+local job nonce. No credential, payload, reporting identity, project, or path is
+passed in process arguments. The host must intercept that reserved entry before
+CLI parsing, locale/config/plugin setup, update checks, or counting, reconstruct
+its usual `Client`/`Policy`, call `run_background_worker(policy, nonce)`, and exit
+silently without calling the ordinary command path. The packaged
+`background-consumer` example demonstrates both entries.
+
+The parent does not wait for a request or child completion. stdin/stdout/stderr
+are null; Unix workers have a separate process group, Windows workers detach
+from the console and foreground process group. A best-effort reaper waits on a
+separate thread only while the parent remains alive. No daemon, shell, installed
+helper, scheduler, or new async runtime is required.
+
+`worker.json` is version-1, private local handoff metadata (at most 4 KiB), not a
+new reporting-state or wire schema. It contains only a job nonce, generation,
+attempt, kind, optional pending-batch ID, and creation time. Payloads/credentials
+stay in existing private schema-1 state. The worker checks the nonce and current
+scope/generation/attempt, consumes the handoff under the existing state/network
+locks, reconciles consent/offline/veto/expiry, and starts at most one request.
+It cannot count itself, discover a project, or recursively spawn. Handoffs older
+than 30 seconds are discarded; a delayed/crashed/failed launch preserves queued
+reports and the prelaunch retry claim. Withdrawal/veto discard handoffs too.
+Older clients ignore the extra file and retain their original explicit API.
+
+The worker uses a five-second total DNS/connect/TLS/headers/body deadline. There
+are no redirects or retry loops; ACK size remains 2 KiB and headers 16 KiB.
+No in-process transport thread must survive parent exit. A CI/container job may
+still terminate children, so final delivery is not guaranteed; retain isolated
+state until acknowledgement where needed. `flush` schedules one operation and
+returns; use local `status` to observe completion. Deletion remains pending until
+its worker receives an authenticated acknowledgement. Controls can report Busy
+while the bounded network request holds its lock; never claim withdrawal or
+deletion succeeded after a busy result. The legacy explicit `run` API retains
+its synchronous 200-ms behavior for compatibility. Update checks also retain
+their independent 200-ms deadline; no telemetry network budget is added to an
+ordinary CLI command's waiting time. Local storage and spawn overhead remain.
 
 Persist backoff before sending: 1 min, 5 min, 30 min, 1 h, 6 h, then 24 h capped.
 Connection/unknown outcomes, 429, 503, and other 5xx preserve the same operation.
@@ -186,7 +220,7 @@ requires explicit renewal. Clock problems never re-date old counts or IDs.
 ## Verification and release
 
 Run the existing [Rust checks](rust-client.md#verification-and-release), plus
-`node scripts/check-rust-telemetry.ts` after building examples. The actual client
+`node scripts/check-rust-telemetry.ts` and `node scripts/check-rust-background.ts` after building examples. The actual client
 executes packaged consent/canonical vectors. Tests cover snapshot closure,
 crash claims, new counts during upload, generation-safe late ACKs, policy vetoes,
 CI isolation, queue/age bounds, terminal errors, and pending deletion.
@@ -212,7 +246,7 @@ startup is not a universal 200 ms wall-clock guarantee. Each CI/live harness run
 prints its own sanitized process measurements. These observations are not
 production Internet latency or capacity claims.
 
-The crate version is 0.2.1. Package verification includes all source, examples,
+The crate version is 0.3.0. Package verification includes all source, examples,
 licenses, policy, identity, and telemetry vectors. Publication uses the existing
-Cargo credential provider and `app-tracking-v0.2.1` tag, separately from consumer
+Cargo credential provider and `app-tracking-v0.3.0` tag, separately from consumer
 adoption and service deployment. No telemetry is enabled merely by upgrading.
