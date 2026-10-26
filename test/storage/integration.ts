@@ -32,12 +32,14 @@ export async function storageIntegration(admin: string, runtime: string, role: s
     checks += 2;
     return item;
   }
+  let phase = "registration";
   try {
     const a = await registration();
     const batch = uuid7(),
       rows = maxRows();
     const submit = (batchId = batch, data = rows, content = hash(JSON.stringify(data))) =>
       `SELECT app_tracking.accept_batch('dalo',${q(a.id)},${q(a.tokenHash)},${q(batchId)},${q(content)},${q(JSON.stringify(data))}::jsonb)`;
+    phase = "concurrent_duplicates";
     const replies = await Promise.all(Array.from({ length: 8 }, () => run(submit())));
     assert.equal(replies.filter((v) => JSON.parse(v).status === "accepted").length, 1);
     assert.equal(replies.filter((v) => JSON.parse(v).status === "duplicate").length, 7);
@@ -48,6 +50,7 @@ export async function storageIntegration(admin: string, runtime: string, role: s
     checks += 3;
     await assert.rejects(run(submit(batch, rows, hash("changed-content"))));
     checks++;
+    phase = "late_insert_rollback";
     // Force a constraint failure in the final INSERT, after receipt/quota writes.
     const broken = uuid7();
     await assert.rejects(run(submit(broken, [...rows.slice(0, 1), { ...rows[1]!, count: 0 }])));
@@ -64,6 +67,7 @@ export async function storageIntegration(admin: string, runtime: string, role: s
       "256",
     );
     checks += 3;
+    phase = "foreign_key";
     // Cross-tool association cannot pass the composite foreign key.
     await assert.rejects(
       sql(
@@ -71,6 +75,7 @@ export async function storageIntegration(admin: string, runtime: string, role: s
       ),
     );
     checks++;
+    phase = "lock_serialization";
     // Hold the installation lock in a separate real transaction. The write must wait.
     const locked = uuid7();
     const holder = sql(
@@ -102,11 +107,13 @@ export async function storageIntegration(admin: string, runtime: string, role: s
     }
     assert.equal(JSON.parse(await run(submit(locked))).status, "accepted");
     checks += 4;
+    phase = "lost_acknowledgement";
     // A response deliberately discarded after commit is an unknown outcome to the caller.
     const lost = uuid7();
     await run(submit(lost));
     assert.equal(JSON.parse(await run(submit(lost))).status, "duplicate");
     checks++;
+    phase = "delayed_acknowledgement";
     // A transport deadline while the server may continue must also be retry-safe.
     const delayed = uuid7();
     const pending = run(`BEGIN; ${submit(delayed)}; SELECT pg_sleep(0.4); COMMIT;`);
@@ -114,6 +121,7 @@ export async function storageIntegration(admin: string, runtime: string, role: s
     await pending;
     assert.equal(JSON.parse(await run(submit(delayed))).status, "duplicate");
     checks++;
+    phase = "runtime_permissions";
     // An application role can execute fixed functions, but cannot read/write tables or DDL.
     for (const forbidden of [
       "CREATE TABLE app_tracking.forbidden(id integer)",
@@ -124,6 +132,7 @@ export async function storageIntegration(admin: string, runtime: string, role: s
       await assert.rejects(run(forbidden));
       checks++;
     }
+    phase = "transaction_rollback";
     // Full statement rollback restores last activity as well as receipt, quota and usage.
     const before = await sql(
       `SELECT last_activity_at FROM app_tracking.reporting_installations WHERE installation_id=${q(a.id)}`,
@@ -136,6 +145,7 @@ export async function storageIntegration(admin: string, runtime: string, role: s
       before,
     );
     checks += 2;
+    phase = "revocation";
     await run(`SELECT app_tracking.revoke_installation('dalo',${q(a.id)},${q(a.tokenHash)})`);
     await assert.rejects(run(submit()));
     assert.equal(
@@ -144,6 +154,25 @@ export async function storageIntegration(admin: string, runtime: string, role: s
     );
     checks += 2;
     return { checks, maximum_rows: rows.length, sql_atomicity: "passed" };
+  } catch (error) {
+    const details = error as {
+      code?: unknown;
+      message?: string;
+      operator?: unknown;
+      actual?: { message?: string };
+    };
+    const state =
+      (details.message ?? "").match(/Database operation failed \(([0-9A-Z]{5})\)/)?.[1] ??
+      details.actual?.message?.match(/Database operation failed \(([0-9A-Z]{5})\)/)?.[1];
+    console.error(
+      JSON.stringify({
+        storage_test_phase: phase,
+        sqlstate: state,
+        assertion: details.code === "ERR_ASSERTION",
+        operator: typeof details.operator === "string" ? details.operator : undefined,
+      }),
+    );
+    throw error;
   } finally {
     for (const id of ids)
       await sql(
