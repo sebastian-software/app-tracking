@@ -140,6 +140,7 @@ export async function storageIntegration(admin: string, runtime: string, role: s
   } catch (error) {
     const details = error as {
       code?: unknown;
+      category?: unknown;
       message?: string;
       operator?: unknown;
       actual?: { message?: string };
@@ -151,6 +152,7 @@ export async function storageIntegration(admin: string, runtime: string, role: s
       JSON.stringify({
         storage_test_phase: phase,
         sqlstate: state,
+        category: typeof details.category === "string" ? details.category : undefined,
         assertion: details.code === "ERR_ASSERTION",
         operator: typeof details.operator === "string" ? details.operator : undefined,
       }),
