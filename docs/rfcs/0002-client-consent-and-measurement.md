@@ -40,6 +40,12 @@ real concurrency, queue, transport, and latency evidence in the adoption issues.
 
 ## Repository identity
 
+The maintained [normalization v1 contract](../project-identity.md) and executable
+fixtures now define the implemented identity component from issue #9. They own
+the exact supported forms and conservative rejection rules; the design rationale
+below does not broaden that support. The component remains unreleased and does
+not enable telemetry collection.
+
 Resolve project context only for consenting reporting. A global operation need
 not have a project. A missing or rejected identity does not discard otherwise
 valid usage; it contributes to the explicitly unknown-project category.

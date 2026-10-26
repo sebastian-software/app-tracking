@@ -6,6 +6,12 @@ distribution, channel, and local cache directory. Nothing runs on import or
 construction. This is the shared client from issue #3; consumer migration and
 release evidence belong to the adoption issues.
 
+The repository additionally implements the unreleased
+[`app_tracking::project` module](project-identity.md) from issue #9. It is an
+explicit, consent-gated identity operation and is never used by update checks.
+The published 0.1.0 version does not yet contain this module. A later crate
+release and consumer adoption remain separate from this implementation.
+
 ## Host integration
 
 ```toml

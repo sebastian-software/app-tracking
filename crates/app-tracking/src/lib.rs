@@ -1,5 +1,6 @@
-//! Advisory version checks without telemetry, output, environment-variable policy,
-//! automatic installation, or a background worker.
+//! Advisory version checks and explicit, consent-gated [`project`] identity.
+//! No automatic telemetry collection, output, environment-variable policy,
+//! installation, or background worker is provided.
 //!
 //! Call [`UpdateClient::check`] once at a host-controlled point in a command. The
 //! call completes synchronously; a due request has a 200 ms network deadline.
@@ -18,6 +19,7 @@
 //! # }
 //! ```
 mod cache;
+pub mod project;
 mod wire;
 
 use std::cmp::Ordering;

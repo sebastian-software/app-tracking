@@ -1,0 +1,592 @@
+{
+  "normalization_version": 1,
+  "cases": [
+    {
+      "name": "github-https",
+      "origin": "https://github.com/example-org/example-project",
+      "package": null,
+      "canonical": "github.com/example-org/example-project",
+      "project_id": "4924d59649bf4cada34c477ad71aa9426cafae8140d0920dcd22e43bb69ba592"
+    },
+    {
+      "name": "github-ssh",
+      "origin": "git@github.com:example-org/example-project.git",
+      "package": null,
+      "canonical": "github.com/example-org/example-project",
+      "project_id": "4924d59649bf4cada34c477ad71aa9426cafae8140d0920dcd22e43bb69ba592"
+    },
+    {
+      "name": "github-case",
+      "origin": "HTTPS://GITHUB.COM/Example-Org/Example-Project",
+      "package": null,
+      "canonical": "github.com/example-org/example-project",
+      "project_id": "4924d59649bf4cada34c477ad71aa9426cafae8140d0920dcd22e43bb69ba592"
+    },
+    {
+      "name": "github-trailing-slash",
+      "origin": "https://github.com/example-org/example-project.git/",
+      "package": null,
+      "canonical": "github.com/example-org/example-project",
+      "project_id": "4924d59649bf4cada34c477ad71aa9426cafae8140d0920dcd22e43bb69ba592"
+    },
+    {
+      "name": "github-ssh-url",
+      "origin": "ssh://git@github.com:22/example-org/example-project.git",
+      "package": null,
+      "canonical": "github.com/example-org/example-project",
+      "project_id": "4924d59649bf4cada34c477ad71aa9426cafae8140d0920dcd22e43bb69ba592"
+    },
+    {
+      "name": "github-https-port",
+      "origin": "https://github.com:0443/example-org/example-project.git",
+      "package": null,
+      "canonical": "github.com/example-org/example-project",
+      "project_id": "4924d59649bf4cada34c477ad71aa9426cafae8140d0920dcd22e43bb69ba592"
+    },
+    {
+      "name": "github-ssh-443",
+      "origin": "ssh://git@ssh.github.com:443/example-org/example-project.git",
+      "package": null,
+      "canonical": "github.com/example-org/example-project",
+      "project_id": "4924d59649bf4cada34c477ad71aa9426cafae8140d0920dcd22e43bb69ba592"
+    },
+    {
+      "name": "github-git-https",
+      "origin": "git+https://github.com/example-org/example-project.git",
+      "package": null,
+      "canonical": "github.com/example-org/example-project",
+      "project_id": "4924d59649bf4cada34c477ad71aa9426cafae8140d0920dcd22e43bb69ba592"
+    },
+    {
+      "name": "github-git-ssh",
+      "origin": "git+ssh://git@github.com/example-org/example-project.git",
+      "package": null,
+      "canonical": "github.com/example-org/example-project",
+      "project_id": "4924d59649bf4cada34c477ad71aa9426cafae8140d0920dcd22e43bb69ba592"
+    },
+    {
+      "name": "github-credentials",
+      "origin": "https://synthetic-user:synthetic-token%40example@github.com/example-org/example-project.git",
+      "package": null,
+      "canonical": "github.com/example-org/example-project",
+      "project_id": "4924d59649bf4cada34c477ad71aa9426cafae8140d0920dcd22e43bb69ba592"
+    },
+    {
+      "name": "fork",
+      "origin": "https://github.com/another-org/example-project.git",
+      "package": null,
+      "canonical": "github.com/another-org/example-project",
+      "project_id": "3a92aff3acd34545d5882f79d8e234cd7a4f6d4a89e533056683d3ddff7c81b7"
+    },
+    {
+      "name": "package-11",
+      "origin": null,
+      "package": {
+        "repository": "example-org/example-project"
+      },
+      "canonical": "github.com/example-org/example-project",
+      "project_id": "4924d59649bf4cada34c477ad71aa9426cafae8140d0920dcd22e43bb69ba592"
+    },
+    {
+      "name": "package-12",
+      "origin": null,
+      "package": {
+        "repository": "github:example-org/example-project"
+      },
+      "canonical": "github.com/example-org/example-project",
+      "project_id": "4924d59649bf4cada34c477ad71aa9426cafae8140d0920dcd22e43bb69ba592"
+    },
+    {
+      "name": "package-13",
+      "origin": null,
+      "package": {
+        "repository": {
+          "type": "git",
+          "url": "git+https://github.com/example-org/example-project.git",
+          "directory": "packages/one"
+        }
+      },
+      "canonical": "github.com/example-org/example-project",
+      "project_id": "4924d59649bf4cada34c477ad71aa9426cafae8140d0920dcd22e43bb69ba592"
+    },
+    {
+      "name": "package-14",
+      "origin": null,
+      "package": {
+        "repository": {
+          "url": "https://github.com/example-org/example-project",
+          "directory": "packages/two"
+        }
+      },
+      "canonical": "github.com/example-org/example-project",
+      "project_id": "4924d59649bf4cada34c477ad71aa9426cafae8140d0920dcd22e43bb69ba592"
+    },
+    {
+      "name": "gitlab-https",
+      "origin": "https://gitlab.com/Example-Org/subgroup/example-project.git",
+      "package": null,
+      "canonical": "gitlab.com/Example-Org/subgroup/example-project",
+      "project_id": "9f14131acab95e805f77b7bafd24d83414e994a89db493c2b241321c78091ecd"
+    },
+    {
+      "name": "gitlab-ssh",
+      "origin": "git@gitlab.com:Example-Org/subgroup/example-project.git",
+      "package": null,
+      "canonical": "gitlab.com/Example-Org/subgroup/example-project",
+      "project_id": "9f14131acab95e805f77b7bafd24d83414e994a89db493c2b241321c78091ecd"
+    },
+    {
+      "name": "gitlab-package",
+      "origin": null,
+      "package": {
+        "repository": "gitlab:Example-Org/subgroup/example-project"
+      },
+      "canonical": "gitlab.com/Example-Org/subgroup/example-project",
+      "project_id": "9f14131acab95e805f77b7bafd24d83414e994a89db493c2b241321c78091ecd"
+    },
+    {
+      "name": "bitbucket-https",
+      "origin": "https://bitbucket.org/example-org/example-project.git",
+      "package": null,
+      "canonical": "bitbucket.org/example-org/example-project",
+      "project_id": "5ec26fe9b5164e373af22acf1b67ba094c37f80151638a648174f67f908d3dc2"
+    },
+    {
+      "name": "bitbucket-ssh",
+      "origin": "git@bitbucket.org:example-org/example-project.git",
+      "package": null,
+      "canonical": "bitbucket.org/example-org/example-project",
+      "project_id": "5ec26fe9b5164e373af22acf1b67ba094c37f80151638a648174f67f908d3dc2"
+    },
+    {
+      "name": "bitbucket-package",
+      "origin": null,
+      "package": {
+        "repository": "bitbucket:example-org/example-project"
+      },
+      "canonical": "bitbucket.org/example-org/example-project",
+      "project_id": "5ec26fe9b5164e373af22acf1b67ba094c37f80151638a648174f67f908d3dc2"
+    },
+    {
+      "name": "generic-case",
+      "origin": "https://GIT.EXAMPLE.COM/Org/Repo.git",
+      "package": null,
+      "canonical": "https://git.example.com/Org/Repo.git",
+      "project_id": "f0cff1ebc0ad9fe14a1292d51b68b66d648c77d697b7a3d092a10d39390feffb"
+    },
+    {
+      "name": "generic-distinct-case",
+      "origin": "https://git.example.com/org/repo.git",
+      "package": null,
+      "canonical": "https://git.example.com/org/repo.git",
+      "project_id": "f4d8560e11cd1839d5c2a003c27b92c25de24622fd4bfbc29ccbafff320dc35b"
+    },
+    {
+      "name": "generic-no-suffix",
+      "origin": "https://git.example.com/Org/Repo",
+      "package": null,
+      "canonical": "https://git.example.com/Org/Repo",
+      "project_id": "28a44c6ffba19854ed6cdf4e86dc81f02ee9bc1e62f10731c10ba37b8cd775a1"
+    },
+    {
+      "name": "generic-trailing-slash",
+      "origin": "https://git.example.com/Org/Repo.git/",
+      "package": null,
+      "canonical": "https://git.example.com/Org/Repo.git/",
+      "project_id": "b22498b7f610e7192c58a84dd8df6be288994696167bbae76b1ad62a8f91cca0"
+    },
+    {
+      "name": "generic-port",
+      "origin": "https://git.example.com:8443/Org/Repo.git",
+      "package": null,
+      "canonical": "https://git.example.com:8443/Org/Repo.git",
+      "project_id": "6b0225524dd1f68ffcd02b57a3a717b9c4a7765fb33abc5313e070698866e048"
+    },
+    {
+      "name": "generic-default-port",
+      "origin": "https://git.example.com:443/Org/Repo.git",
+      "package": null,
+      "canonical": "https://git.example.com/Org/Repo.git",
+      "project_id": "f0cff1ebc0ad9fe14a1292d51b68b66d648c77d697b7a3d092a10d39390feffb"
+    },
+    {
+      "name": "generic-credentials",
+      "origin": "https://synthetic-user:synthetic-pass@git.example.com/Org/Repo.git",
+      "package": null,
+      "canonical": "https://git.example.com/Org/Repo.git",
+      "project_id": "f0cff1ebc0ad9fe14a1292d51b68b66d648c77d697b7a3d092a10d39390feffb"
+    },
+    {
+      "name": "empty",
+      "origin": "",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "local-posix",
+      "origin": "/private/synthetic/checkout",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "local-relative",
+      "origin": "../checkout",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "local-windows",
+      "origin": "C:\\synthetic\\checkout",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "file",
+      "origin": "file:///synthetic/checkout",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "ssh-alias",
+      "origin": "git@github-work:example-org/example-project.git",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "generic-ssh",
+      "origin": "git@git.example.com:Org/Repo.git",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "absolute-scp",
+      "origin": "git@github.com:/example-org/example-project.git",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "nondefault-provider-port",
+      "origin": "ssh://git@github.com:2222/example-org/example-project",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "wrong-alias-port",
+      "origin": "ssh://git@ssh.github.com:22/example-org/example-project",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "wrong-alias-transport",
+      "origin": "https://ssh.github.com/example-org/example-project",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "http",
+      "origin": "http://github.com/example-org/example-project",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "git-transport",
+      "origin": "git://github.com/example-org/example-project",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "query",
+      "origin": "https://github.com/example-org/example-project?token=synthetic-secret",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "fragment",
+      "origin": "https://github.com/example-org/example-project#main",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "encoded-separator",
+      "origin": "https://github.com/example-org%2fother/example-project",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "encoded-unreserved",
+      "origin": "https://github.com/%65xample-org/example-project",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "encoded-host",
+      "origin": "https://%67ithub.com/example-org/example-project",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "dot-segment",
+      "origin": "https://github.com/example-org/../example-project",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "double-separator",
+      "origin": "https://github.com/example-org//example-project",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "double-trailing",
+      "origin": "https://github.com/example-org/example-project//",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "missing-repository",
+      "origin": "https://github.com/example-org",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "github-web-path",
+      "origin": "https://github.com/example-org/example-project/tree/main",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "blank-host",
+      "origin": "https:///example-org/example-project",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "multi-user",
+      "origin": "https://synthetic@other@github.com/example-org/example-project",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "empty-user",
+      "origin": "https://@github.com/example-org/example-project",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "bad-port",
+      "origin": "https://github.com:0/example-org/example-project",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "bad-port-overflow",
+      "origin": "https://git.example.com:65536/Org/Repo",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "ipv4",
+      "origin": "https://127.0.0.1/Org/Repo",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "ipv6",
+      "origin": "https://[::1]/Org/Repo",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "non-ascii",
+      "origin": "https://github.com/example-org/r\u00e9p\u00f4",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "whitespace",
+      "origin": " https://github.com/example-org/example-project",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "control",
+      "origin": "https://github.com/example-org/example-project\n",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "shorthand-origin",
+      "origin": "example-org/example-project",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "host-trailing-dot",
+      "origin": "https://github.com./example-org/example-project",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "unsupported-origin-blocks-package",
+      "origin": "git@github-work:example-org/example-project.git",
+      "package": {
+        "repository": "example-org/example-project"
+      },
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "unavailable-origin-blocks-package",
+      "origin": null,
+      "package": {
+        "repository": "example-org/example-project"
+      },
+      "canonical": null,
+      "project_id": null,
+      "origin_unavailable": true
+    },
+    {
+      "name": "origin-precedes-package",
+      "origin": "https://github.com/example-org/example-project",
+      "package": {
+        "repository": "another-org/example-project"
+      },
+      "canonical": "github.com/example-org/example-project",
+      "project_id": "4924d59649bf4cada34c477ad71aa9426cafae8140d0920dcd22e43bb69ba592"
+    },
+    {
+      "name": "package-hg",
+      "origin": null,
+      "package": {
+        "repository": {
+          "type": "hg",
+          "url": "https://github.com/example-org/example-project"
+        }
+      },
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "package-number",
+      "origin": null,
+      "package": {
+        "repository": 123
+      },
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "package-local",
+      "origin": null,
+      "package": {
+        "repository": "../synthetic"
+      },
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "package-gist",
+      "origin": null,
+      "package": {
+        "repository": "gist:abcdef"
+      },
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "package-malformed",
+      "origin": null,
+      "package": {
+        "repository": {
+          "url": []
+        }
+      },
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "package-wrong-type",
+      "origin": null,
+      "package": {
+        "repository": {
+          "type": null,
+          "url": "https://github.com/example-org/example-project"
+        }
+      },
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "package-fragment",
+      "origin": null,
+      "package": {
+        "repository": "github:example-org/example-project#main"
+      },
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "global",
+      "origin": null,
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "numeric-host",
+      "origin": "https://127.000.000.001/Org/Repo",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "generic-double-trailing",
+      "origin": "https://git.example.com/Org/Repo//",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    },
+    {
+      "name": "github-lookalike-host",
+      "origin": "ssh://git@github.com.example.net/org/repo",
+      "package": null,
+      "canonical": null,
+      "project_id": null
+    }
+  ]
+}
