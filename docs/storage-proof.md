@@ -115,10 +115,14 @@ MIGRATION_DATABASE_URL=... MIGRATION_OWNER_ROLE=app_tracking_owner RUNTIME_DATAB
 
 The same suite runs against an isolated PlanetScale database before the edge
 probe. It verifies clean/repeated migration, runtime privileges, composite
-foreign keys, concurrent duplicate claims, installation-lock serialization,
+foreign keys, two concurrent direct-TCP duplicate claims, installation-lock serialization,
 late insertion failure, full-transaction rollback, discarded acknowledgements,
 and safe retry. It removes only installations it created; it does not clear an
-existing dataset. The local run is evidence about Postgres behavior, not proof
+existing dataset. Eight simultaneous direct-TCP process connections from GitHub Actions intermittently
+ended with a closed connection before returning SQLSTATE. This suite uses two
+connections to test database serialization, without automatic retries. The live
+probe independently retains eight parallel requests through the HTTP driver.
+The local run is evidence about Postgres behavior, not proof
 of PlanetScale's proxy or Bunny runtime.
 
 ## Temporary live probe
