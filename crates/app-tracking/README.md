@@ -1,5 +1,11 @@
 # app-tracking 0.1
 
+The repository also contains an **unreleased** consent-gated project identity
+module, `app_tracking::project`, with no discovery I/O or automatic collection.
+See the [normalization v1 contract](https://github.com/sebastian-software/app-tracking/blob/main/docs/project-identity.md)
+and the packaged `fixtures/project-identity-v1.json` golden vectors. The published
+0.1.0 release remains the update-only client described below.
+
 A synchronous Rust client for the app-tracking version API. This release performs
 update checks only. It creates no installation identity, repository hash, usage
 counter, telemetry queue, or analytics request. It prints nothing and never
