@@ -26,6 +26,7 @@ export async function verifyProof(base: string, secret: string) {
   const measurements: Result[] = [];
   const clientTimes: number[] = [];
   let startupAttempts = 0;
+  let diagnostic: Record<string, unknown> = { phase: "before_request" };
   async function send(
     route: string,
     body: unknown,
@@ -41,6 +42,19 @@ export async function verifyProof(base: string, secret: string) {
       headers: { authorization: `Bearer ${secret}`, "content-type": "application/json" },
       body: pad ? json.padEnd(65536, " ") : json,
     });
+    diagnostic = {
+      phase: "http",
+      status: response.status,
+      cache: response.headers.get("cdn-cache"),
+      policy: response.headers.get("cache-control"),
+    };
+    if (response.status !== 200) {
+      try {
+        const error = ((await response.clone().json()) as { error?: unknown }).error;
+        if (typeof error === "string" && /^[a-z0-9_]{1,40}$/.test(error))
+          diagnostic.application_error = error;
+      } catch {}
+    }
     assert.notEqual(response.headers.get("cdn-cache"), "HIT");
     assert.match(response.headers.get("cache-control") ?? "", /no-store|no-cache/);
     return response;
@@ -51,6 +65,13 @@ export async function verifyProof(base: string, secret: string) {
     clientTimes.push(performance.now() - started);
     assert.equal(response.status, 200);
     const result = (await response.json()) as Result;
+    diagnostic = {
+      phase: "result",
+      subrequests: result.subrequests,
+      elapsed_ms: result.elapsed_ms,
+      request_bytes: result.request_bytes,
+      status: result.result?.status,
+    };
     assert.equal(result.subrequests, 1);
     assert.ok(result.elapsed_ms < 3000);
     measurements.push(result);
@@ -94,6 +115,7 @@ export async function verifyProof(base: string, secret: string) {
         first = await success("/proof/submit", max, true);
         break;
       } catch {
+        console.log(JSON.stringify({ activation_attempt: attempt + 1, ...diagnostic }));
         if (attempt === 11) throw new Error("Fresh deployment unavailable");
       }
       await new Promise((resolve) => setTimeout(resolve, 5000));
