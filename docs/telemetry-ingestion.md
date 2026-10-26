@@ -9,8 +9,10 @@ and [policy](../contracts/telemetry-v1-policy.json) remain authoritative.
 
 `createTelemetryService(databaseUrl)` builds the candidate handler. It has no
 module-load network request, environment lookup, consent collection, or automatic
-registration. Neither `src/edge.ts` nor the deployed version bundle imports it.
-The build harness checks that separation. Version resolution remains independent
+registration. The production composition in `src/edge.ts` imports it but constructs it only
+on a telemetry route while the explicit runtime switch is enabled. The bundle
+harness verifies closed routes and version/health independence even when
+telemetry configuration is invalid. Version resolution remains independent
 of PlanetScale and telemetry.
 
 The candidate implements only:
@@ -18,7 +20,8 @@ The candidate implements only:
 - `PUT /v1/installations/{uuid7}`: `201 registered` or `200 duplicate`.
 - `POST /v1/usage-batches`: `200 accepted` or `200 duplicate`.
 
-Public telemetry stays disabled until production operations (#11) are ready.
+Public activation is controlled by the runtime switch and the
+[operations procedure](operations.md), including the remaining #11 evidence.
 The subsequent [lifecycle implementation](telemetry-lifecycle.md) adds DELETE
 with bounded primary purges and scheduled retention. Installation routes now
 advertise `Allow: PUT, DELETE`.
@@ -87,8 +90,10 @@ gh workflow run deploy.yml --ref BRANCH -f ingestion_test=true
 This uses the existing encrypted `APP_TRACKING_MIGRATION_DATABASE_URL` and
 `APP_TRACKING_RUNTIME_DATABASE_URL` Actions secrets. It applies additive,
 checksummed migrations as `app_tracking_owner`, verifies runtime role defaults,
-and grants the fixed functions. It sends no database credential to Bunny and
-does not publish the candidate or alter the version deployment. Schema changes
+and grants the fixed functions. This optional integration-test mode sends no database credential to Bunny and
+does not publish the candidate or alter the production deployment. The separate
+production deployment sends only the verified runtime credential as an
+encrypted Bunny secret when telemetry is explicitly enabled. Schema changes
 roll forward; rolling back an application bundle does not reverse migrations.
 
 On 2026-10-26, [run 40302187302](https://github.com/sebastian-software/app-tracking/actions/runs/40302187302)

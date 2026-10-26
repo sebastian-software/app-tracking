@@ -97,4 +97,23 @@ test("deployment probe rejects a stale revision and uncached private-route viola
     return response;
   };
   await assert.rejects(verifyDeployment("https://example.com", revision, privateCache));
+  const staleSnapshot: typeof fetch = async (input, init) => {
+    const response = await fake(input, init);
+    if (new URL(String(input)).pathname.startsWith("/v1/versions/") && response.status === 200) {
+      const data = await response.json();
+      data.stale = true;
+      data.checked_at = new Date(Date.now() - 7_200_000).toISOString();
+      response.headers.set("cache-control", "no-store");
+      response.headers.delete("cdn-cache");
+      return Response.json(data, { headers: response.headers });
+    }
+    return response;
+  };
+  await verifyDeployment("https://example.com", revision, staleSnapshot);
+  const cachedStale: typeof fetch = async (input, init) => {
+    const response = await staleSnapshot(input, init);
+    response.headers.set("cdn-cache", "HIT");
+    return response;
+  };
+  await assert.rejects(verifyDeployment("https://example.com", revision, cachedStale));
 });

@@ -1,7 +1,7 @@
-# Bunny version deployment
+# Bunny deployment
 
 Changes to main deploy directly to one Bunny Edge Script and its linked Pull
-Zone. The `Deploy version service` workflow runs `pnpm check`, configures the
+Zone. The `Deploy app-tracking` workflow runs `pnpm check`, configures the
 service, publishes the bundle, purges the CDN, and verifies the live API. Pull
 requests run checks without deploying. There is no separate staging environment
 or manual promotion gate.
@@ -45,14 +45,18 @@ needed. Maintainers own deployment and recovery.
 
 ## Cache verification
 
-Only fresh public version responses are shared-cache candidates. Provisioning
+Only fresh public version responses are shared-cache candidates. Explicitly
+stale version results remain usable for less than 24 hours from their original
+collection time and must bypass the CDN; deployment verification accepts this
+contract state without pretending that the upstream refreshed. Provisioning
 respects origin Cache-Control, preserves query distinctions, disables error
 caching and stale background/offline responses, and disables Pull Zone access
 logging, forwarding, and log storage. Health, invalid requests, and future
 private routes bypass shared caches.
 
 Every deployment checks all configured distributions, revision headers, an
-observed CDN HIT, conditional requests, freshness, invalid-query rejection,
+observed CDN HIT and conditional requests for fresh data, bounded age and
+uncached handling for stale data, invalid-query rejection,
 and repeated uncached health/admin/report paths. Deterministic tests cover
 snapshot failure, release eligibility, retry limits, cold outages, and maximum retained stale age.
 No synthetic failure bundle is published to the live service.
@@ -98,3 +102,38 @@ The optional `storage_proof` workflow input runs a temporary authenticated probe
 with separate database credentials. It does not deploy the version service or
 introduce a permanent staging environment. See the [storage proof
 runbook](storage-proof.md) for setup, measurements, and cleanup.
+
+## Opt-in telemetry runtime
+
+The same bundle includes a lazily constructed telemetry handler. The Actions
+variable `APP_TRACKING_TELEMETRY_ENABLED=1` enables its deployment configuration;
+unset or `0` keeps private routes closed. Enabling requires the operations and
+processor checks in [the operations runbook](operations.md). Source code or a
+merged consumer alone does not authorize or establish activation.
+
+Before publishing an enabled revision, the workflow applies checksummed additive
+migrations, verifies the existing unprivileged runtime role and effective query
+logging, and sends only the runtime URL to the Edge Script's encrypted
+`APP_TRACKING_DATABASE_URL` secret. The migration URL stays in Actions.
+`APP_TRACKING_TELEMETRY_ENABLED` is a separate runtime secret, evaluated on
+telemetry routes. Version and health requests never construct storage.
+
+Provisioning also sets the provider's per-IP request limit to 20 requests/s and
+burst to 40. This zone-wide gateway limit is a basic abuse brake, not global
+registration deduplication or proof of an authentic binary. Shared NATs can hit
+it. Provider rejections can differ from application JSON; clients must back off.
+Authenticated upload limits remain installation-scoped in SQL. Deletion has no
+upload quota and remains retryable after a gateway rejection.
+
+Enabled deployments verify repeated unauthenticated cache bypass, then use an
+owned synthetic identity to prove registration, acceptance, replay, conflicting
+replay rejection, credential isolation, and deletion through the real CDN. The
+probe retains cleanup authority only in ignored, private runner state and
+retries cleanup in an `always()` step. Public output contains pass/fail only.
+Admin and public aggregate routes remain disabled.
+
+Release manifests record whether telemetry was enabled. Rollback restores the
+original artifact and its effective activation state, honoring a current `0`
+kill switch. Older manifests default to closed telemetry. Additive schemas and
+runtime credentials are retained; rollback never drops tables or reverses
+migrations. A normal deployment restores main afterward.

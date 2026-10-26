@@ -1,8 +1,8 @@
 # Storage proof notices
 
-The temporary storage proof and gated telemetry candidate bundles additionally contain
-`@neondatabase/serverless` 1.2.0, licensed under MIT. The production version
-bundle does not include this driver. Its notice follows unchanged.
+The production runtime, temporary storage proof, and telemetry candidate bundles
+contain `@neondatabase/serverless` 1.2.0, licensed under MIT. The version-only
+library bundle does not include this driver. Its notice follows unchanged.
 Source: https://github.com/neondatabase/serverless/blob/v1.2.0/LICENSE
 
 ```text

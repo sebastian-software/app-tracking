@@ -198,7 +198,8 @@ process harness, including PlanetScale's actual HTTP driver for the latter.
 Only owned synthetic installations are used and removed afterward. A fixture
 edits its own next-attempt timestamps to avoid minute-long sleeps; the production
 API has no retry-bypass switch. Unit tests exercise the real suppression rules.
-Production private Bunny routes remain disabled pending #11. Canonical bytes are
+Production private Bunny routes require the explicit activation and deployed
+evidence described in [operations](operations.md) (#11). Canonical bytes are
 also verified with a consumer-enabled `serde_json/preserve_order` feature;
 dependency feature unification cannot change the payload hash.
 

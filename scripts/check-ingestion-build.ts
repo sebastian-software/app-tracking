@@ -73,8 +73,9 @@ try {
   assert.equal(calls[2].params.length, 3);
   const meta = JSON.parse(await readFile("dist/edge.meta.json", "utf8"));
   assert.ok(
-    !Object.keys(meta.inputs).some((p) => p.includes("/telemetry/") || p.includes("/storage/")),
-    "Production bundle must remain version-only",
+    Object.keys(meta.inputs).some((p) => p.includes("/telemetry/")) &&
+      Object.keys(meta.inputs).some((p) => p.includes("/storage/")),
+    "Production bundle must include the explicitly gated telemetry service",
   );
   console.log(
     "Telemetry candidate bundle: fixed wire acknowledgements, parameterized HTTP calls, credential hashing, and production isolation passed.",

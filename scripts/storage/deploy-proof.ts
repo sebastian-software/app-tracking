@@ -22,7 +22,10 @@ try {
   await publish(
     api,
     target,
-    await readFile("dist/storage-proof.js", "utf8"),
+    await readFile(
+      process.env.PROOF_BUNDLE === "runtime" ? "dist/runtime-proof.js" : "dist/storage-proof.js",
+      "utf8",
+    ),
     execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
   );
   console.log("Temporary proof published. Target details are in ignored runner state.");

@@ -1,7 +1,7 @@
 # Opt-in telemetry contract: v1
 
 Status: implementation contract for issues #6–#12; telemetry is not enabled or
-implemented by this document. The deployed service remains version-only; the [0.2 Rust telemetry client](rust-telemetry-client.md)
+implemented by this document. Production activation follows the [operations runbook](operations.md); the [0.2 Rust telemetry client](rust-telemetry-client.md)
 is an explicit host API without automatic consumer opt-in. This contract does not certify a production deployment or consent
 flow. [ADR 0004](adr/0004-independent-updates-and-opt-in-telemetry.md) owns the
 decision; [client consent](telemetry-consent.md) and
@@ -105,7 +105,9 @@ An unknown tool is rejected, and neither tool's credential grants access to the
 other tool even when an installation UUID is reused. PUT/POST select their tool
 through the validated JSON body.
 
-Registration, batch ingestion, and deletion are implemented in the gated candidate. The production service remains version-only. All telemetry
+Registration, batch ingestion, and deletion share the explicitly gated
+production handler. A disabled runtime returns 404; an enabled but
+misconfigured runtime returns a redacted 503 on telemetry routes only. All telemetry
 responses, including errors, carry
 `Cache-Control: no-store`; no telemetry route uses CDN cache or conditional GET.
 No query strings, cookies, redirects, browser CORS permission, or arbitrary

@@ -130,7 +130,8 @@ the live deployment is configured.
 
 Available under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your
 option. [ADR 0007](docs/adr/0007-dual-license.md) records the decision.
-[Third-party notices](THIRD_PARTY_NOTICES.md) cover the SDK bundled for Bunny.
+[Third-party notices](THIRD_PARTY_NOTICES.md) cover the SDK bundled for Bunny;
+[driver notices](STORAGE_PROOF_NOTICES.md) cover the runtime database driver.
 
 The [storage proof runbook](docs/storage-proof.md) describes the synthetic
 Bunny–PlanetScale transaction tests and their evidence boundary.
@@ -139,4 +140,5 @@ The [gated ingestion runbook](docs/telemetry-ingestion.md) describes implemented
 registration and batch validation, transactional storage, and synthetic live
 evidence. The [lifecycle runbook](docs/telemetry-lifecycle.md) covers bounded
 installation deletion, scheduled retention, and ordinary recovery. Public
-telemetry remains disabled pending production operations work.
+telemetry requires the explicit activation and live evidence described in
+the [operations runbook](docs/operations.md).
