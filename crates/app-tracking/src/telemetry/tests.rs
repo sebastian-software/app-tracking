@@ -594,7 +594,8 @@ fn queue_limits_expiry_and_counts_are_bounded_before_submission() {
 fn preview_redacts_token_and_corruption_never_silently_resets_identity() {
     let (_, client, p) = fixture();
     registered(&client, &p);
-    let secret = load(&client, &p).authority.unwrap().token;
+    let authority = load(&client, &p).authority.unwrap();
+    let secret = authority.token.clone();
     let preview = client.preview(&p).unwrap();
     for raw in [&secret, "credential", "github.com", "example-org"] {
         assert!(!preview.contains(raw));
@@ -606,6 +607,40 @@ fn preview_redacts_token_and_corruption_never_silently_resets_identity() {
         Err(Error::State)
     ));
     assert_eq!(std::fs::read_to_string(path).unwrap(), "{truncated");
+    let recovered = client
+        .control_at(Control::ForgetUnverified, &p, NOW + 1000)
+        .unwrap();
+    assert_eq!(recovered.deletion, DeletionStatus::Unverified);
+    assert_eq!(recovered.decision, Decision::Withdrawn);
+    assert!(load(&client, &p).authority.is_none());
+    client.control_at(Control::Enable, &p, NOW + 2000).unwrap();
+    let mut ticket = None;
+    client
+        .run_at(
+            &p,
+            None,
+            || panic!(),
+            false,
+            NOW + 2000,
+            |r, _| {
+                ticket = Some(r.clone());
+                Response::Retry(None)
+            },
+        )
+        .unwrap();
+    // A lost-state recovery can restart generation/attempt numbers. An ACK
+    // must still belong to the exact authority, not merely matching numbers.
+    let mut stale = ticket.unwrap();
+    stale.id = authority.id;
+    stale.token = authority.token;
+    stale.body = authority.declaration;
+    assert_eq!(
+        client
+            .acknowledge(&p, &stale, Response::Registered, NOW + 2001)
+            .unwrap(),
+        Action::Suppressed
+    );
+    assert!(!load(&client, &p).authority.unwrap().registered);
 }
 
 #[test]

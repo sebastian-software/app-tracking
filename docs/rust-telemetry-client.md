@@ -128,7 +128,10 @@ also syncs the directory. A crashed uncommitted file is discarded under the
 state lock before another operation. Invalid, oversized, unknown-schema, or
 wrong-scope state fails closed and is preserved; it never silently creates a
 replacement identity. The original credential is needed to delete old remote
-data if state is lost. There is no token in argv, a URL, preview, or an error.
+data if state is lost. An explicit `ForgetUnverified` may discard a corrupt or
+unknown-schema private state file, acknowledging unverified remote deletion;
+it still rejects symlinks and nonprivate files. There is no token in argv, a
+URL, preview, or an error.
 
 The short state lock protects increments, closures, claims, and acknowledgements.
 A separate nonblocking network lock covers transmission and control changes.

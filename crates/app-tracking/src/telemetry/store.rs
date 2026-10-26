@@ -46,6 +46,9 @@ fn open_private(path: &Path, create: bool) -> Result<File, Error> {
 }
 
 impl Store {
+    pub fn allow_explicit_forget(&self) -> Result<(), Error> {
+        regular_private(&self.dir.join("state.json"))
+    }
     pub fn network_guard(&self) -> Result<Option<File>, Error> {
         let guard = open_private(&self.dir.join("network.lock"), true)?;
         match guard.try_lock() {
