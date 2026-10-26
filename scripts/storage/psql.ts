@@ -33,8 +33,26 @@ export function psql(url: string, sql: string): Promise<string> {
       (error, stdout, stderr) => {
         if (error) {
           // SQLSTATE is safe; SQL text, parameters and provider errors are not.
-          const code = stderr.match(/ERROR:\s+([0-9A-Z]{5}):/)?.[1];
-          reject(new Error(`Database operation failed${code ? ` (${code})` : ""}`));
+          const code = stderr.match(/(?:ERROR|FATAL):\s+([0-9A-Z]{5}):/)?.[1];
+          const category =
+            /too many (clients|connections)|remaining connection slots|connection limit|max_client_conn/i.test(
+              stderr,
+            )
+              ? "connection_limit"
+              : /timeout expired|connection timed out/i.test(stderr)
+                ? "connection_timeout"
+                : /closed the connection|SSL SYSCALL|unexpected EOF|connection reset/i.test(stderr)
+                  ? "connection_closed"
+                  : /certificate|SSL error|TLS/i.test(stderr)
+                    ? "tls"
+                    : /translate host name|name resolution|Name or service not known/i.test(stderr)
+                      ? "dns"
+                      : error.killed
+                        ? "process_timeout"
+                        : "other";
+          const failure = new Error(`Database operation failed${code ? ` (${code})` : ""}`);
+          Object.assign(failure, { category });
+          reject(failure);
         } else resolve(stdout.trim());
       },
     );
