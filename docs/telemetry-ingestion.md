@@ -18,9 +18,10 @@ The candidate implements only:
 - `PUT /v1/installations/{uuid7}`: `201 registered` or `200 duplicate`.
 - `POST /v1/usage-batches`: `200 accepted` or `200 duplicate`.
 
-Public telemetry stays disabled until deletion/retention (#8) and production
-operations (#11) are ready. DELETE is not implemented by this increment; the
-candidate currently answers `405` with `Allow: PUT` on installation paths.
+Public telemetry stays disabled until production operations (#11) are ready.
+The subsequent [lifecycle implementation](telemetry-lifecycle.md) adds DELETE
+with bounded primary purges and scheduled retention. Installation routes now
+advertise `Allow: PUT, DELETE`.
 There is no release lookup in registration or batch acknowledgements.
 
 ## Input and transaction boundaries
@@ -56,8 +57,8 @@ SQL failures roll back the entire statement and return `503` as an unknown outco
 
 Each installation holds at most ten recent attempt timestamps. Timestamps older
 than sixty seconds stop counting and are pruned on the next authenticated upload.
-Scheduled pruning of idle state is part of #8 before activation; this increment
-does not claim a background TTL job. Revocation clears the attempt state.
+The subsequent hourly retention job prunes idle state within the physical
+cleanup bound. Revocation clears the attempt state.
 
 The caller/request abort and the three-second handler deadline propagate to the
 HTTP database call. An aborted or failed acknowledgement remains an unknown

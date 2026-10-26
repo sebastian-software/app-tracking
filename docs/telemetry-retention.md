@@ -7,21 +7,21 @@ constants live in [policy JSON](../contracts/telemetry-v1-policy.json), with
 
 ## Data lifetime
 
-| Data                                | Visibility, expiry, and physical cleanup                                                                                                                               |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Attributable usage                  | A row for day D expires at UTC start(D) + 90 days. Queries exclude it immediately; scheduled physical cleanup runs within 24 h                                         |
-| Batch receipt                       | Original hash/IDs/receipt time survive 90 days after first receipt; never extend on retry. Remove within 24 h after expiry                                             |
-| Active installation                 | Retained while active; expires exactly 90 days after registration or last new batch, whichever is later. It becomes unusable without waiting for cleanup               |
-| Revocation/expiry tombstone         | Tool, ID, token hash, status, and original revoked/expired time only, for 90 days after that transition; no counters/project hashes. Remove within 24 h after expiry   |
-| Consent declaration                 | Current revision/time/context while active; remove with active installation details. Retain no separate perpetual consent history                                      |
-| Unsent local usage                  | Seven UTC dates plus clock grace, at most four MiB/64 batches/4,096 open dimensions; discard on withdrawal or veto                                                     |
-| Pending local deletion              | Minimal credential/status for at most 90 days after withdrawal, unless acknowledged or explicitly forgotten earlier                                                    |
-| Usage-derived views                 | Compute from nonexpired attributable rows in v1. No durable rollups or public usage exports are enabled; no usage series survives its sources                          |
-| Database backups/WAL                | Provider-managed, at most seven days for normal operation, including manual/protected copies. Not queried for reporting or exported to the repository                  |
-| App/CDN request logs                | Disabled; no payload, ID, hash, URL, credential, SQL parameter, or per-request application log                                                                         |
-| Provider security/transport records | Not a measurement source. Require a documented maximum of 30 days for linkable operational records before enablement; distinguish statutory exceptions/account records |
-| Bounded operational counters        | At most seven days, labels limited to tool/day/status category; no installation, project, IP, or payload labels. No anonymity claim                                    |
-| Rate-limit state                    | At most 60 seconds for the authenticated rolling-minute window; no permanent IP-derived installation identity                                                          |
+| Data                                | Visibility, expiry, and physical cleanup                                                                                                                                              |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Attributable usage                  | A row for day D expires at UTC start(D) + 90 days. Queries exclude it immediately; scheduled physical cleanup runs within 24 h                                                        |
+| Batch receipt                       | Original hash/IDs/receipt time survive 90 days after first receipt; never extend on retry. Remove within 24 h after expiry                                                            |
+| Active installation                 | Retained while active; expires exactly 90 days after registration or last new batch, whichever is later. It becomes unusable without waiting for cleanup                              |
+| Revocation/expiry tombstone         | Tool, ID, token hash, status/completion state, and original revoked/expired time only, for 90 days after that transition; no counters/project hashes. Remove within 24 h after expiry |
+| Consent declaration                 | Current revision/time/context while active; remove with active installation details. Retain no separate perpetual consent history                                                     |
+| Unsent local usage                  | Seven UTC dates plus clock grace, at most four MiB/64 batches/4,096 open dimensions; discard on withdrawal or veto                                                                    |
+| Pending local deletion              | Minimal credential/status for at most 90 days after withdrawal, unless acknowledged or explicitly forgotten earlier                                                                   |
+| Usage-derived views                 | Compute from nonexpired attributable rows in v1. No durable rollups or public usage exports are enabled; no usage series survives its sources                                         |
+| Database backups/WAL                | Provider-managed, at most seven days for normal operation, including manual/protected copies. Not queried for reporting or exported to the repository                                 |
+| App/CDN request logs                | Disabled; no payload, ID, hash, URL, credential, SQL parameter, or per-request application log                                                                                        |
+| Provider security/transport records | Not a measurement source. Require a documented maximum of 30 days for linkable operational records before enablement; distinguish statutory exceptions/account records                |
+| Bounded operational counters        | At most seven days, labels limited to tool/day/status category; no installation, project, IP, or payload labels. No anonymity claim                                                   |
+| Rate-limit state                    | Expires after 60 seconds for the authenticated rolling-minute window; scheduled physical cleanup within 24 h; no permanent IP-derived installation identity                           |
 
 The 90-day usage horizon supports rolling weekly/monthly measurements without
 an indefinite repository/installation history. Seven dates of submission cover
@@ -32,9 +32,10 @@ reads and writes, not just by a nightly job. Physical cleanup can add at most
 The disclosure must distinguish these periods rather than promise all physical
 copies disappear at the logical usage deadline.
 
-Explicit deletion is stronger than ordinary expiry: revoke and delete primary
-usage, receipts, and installation details in the request transaction before
-returning 204. Retain only the disclosed minimal tombstone. Repeating deletion
+Explicit deletion is stronger than ordinary expiry: revoke authority and remove
+reporting visibility in the first committed request step. Bounded steps delete
+primary usage, receipts, quota, and active installation details before returning 204. A larger pending purge returns 503 until complete; it never claims success
+for unfinished work. The scheduled worker can resume it independently of traffic. Retain only the disclosed minimal tombstone and its pending/completed purge state. Repeating deletion
 does not renew it. Another installation's contributions to the same repository
 remain intact. Do not retain a deleted installation's quota, project lookup,
 conflict payload, or materialized aggregate as an undisclosed alternate history.
@@ -127,3 +128,7 @@ quota failure. No public or private aggregate endpoint is enabled by this issue;
 
 These links establish review inputs, not unverified contractual commitments
 about an existing account. Issue #11 records actual deployment/legal evidence.
+
+The implemented [lifecycle runbook](telemetry-lifecycle.md) records deletion,
+read-time visibility, authenticated scheduled cleanup, health, and the isolated
+synthetic recovery proof. Public telemetry remains gated by issue #11.

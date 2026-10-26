@@ -96,8 +96,7 @@ a person exists, or the binary is authentic. A token holder can fabricate counts
 | `POST /v1/usage-batches`                     | `200 accepted` or `200 duplicate`                                 |
 | `DELETE /v1/installations/{installation_id}` | Empty `204` after revocation and primary deletion commit          |
 
-Registration and batch ingestion are implemented in the gated candidate; DELETE
-remains issue #8. The production service remains version-only. All telemetry
+Registration, batch ingestion, and deletion are implemented in the gated candidate. The production service remains version-only. All telemetry
 responses, including errors, carry
 `Cache-Control: no-store`; no telemetry route uses CDN cache or conditional GET.
 No query strings, cookies, redirects, browser CORS permission, or arbitrary
@@ -255,12 +254,20 @@ not depend on usage consent and must never manufacture a usage count; its
 provider logging/limits need the operational evidence in issue #11.
 
 DELETE accepts credentials regardless of consent revision. An authenticated
-revoked record returns `204` again; no repeated deletion extends retention.
+fully purged revoked record returns `204` again; no repeated deletion extends retention.
 Unknown records return `404`; the client can record that no installation remains
 in the active store, without claiming a fresh deletion took place. Empty 204 is
-the only affirmative deletion acknowledgement. No unfinished asynchronous
-work is represented as completed deletion; if bounded synchronous deletion
-cannot pass issue #8, revise this contract before enabling it.
+the only affirmative deletion acknowledgement.
+
+Deletion commits bounded purge steps. The first committed step revokes reporting
+authority and excludes the installation from reporting visibility. A large purge
+may return `503 service_unavailable` with `Retry-After: 60` while primary data
+remains; the client keeps deletion pending and retries the same ID/credential.
+The scheduled worker can finish the purge between attempts. Only a call observing
+a fully committed primary purge returns `204`; a timeout, partial purge, or failed
+acknowledgement never does. No progress field, `202`, or new success shape is
+introduced. The [lifecycle runbook](telemetry-lifecycle.md) records these bounded
+steps and the completion evidence.
 
 ## Retry, replay, and expiry proof
 
