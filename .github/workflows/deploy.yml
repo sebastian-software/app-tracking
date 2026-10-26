@@ -81,6 +81,7 @@ jobs:
       MIGRATION_DATABASE_URL: ${{ secrets.PROOF_MIGRATION_DATABASE_URL }}
       RUNTIME_DATABASE_URL: ${{ secrets.PROOF_RUNTIME_DATABASE_URL }}
       RUNTIME_ROLE: ${{ secrets.PROOF_RUNTIME_ROLE }}
+      MIGRATION_OWNER_ROLE: app_tracking_owner
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:

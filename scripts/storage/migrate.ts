@@ -7,8 +7,10 @@ export async function migrate(url: string): Promise<number> {
   const files = (await readdir("db/migrations"))
     .filter((f) => /^\d{4}-[a-z-]+\.sql$/.test(f))
     .sort();
+  const owner = process.env.MIGRATION_OWNER_ROLE ?? "postgres";
+  if (!/^[a-z][a-z0-9_]{0,62}$/.test(owner)) throw new Error("Invalid migration owner role");
   const chunks = [
-    "BEGIN; SET LOCAL ROLE postgres; SELECT pg_advisory_xact_lock(741391605);",
+    `BEGIN; SET LOCAL ROLE "${owner}"; SELECT pg_advisory_xact_lock(741391605);`,
     "CREATE TABLE IF NOT EXISTS public.app_tracking_migrations (version text PRIMARY KEY, sha256 text NOT NULL);",
     "REVOKE ALL ON public.app_tracking_migrations FROM PUBLIC;",
   ];

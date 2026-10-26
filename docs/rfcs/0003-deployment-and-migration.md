@@ -8,7 +8,7 @@
 ## Starting point and evidence
 
 I propose a new Bunny Edge Scripting deployment for app-tracking with a
-PlanetScale Postgres database. Existing services continue to serve their own
+logical PlanetScale Postgres database on shared cluster infrastructure. Existing services continue to serve their own
 consumers during migration. No repository merge, old-host takeover, or legacy
 adapter is required for this design.
 
@@ -77,7 +77,8 @@ When telemetry is implemented, prove the database/runtime integration with
 synthetic data and isolated database credentials before accepting real reports.
 Test migrations, transactions, deletion, and recovery independently of the live
 usage dataset. Keep deployment and schema-migration credentials separate from
-runtime client credentials. Decide any additional deployment stages from that
+runtime client credentials. The application migrator uses its own logical
+database owner rather than cluster-wide administration membership. Decide any additional deployment stages from that
 concrete implementation rather than requiring them for version delivery.
 
 ## CDN and regional behavior
