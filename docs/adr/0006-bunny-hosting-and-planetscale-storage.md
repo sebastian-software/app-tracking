@@ -24,11 +24,14 @@ staging environment, or manual promotion gate. This keeps initial operation
 proportionate to a new service with no migrated consumers. Verified release
 artifacts provide a straightforward rollback path.
 
-For later telemetry, Bunny Edge Scripting with TypeScript and PlanetScale
-Postgres is the proposed implementation in the RFCs. That combination must
-pass an isolated integration proof before the runtime, driver version, database
-tier, and region are finalized. This ADR
-selects providers, not a claim that every advertised feature has been tested.
+For telemetry storage, I am using Bunny Edge Scripting SDK 0.13.0 with
+TypeScript and the pinned Neon serverless driver 1.2.0 in HTTP mode, backed by
+PlanetScale Postgres 18.6 on shared PS-5 compute in AWS Frankfurt. The isolated
+live proof passed maximum-batch, concurrent duplicate, rollback, retry, and
+revocation checks with one parameterized database-function call per operation.
+The [storage runbook](../storage-proof.md) records the measurements and their
+limits. This selects the storage boundary; public telemetry ingestion, retention
+jobs, and launch review remain separate work.
 
 App-tracking uses its own logical Postgres database in a shared PlanetScale
 cluster. This avoids a separate cluster baseline for a small service while
@@ -55,8 +58,12 @@ repository. Test and production data and credentials are separate.
   control-plane operation, backup, or support action remains in the EU.
 - Provider cost and runtime limits must be checked against the chosen
   configuration and measured workload before rollout.
-- A failed Edge/Postgres proof triggers a documented runtime decision, not an
-  unreviewed additional database or compatibility service.
+- Bunny exposed neither Deno nor process heap measurements in the live probe.
+  Successful maximum-size requests establish functional execution, not a measured
+  peak-memory budget. Keep that measurement gap explicit; it does not justify
+  adding another service. Optional diagnostics must never fail a committed write.
+- A future failed Edge/Postgres proof triggers a documented runtime decision, not
+  an unreviewed additional database or compatibility service.
 
 See [RFC 0003](../rfcs/0003-deployment-and-migration.md) for deployment and
 validation gates.
@@ -69,3 +76,6 @@ validation gates.
 - 2026-10-26: Use a separate logical database on shared Postgres compute, with
   app-scoped ownership and migration/runtime roles. This limits baseline cost
   without granting application credentials access to neighboring services.
+
+- 2026-10-26: Record the tested Bunny/HTTP-driver and PlanetScale configuration,
+  successful synthetic transaction proof, and unavailable memory measurements.

@@ -160,8 +160,10 @@ and a late-insert failure followed by a fresh valid transaction with the same
 uncommitted identity. Every successful operation must use one HTTP database
 subrequest and complete in less than three seconds. Repeated requests must
 bypass the CDN cache. It records first-observed and repeated latency, instance
-reuse, and available Deno heap snapshots. A heap snapshot is not peak active
-memory; process RSS is not an isolate-memory measurement. Do not substitute
+reuse, and available Deno/process heap snapshots. Unsupported memory APIs are
+reported as unavailable and cannot turn a committed write into a failed response.
+A heap snapshot is not peak active memory; process RSS is not an isolate-memory
+measurement. Do not substitute
 local Node measurements for missing edge observations or promise behavior in
 untested regions.
 
@@ -182,9 +184,44 @@ stable app-specific owner. Synthetic contributions are removed after each run.
 Four retained backups were observed, none protected, with a two-day configured
 retention. No restore was performed or claimed.
 
-The real Bunny/HTTP-driver measurements are still outstanding. This is not
-yet a successful end-to-end provider integration or a production telemetry
-launch.
+The real Bunny/HTTP-driver probe passed on 2026-10-26 in
+[Actions run 40298117267](https://github.com/sebastian-software/app-tracking/actions/runs/40298117267).
+The [sanitized result](evidence/2026-10-26-storage-proof.json) contains no credentials,
+resource IDs, hostnames, installation IDs, or report payloads:
+
+| Observation                              | Result                                                               |
+| ---------------------------------------- | -------------------------------------------------------------------- |
+| Real database checks                     | 26 checks, three consecutive successful runs                         |
+| Live HTTP checks                         | 12, including eight concurrent copies: one accepted, seven duplicate |
+| Maximum fixture                          | 256 rows, 65,536-byte request, 11 samples                            |
+| Database subrequests                     | One per successful operation, independent of row count               |
+| First successful maximum request         | 550.01 ms inside handler; 813.99 ms client round trip                |
+| Maximum-fixture handler median / maximum | 199.79 ms / 550.01 ms                                                |
+| Largest observed database duration       | 537.24 ms                                                            |
+| Observed instances / activation attempts | Three / two                                                          |
+| Cache behavior                           | No shared cache hits; responses require no-store/no-cache            |
+| Heap measurements                        | Unavailable through both runtime APIs                                |
+
+These are small synthetic observations, not a capacity benchmark, latency SLO,
+or proof for every edge region. First-observed invocation one does not isolate
+platform cold-start time; the client timing ends when response headers arrive.
+This run needed a second activation attempt after a platform 508 response;
+activation retries preserve the original immutable batch. Missing acknowledgements
+and caller timeouts remain unknown outcomes and require identical retry.
+
+The probe completed maximum-size fixtures without a runtime memory-limit error,
+but measured peak memory and headroom remain unknown. No local process
+measurement substitutes for that missing observation. Issue #6 keeps this limit
+visible rather than claiming a measured memory budget. The public telemetry
+routes remain disabled.
+
+Temporary Bunny scripts, encrypted test secrets, and linked Pull Zones were
+removed by the workflow. Permanent database migration/runtime credentials are
+held separately in repository Actions secrets `APP_TRACKING_MIGRATION_DATABASE_URL`
+and `APP_TRACKING_RUNTIME_DATABASE_URL`; no migration credential is deployed to
+Bunny. The three proof-only repository secrets were removed after verification;
+the temporary database role was revoked and deleted. The existing version-service
+health check still succeeds, with public telemetry routes disabled.
 
 Normal PlanetScale backup/PITR remains the recovery approach. This proof adds
 no restore service or separate deletion journal. Verify the actual configured
