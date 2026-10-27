@@ -173,8 +173,12 @@ processes maintainer identity/session data for this separate login purpose.
    Bunny base URL, not an incoming Host/forwarded header. Configuration failure
    stops deployment. No WorkOS account, role, key or production login is created
    by merging this code.
-6. The deployment verifier checks the public shell, unauthenticated API 401,
-   repeated cache bypass, and revision without private credentials. Then verify
+6. Bunny must preserve response cookies (`DisableCookies=false`); provisioning
+   enforces this instead of inheriting the CDN's cookie-stripping default. The
+   deployment verifier checks the public shell, unauthenticated API 401,
+   repeated cache bypass, secure login cookies, separate logout-cookie deletion
+   headers, and revision without private credentials. Cookie values are never
+   printed by the probes. Then verify
    an actual WorkOS sign-in, unauthorized-account denial, refresh, and logout
    privately. Never publish real usage screenshots, tokens, account/resource
    IDs, or provider support material as evidence. Local tests simulate the

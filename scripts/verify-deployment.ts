@@ -36,6 +36,43 @@ export async function verifyDeployment(
       await response.body?.cancel();
     }
   }
+  if (reportingEnabled) {
+    const login = await fetcher(new URL("/admin/login", base), {
+      redirect: "manual",
+      signal: AbortSignal.timeout(10_000),
+    });
+    assert.equal(login.headers.get("x-app-revision"), revision);
+    assert.equal(login.status, 303);
+    assert.match(login.headers.get("cache-control") ?? "", /private.*no-store/);
+    assert.notEqual(login.headers.get("cdn-cache")?.toUpperCase(), "HIT");
+    const cookies = login.headers.getSetCookie();
+    // Assert booleans only: a failed live probe must never print cookie values.
+    assert.ok(
+      cookies.length === 1 &&
+        cookies[0]!.startsWith("__Host-app-tracking-login=") &&
+        cookies[0]!.includes("; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=600") &&
+        !/;\s*domain=/i.test(cookies[0]!),
+      "The CDN removed or changed the secure login cookie",
+    );
+    await login.body?.cancel();
+    const logout = await fetcher(new URL("/admin/logout", base), {
+      method: "POST",
+      headers: { Origin: new URL(base).origin, "X-App-Tracking-Action": "logout" },
+      redirect: "error",
+      signal: AbortSignal.timeout(10_000),
+    });
+    assert.equal(logout.headers.get("x-app-revision"), revision);
+    assert.equal(logout.status, 200);
+    const cleared = logout.headers.getSetCookie();
+    assert.ok(
+      cleared.length === 2 &&
+        ["__Host-app-tracking-login=", "__Host-app-tracking-session="].every((name) =>
+          cleared.some((value) => value.startsWith(name) && value.includes("Max-Age=0")),
+        ),
+      "The CDN removed or combined session-cookie deletion headers",
+    );
+    await logout.body?.cancel();
+  }
   for (const entry of catalog) {
     const path = versionPath(entry);
     let hit = false;
