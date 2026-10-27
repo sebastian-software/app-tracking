@@ -21,7 +21,9 @@ export async function grantRuntime(url: string, role: string): Promise<void> {
       app_tracking.revoke_installation(text,uuid,text),
       app_tracking.register_installation_v1(text,uuid,text,text,timestamptz,text),
       app_tracking.accept_batch_v1(text,uuid,text,uuid,text,text,jsonb),
-      app_tracking.delete_installation_v1(text,uuid,text) TO "${role}";`,
+      app_tracking.delete_installation_v1(text,uuid,text),
+      app_tracking.accept_events_v1(text,text,text,text,bigint,text,text,text,jsonb),
+      app_tracking.delete_events_v1(text,text,text) TO "${role}";`,
   );
 }
 if (import.meta.main) {

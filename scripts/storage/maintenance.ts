@@ -15,6 +15,29 @@ export async function runMaintenance(
     batchSize > policy.maintenance_page_rows
   )
     throw new Error("Invalid maintenance budget");
+  // Drain bounded generic-event pages before marking the legacy pass complete.
+  // An older deployment has no event tables yet; legacy retention must keep running.
+  const eventsPresent = await psql(
+    url,
+    "SELECT to_regprocedure('app_tracking.maintain_events_v1(integer)') IS NOT NULL",
+  );
+  let eventsComplete = eventsPresent !== "t";
+  for (let page = 0; page < maxPages && !eventsComplete; page++) {
+    const removed = Number(
+      await psql(
+        url,
+        "BEGIN; SET LOCAL statement_timeout='2500ms'; SELECT app_tracking.maintain_events_v1(100); COMMIT;",
+      ),
+    );
+    if (!Number.isInteger(removed) || removed < 0 || removed > 6700)
+      throw new Error("Invalid event maintenance result");
+    if (removed === 0) {
+      eventsComplete = true;
+      break;
+    }
+  }
+  if (!eventsComplete)
+    throw new Error("Event maintenance budget exhausted; committed progress is resumable");
   const totals = {
     pages: 0,
     usage_deleted: 0,

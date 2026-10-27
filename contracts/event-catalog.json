@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "tools": {
+    "dalo": {
+      "cli.invocation": {
+        "collection": "opt_in",
+        "dimensions": {
+          "command": [
+            "init",
+            "install",
+            "migrate",
+            "project",
+            "promote",
+            "target",
+            "source",
+            "agent",
+            "plugin",
+            "tool",
+            "hook",
+            "binary",
+            "plan",
+            "team",
+            "status",
+            "next",
+            "sync",
+            "autosync",
+            "adopt",
+            "resolve",
+            "doctor",
+            "audit",
+            "approve",
+            "instructions",
+            "other"
+          ]
+        },
+        "system": "full",
+        "project": true
+      }
+    },
+    "palamedes": {
+      "cli.invocation": {
+        "collection": "opt_in",
+        "dimensions": {
+          "command": [
+            "extract",
+            "lint",
+            "audit",
+            "report",
+            "catalogmerge",
+            "catalogconvert",
+            "catalogcompile",
+            "plugin",
+            "other"
+          ]
+        },
+        "system": "full",
+        "project": true
+      }
+    },
+    "ferriki": {
+      "resource.download": {
+        "collection": "opt_in",
+        "dimensions": {
+          "kind": ["grammar", "bytecode", "theme"]
+        },
+        "system": "full",
+        "project": true
+      },
+      "language.use": {
+        "collection": "opt_in",
+        "dimensions": {
+          "language": [
+            "rust",
+            "javascript",
+            "typescript",
+            "tsx",
+            "json",
+            "html",
+            "css",
+            "python",
+            "go",
+            "java",
+            "c",
+            "cpp",
+            "bash",
+            "yaml",
+            "toml",
+            "markdown",
+            "other"
+          ],
+          "source": ["explicit", "dependency"]
+        },
+        "system": "full",
+        "project": true
+      }
+    }
+  }
+}
