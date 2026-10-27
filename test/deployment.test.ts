@@ -171,6 +171,24 @@ test("deployment probe rejects a stale revision and uncached private-route viola
     return response;
   };
   await verifyDeployment("https://example.com", revision, staleSnapshot);
+  // Restoring an artifact predating generic events must still verify legacy
+  // telemetry, rather than require endpoints that its bundle never contained.
+  const legacyTelemetry: typeof fetch = async (input, init) => {
+    const path = new URL(String(input)).pathname;
+    const headers = { "X-App-Revision": revision, "Cache-Control": "no-store" };
+    if (path === "/v1/usage-batches" || path.startsWith("/v1/installations/")) {
+      const status = (init?.method ?? "GET") === "GET" ? 405 : 401;
+      return Response.json(
+        { schema_version: 1, error: { code: "unauthorized" } },
+        { status, headers },
+      );
+    }
+    return fake(input, init);
+  };
+  await verifyDeployment("https://example.com", revision, legacyTelemetry, true, false, false);
+  await assert.rejects(
+    verifyDeployment("https://example.com", revision, legacyTelemetry, true, false, true),
+  );
   const cachedStale: typeof fetch = async (input, init) => {
     const response = await staleSnapshot(input, init);
     response.headers.set("cdn-cache", "HIT");

@@ -8,6 +8,7 @@ export async function verifyDeployment(
   fetcher: typeof fetch = fetch,
   telemetryEnabled = false,
   reportingEnabled = false,
+  eventsSupported = true,
 ) {
   const url = new URL(base);
   assert.equal(url.protocol, "https:");
@@ -123,13 +124,11 @@ export async function verifyDeployment(
       assert.notEqual(response.headers.get("cdn-cache")?.toUpperCase(), "HIT");
     }
   }
-  for (const path of ["/health", "/v1/usage-batches"]) {
+  for (const path of ["/health", "/v1/usage-batches", "/v1/event-batches"]) {
     for (let n = 0; n < 2; n++) {
       const response = await get(path);
-      assert.equal(
-        response.status,
-        path === "/health" ? 200 : path === "/v1/usage-batches" && telemetryEnabled ? 405 : 404,
-      );
+      const enabled = telemetryEnabled && (path !== "/v1/event-batches" || eventsSupported);
+      assert.equal(response.status, path === "/health" ? 200 : enabled ? 405 : 404);
       assert.equal(response.headers.get("cache-control"), "no-store");
       assert.notEqual(response.headers.get("cdn-cache")?.toUpperCase(), "HIT");
     }
@@ -139,6 +138,7 @@ export async function verifyDeployment(
       ["PUT", "/v1/installations/00000000-0000-7000-8000-000000000001"],
       ["DELETE", "/v1/installations/00000000-0000-7000-8000-000000000001"],
       ["POST", "/v1/usage-batches"],
+      ...(eventsSupported ? [["DELETE", `/v1/event-installations/${"0".repeat(64)}`]] : []),
     ]) {
       for (let n = 0; n < 2; n++) {
         const response = await fetcher(new URL(path, base), {

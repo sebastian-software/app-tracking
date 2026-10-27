@@ -1,9 +1,51 @@
-# app-tracking 0.2
+# app-tracking
 
 Shared advisory update checks and explicit opt-in usage reporting for Rust CLI
 tools. Nothing runs on import or construction. Update checks remain independent
 of telemetry and never read project metadata or create reporting state. The
-library prints nothing and never installs or executes an update.
+library prints only when explicitly asked to show its permission dialog and
+never installs or executes an update.
+
+## Unified counters and resource downloads
+
+`app_tracking::client::Client` provides `record`, `download`, and a saved
+`request_opt_in(message)` dialog. The SDK owns the explanation, yes/no prompt,
+and private saved decision, and automatically applies
+each metric's registered collection route and system context. `set_disabled`
+stops both routes; `set_opt_in(bool)` changes the saved decision explicitly;
+`delete` requests authenticated deletion. The legacy
+invocation and update APIs remain compatible.
+
+```rust,no_run
+use app_tracking::client::Client;
+use std::collections::BTreeMap;
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+let client = Client::registered("https://tracking.example.com", "/private/profile", "palamedes", "2.0.0")?;
+// At a suitable interactive point; saved yes/no answers are reused:
+let permission = client.request_opt_in("Help prioritize Palamedes commands and platform support.")?;
+let _ = client.record("cli.invocation", || BTreeMap::from([
+    ("command".into(), "extract".into()),
+]));
+let _ = client.flush_in_background();
+# Ok(())
+# }
+```
+
+No dialog opens in CI or without terminal stdin/stderr. Use
+`with_interaction(Interaction::Never)` for JSON/agent modes. `record` and
+`download` never open dialogs. EOF leaves the choice undecided.
+
+Handle `client::BACKGROUND_WORKER_ARGUMENT` before normal argument parsing and
+call `run_background_worker` with its nonce. Reporting network I/O runs there;
+ordinary calls still perform local persistence and worker launch. Downloads
+synchronously return a temporary `VerifiedDownload` only after size/SHA-256
+checks. Cache placement belongs to the host. Declined/failed reporting does
+not prevent a verified download; cache reads are separate observations.
+
+The service must have the matching event contract, migration, and runtime
+grants before adopting this API. See the repository's
+[`docs/unified-client.md`](https://github.com/sebastian-software/app-tracking/blob/main/docs/unified-client.md)
+for settings, process policy, limits, cancellation, and rollout details.
 
 ## Update checks
 

@@ -64,6 +64,12 @@ tracked in [issue #2](https://github.com/sebastian-software/app-tracking/issues/
 
 ## Shared Rust update client
 
+The [unified Rust client](docs/unified-client.md) adds one `record` API, verified
+resource downloads, and a persisted opt-in setting. It uses separate
+[generic event batches](docs/event-batches.md), keeping existing invocation
+counts and consumers compatible. Node, consumer adoption, and the new reporting
+interface remain follow-up work under issue #48.
+
 The [`app-tracking` crate](crates/app-tracking/README.md) provides synchronous,
 bounded update checks with hourly caching, failure backoff, and process-safe
 notice throttling. The host supplies installation-aware guidance and output

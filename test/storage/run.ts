@@ -4,6 +4,7 @@ import { recoveryIntegration } from "./recovery.ts";
 import { deletionIntegration } from "./deletion.ts";
 import { reportingIntegration } from "./reporting.ts";
 import { reportingQueryPlan } from "./reporting-plan.ts";
+import { eventIntegration } from "./events.ts";
 try {
   const admin = process.env.MIGRATION_DATABASE_URL,
     runtime = process.env.RUNTIME_DATABASE_URL,
@@ -11,6 +12,7 @@ try {
   if (!admin || !runtime || !role) throw new Error("Database test configuration missing");
   console.log(JSON.stringify({ storage: await storageIntegration(admin, runtime, role) }));
   console.log(JSON.stringify({ ingestion: await ingestionIntegration(admin, runtime) }));
+  console.log(JSON.stringify({ events: await eventIntegration(admin, runtime) }));
   console.log(JSON.stringify({ deletion: await deletionIntegration(admin, runtime) }));
   console.log(JSON.stringify({ recovery: await recoveryIntegration(admin, runtime) }));
   const reporter = process.env.REPORTING_DATABASE_URL,

@@ -24,6 +24,11 @@ on:
         required: false
         type: boolean
         default: false
+      event_client_version:
+        description: Published crate version to verify against live generic events; no deployment
+        required: false
+        type: string
+        default: ""
       release_run:
         description: Successful release run to restore; leave empty to deploy main
         required: false
@@ -57,7 +62,7 @@ jobs:
           REPORTING_DATABASE_URL: ${{ secrets.APP_TRACKING_REPORTING_DATABASE_URL }}
         run: node scripts/check-reporting-read.ts
   deploy:
-    if: github.ref == 'refs/heads/main' && !inputs.storage_proof && !inputs.ingestion_test && !inputs.production_proof && !inputs.reporting_read_check
+    if: github.ref == 'refs/heads/main' && !inputs.storage_proof && !inputs.ingestion_test && !inputs.production_proof && !inputs.reporting_read_check && inputs.event_client_version == ''
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -115,7 +120,10 @@ jobs:
         run: |
           node scripts/release.ts
           node scripts/verify-deployment.ts
-          if [ "$TELEMETRY_ENABLED" = "1" ]; then node scripts/verify-telemetry.ts; fi
+          if [ "$TELEMETRY_ENABLED" = "1" ]; then
+            node scripts/verify-telemetry.ts
+            node scripts/verify-events.ts
+          fi
       - name: Restore a previously verified bundle
         if: inputs.release_run != ''
         env:
@@ -135,7 +143,9 @@ jobs:
           if-no-files-found: error
       - name: Retry cleanup of this run's synthetic identity
         if: always()
-        run: node scripts/verify-telemetry.ts --cleanup
+        run: |
+          node scripts/verify-telemetry.ts --cleanup
+          node scripts/verify-events.ts --cleanup
 
   storage-proof:
     if: github.event_name == 'workflow_dispatch' && inputs.storage_proof
@@ -260,9 +270,43 @@ jobs:
           node scripts/storage/check-operations.ts
       - name: Retry fixture cleanup
         if: always()
-        run: node scripts/verify-telemetry.ts --cleanup
+        run: |
+          node scripts/verify-telemetry.ts --cleanup
+          node scripts/verify-events.ts --cleanup
       - name: Remove this run's temporary Bunny endpoint
         if: always()
         env:
           BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
         run: node scripts/storage/cleanup-proof.ts
+
+  event-client-proof:
+    if: github.event_name == 'workflow_dispatch' && inputs.event_client_version != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Read MSRV from Cargo.toml
+        id: rust
+        run: |
+          node --input-type=module <<'JS'
+          import { readFileSync, appendFileSync } from 'node:fs';
+          const version = /^rust-version = "([0-9.]+)"$/m.exec(readFileSync('Cargo.toml', 'utf8'))?.[1];
+          if (!version) throw new Error('Missing workspace rust-version');
+          appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
+          JS
+      - run: rustup toolchain install '${{ steps.rust.outputs.version }}' --profile minimal
+      - name: Verify the published client and only its owned synthetic rows
+        env:
+          APP_TRACKING_CLIENT_VERSION: ${{ inputs.event_client_version }}
+          MIGRATION_DATABASE_URL: ${{ secrets.APP_TRACKING_MIGRATION_DATABASE_URL }}
+          MIGRATION_OWNER_ROLE: app_tracking_owner
+        run: node scripts/verify-published-events.ts
+      - name: Retry this run's owned synthetic deletion
+        if: always()
+        run: node scripts/verify-events.ts --cleanup

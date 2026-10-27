@@ -3,7 +3,6 @@
 //! inheriting other pipe/file handles, keeping callers' captured output open.
 //! No shell, external helper, raw handle, or caller-provided command is exposed.
 
-use super::BACKGROUND_WORKER_ARGUMENT;
 use std::ffi::OsString;
 use std::io;
 use std::os::windows::ffi::OsStrExt;
@@ -13,8 +12,14 @@ use windows_sys::Win32::System::Threading::{
     CREATE_NEW_PROCESS_GROUP, CreateProcessW, DETACHED_PROCESS, PROCESS_INFORMATION, STARTUPINFOW,
 };
 
-pub(super) fn spawn(nonce: &str) -> io::Result<()> {
-    if nonce.len() != 64 || !nonce.bytes().all(|b| b.is_ascii_hexdigit()) {
+pub(super) fn spawn(nonce: &str, argument: &str) -> io::Result<()> {
+    if nonce.len() != 64
+        || !nonce.bytes().all(|b| b.is_ascii_hexdigit())
+        || !matches!(
+            argument,
+            "--app-tracking-worker-v1" | "--app-tracking-events-worker-v1"
+        )
+    {
         return Err(io::Error::from(io::ErrorKind::InvalidInput));
     }
     let executable = std::env::current_exe()?;
@@ -23,7 +28,7 @@ pub(super) fn spawn(nonce: &str) -> io::Result<()> {
     let mut command = OsString::from("\"");
     command.push(&executable);
     command.push("\" ");
-    command.push(BACKGROUND_WORKER_ARGUMENT);
+    command.push(argument);
     command.push(" ");
     command.push(nonce);
     let application: Vec<u16> = executable
