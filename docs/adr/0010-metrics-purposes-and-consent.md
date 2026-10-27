@@ -194,6 +194,30 @@ needs a fresh assessment and, where required, renewed consent. A committed
 metric catalog describes behavior; it does not grant consent to repository
 users.
 
+### Two collection routes
+
+Expose two explicit collection entry points in the SDK. The product metric
+catalog assigns each metric to one route, and both client and receiver validate
+that assignment. The method names below are proposed API names.
+
+| Entry point      | Behavior                                                                                                                    |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `record_opt_out` | No affirmative grant is required for this metric. Collect by default while its analytics opt-out and host policy permit it. |
+| `record_opt_in`  | Collect only with an affirmative grant covering the metric's scope. Otherwise skip it without evaluating its data closure.  |
+
+Both routes use the same typed definitions, shared system context, aggregation,
+and delivery machinery. Both honor applicable disabling and offline controls;
+offline mode suppresses network activity, not necessarily already authorized
+local aggregation. An opt-in metric never falls back to the opt-out route when
+consent is absent. The opt-out route does not silently inherit an opt-in
+installation credential, shared device/project identifier, or extra context.
+Each route attaches only the context declared for that report.
+
+This separates the collection mechanism from individual metric assessments.
+The matrix determines which definitions can use each route; the SDK does not
+make that decision afresh on each invocation. Adding the opt-out mechanism
+does not activate any currently unresolved metric.
+
 ### Shared system context
 
 Implement supported system-information collectors once in the Rust SDK and
@@ -241,12 +265,12 @@ the product catalog. The host places each call at the observation boundary:
 
 ```rust
 // After a native CLI invocation, count that invocation once.
-tracking.record(&metrics::COMMAND_RUN, || metrics::CommandRun {
+tracking.record_opt_in(&metrics::COMMAND_RUN, || metrics::CommandRun {
     command: metrics::CommandCategory::CatalogCompile,
 });
 
 // Separately, after successfully loading one catalog resource.
-tracking.record(&metrics::CATALOG_LOADED, || metrics::CatalogLoaded {
+tracking.record_opt_in(&metrics::CATALOG_LOADED, || metrics::CatalogLoaded {
     format: metrics::CatalogFormat::Po,
 });
 
@@ -254,7 +278,8 @@ tracking.record(&metrics::CATALOG_LOADED, || metrics::CatalogLoaded {
 tracking.flush_in_background();
 ```
 
-`record` evaluates effective collection policy before invoking its closure.
+Both recording methods evaluate effective collection policy before invoking
+their closures.
 The SDK also gates any common repository or system-information helpers; merely
 constructing the client must not collect those dimensions. A denied observation
 does not create a usage row or queue entry. Permitted observations increment
@@ -269,6 +294,53 @@ Common context such as tool version belongs in SDK-managed report context;
 optional OS/CPU/project dimensions remain subject to the declared scope and
 collection gate.
 
+### Tracking and resource downloads
+
+Collection route and operation type are independent. A tracking operation
+records an observation and returns without waiting for network delivery. A
+resource-download operation obtains bytes needed by the caller and returns a
+verified artifact or a download error. Its associated observation uses the
+route declared for that metric. This requires a download API as well as the
+two recording APIs, not a separate client implementation for every combination.
+
+Shared downloads are already planned in
+[issue #48](https://github.com/sebastian-software/app-tracking/issues/48), with
+[Ferriki #324](https://github.com/sebastian-software/ferriki/issues/324) as a
+consumer. The SDK performs the actual HTTP transfer directly from the resource
+CDN; app-tracking need not proxy resource bytes. The caller continues to own
+its resource cache. An illustrative call, using a download client configured
+with the shared reporter, is:
+
+```rust
+// The descriptor supplies the public resource ID, URL, expected size and
+// SHA-256, plus the registered download metric and its collection route.
+let verified = downloads.download(&resource)?;
+cache.store(verified)?;
+```
+
+The download API uses bounded streaming, cancellation/deadline controls, and
+size/digest verification before returning a verified artifact for caching. Its
+request budget is appropriate for resource transfers, independent of the
+existing update-check deadline. Download errors remain visible to the caller;
+statistics errors do not turn a valid artifact into a failed download. The
+caller waits for the resource it needs, while reporting uses background
+delivery. Declined or disabled reporting still permits the resource download.
+
+Count one download success after complete integrity verification, not on each
+retry, redirect, chunk, telemetry retry, or cache read. Failed attempts can have
+a separate bounded outcome metric. A later resource/language-use event may
+occur with a populated cache and is a distinct measure. The same process can
+therefore have one download and many uses, or no download and many uses.
+
+Only the app-tracking reporting endpoint receives eligible reporting metadata.
+Do not place reporting credentials or device/project identifiers in CDN URLs,
+headers, or redirect requests. Define redirect and destination policy in the
+download contract. In offline mode the host can serve a cached artifact; a
+cache miss produces an explicit offline outcome without a network request.
+The Rust and Node integrations in #48 should share event definitions and
+counting semantics without forcing a network/tracking dependency into Ferriki's
+offline-only library builds.
+
 ### Gap from the implemented contract
 
 The current Rust API accepts a fixed
@@ -277,7 +349,9 @@ The current Rust API accepts a fixed
 command allowlists. The
 [receiver contract](../../src/telemetry/contract.ts) validates fixed invocation
 rows. The existing project-context closure already demonstrates collection
-after consent, but it does not provide arbitrary typed metrics.
+after consent, but it does not provide arbitrary typed metrics. The crate also
+has no shared artifact-download API: `UpdateClient` fetches release metadata,
+not resource payloads.
 
 Implementing this boundary therefore requires extending the maintained metric
 definitions, Rust interface, wire/storage contracts, and reporting together.
@@ -430,3 +504,6 @@ exemption for a Rust CLI.
 - 2026-10-27: Centralize reusable system collectors and their field definitions
   in the SDK, with automatic context attachment after policy checks. Separate
   approved default-on collection from the availability of a collector.
+- 2026-10-27: Specify opt-out and opt-in recording entry points independently
+  of operation type. Connect the planned shared download client in #48 to the
+  same reporting controls, with verified-transfer and cached-use semantics.

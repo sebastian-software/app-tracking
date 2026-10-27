@@ -22,6 +22,24 @@ Only the designated CLI entry point reports an invocation. npm wrappers,
 native binaries, and embedded library use must not all count the same command.
 Library consumers do not report automatically merely because they import code.
 
+### Proposed extension: collection routes and downloads
+
+[ADR 0010](../adr/0010-metrics-purposes-and-consent.md#host-and-infrastructure-responsibilities)
+proposes product-defined typed metrics, shared system collectors, and separate
+`record_opt_out` and `record_opt_in` entry points. Collection route is independent
+of whether the operation only records an observation or downloads a resource.
+The SDK checks the registered route and applicable policy before collecting
+context or evaluating a data closure.
+
+The shared download client in
+[issue #48](https://github.com/sebastian-software/app-tracking/issues/48) performs
+the transfer and integrity checks, returns a verified artifact to the caller's
+cache, and records eligible download observations through the same reporting
+machinery. Reporting failure or refusal does not prevent a download. Cache
+reads and subsequent resource use remain separate from successful transfers.
+These are proposed extensions; the current invocation contract and update
+client do not implement these interfaces.
+
 ## Consent, reporting, and process lifetime
 
 The maintained [telemetry API](../telemetry-api.md),
