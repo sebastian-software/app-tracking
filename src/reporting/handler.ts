@@ -35,9 +35,11 @@ export function createReportingHandler(storage: () => ReportingStorage, auth: Re
     } catch {
       return reply({ error: "invalid_request" }, 400);
     }
+    let stage = "storage";
     try {
       const signal = AbortSignal.any([request.signal, AbortSignal.timeout(2800)]);
       const result = await storage().usage(query, signal);
+      stage = "contract";
       if (!result || typeof result !== "object") throw new Error("Invalid reporting result");
       if ("error" in result) {
         if (
@@ -50,8 +52,18 @@ export function createReportingHandler(storage: () => ReportingStorage, auth: Re
         throw new Error("Reporting operation failed");
       }
       return reply(checkedUsage(result, query));
-    } catch {
-      return reply({ error: "service_unavailable" }, 503);
+    } catch (error) {
+      const response = reply({ error: "service_unavailable" }, 503);
+      const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
+      const knownCode =
+        typeof code === "string" &&
+        ["42501", "57014", "42883", "42P01", "42703", "22P02", "22023", "P0001", "XX000"].includes(
+          code,
+        )
+          ? code
+          : "unavailable";
+      response.headers.set("X-App-Tracking-Reporting-Failure", stage + ":" + knownCode);
+      return response;
     }
   };
 }

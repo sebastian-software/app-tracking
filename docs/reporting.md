@@ -157,7 +157,10 @@ processes maintainer identity/session data for this separate login purpose.
    app's existing database owner grants CONNECT on its own database. The login
    sets its own `statement_timeout='2500ms'` and `lock_timeout='1500ms'` defaults;
    no role-administration privilege or manual SQL bootstrap is needed. Keep the
-   runtime's effective query/parameter logging restrictions.
+   runtime's effective query/parameter logging restrictions. Deployment also
+   reads one day through the reporting HTTP driver and validates the aggregate
+   response without logging statistics. Failures expose only a fixed stage and
+   an allowlisted SQLSTATE code, never SQL, parameters, or driver messages.
 4. Configure encrypted repository Actions secrets below. Generate the cookie
    password as 32 random bytes encoded in 64 lowercase hexadecimal characters;
    keep it in a private credential store, never a public file, chat, or log.

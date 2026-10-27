@@ -77,6 +77,7 @@ test("database errors are redacted and expiry is not a successful zero", async (
   const response = await failed(request());
   assert.equal(response.status, 503);
   assert.deepEqual(await response.json(), { error: "service_unavailable" });
+  assert.equal(response.headers.get("X-App-Tracking-Reporting-Failure"), "storage:unavailable");
   const expired = createReportingHandler(
     () => ({
       async usage() {
@@ -86,6 +87,37 @@ test("database errors are redacted and expiry is not a successful zero", async (
     reportingFixtureAuth(),
   );
   assert.equal((await expired(request())).status, 422);
+});
+test("reporting diagnostics expose only fixed stages and allowed SQLSTATE codes", async () => {
+  for (const code of ["42501", "postgresql://private:password@host"]) {
+    const handler = createReportingHandler(
+      () => ({
+        async usage() {
+          throw Object.assign(new Error("private database details"), { code });
+        },
+      }),
+      reportingFixtureAuth(),
+    );
+    const response = await handler(request());
+    assert.equal(response.status, 503);
+    assert.equal(
+      response.headers.get("X-App-Tracking-Reporting-Failure"),
+      code === "42501" ? "storage:42501" : "storage:unavailable",
+    );
+    assert.ok(!JSON.stringify([...response.headers]).includes("private" + " database"));
+  }
+  const handler = createReportingHandler(
+    () => ({
+      async usage(query) {
+        return { ...usageFixture(query), schema_version: 2 } as never;
+      },
+    }),
+    reportingFixtureAuth(),
+  );
+  assert.equal(
+    (await handler(request())).headers.get("X-App-Tracking-Reporting-Failure"),
+    "contract:unavailable",
+  );
 });
 test("aggregate serialization drops unexpected private fields and rejects malformed counts", () => {
   const query = usageQuery(new URL(`https://example.test${path}`));

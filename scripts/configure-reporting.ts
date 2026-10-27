@@ -6,6 +6,8 @@ import { psql } from "./storage/psql.ts";
 import { grantReporting, prepareReportingLogin } from "./storage/grant-reporting.ts";
 import { checkRuntime } from "./storage/check-runtime.ts";
 import { validateWorkOSConfig } from "../src/reporting/auth.ts";
+import { createReportingStorage } from "../src/reporting/storage.ts";
+import { checkedUsage, type UsageQuery } from "../src/reporting/contract.ts";
 
 try {
   const enabled = required("REPORTING_ENABLED");
@@ -34,6 +36,28 @@ try {
       )) !== "t"
     )
       throw new Error("Reporting authority is not isolated");
+    // Exercise the same HTTP driver, aggregate function, and response validator
+    // as the live dashboard. Never print the returned statistics.
+    const until = new Date().toISOString().slice(0, 10);
+    const from = new Date(Date.parse(until) - 86400000).toISOString().slice(0, 10);
+    const query: UsageQuery = { from, until, tool: "all", mode: "local" };
+    let readStage = "storage";
+    try {
+      const result = await createReportingStorage(url).usage(query, AbortSignal.timeout(2800));
+      readStage = "contract";
+      checkedUsage(result, query);
+    } catch (error) {
+      const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
+      const label =
+        typeof code === "string" &&
+        ["42501", "57014", "42883", "42P01", "42703", "22P02", "22023", "P0001", "XX000"].includes(
+          code,
+        )
+          ? code
+          : "unavailable";
+      console.error("Reporting read check failed: " + readStage + ":" + label);
+      throw new Error("Reporting read check failed");
+    }
     await api("PUT", `/compute/script/${target.scriptId}/secrets`, {
       Name: "APP_TRACKING_REPORTING_DATABASE_URL",
       Secret: url,
