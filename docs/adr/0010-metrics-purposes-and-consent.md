@@ -149,6 +149,105 @@ consumer release contains every proposed metric. The current
 [telemetry policy](../../contracts/telemetry-v1-policy.json) owns command
 allowlists; [reporting](../reporting.md) owns implemented measures.
 
+## Host and infrastructure responsibilities
+
+The host product owns what an observation means and where it occurs.
+app-tracking owns the reusable collection and delivery machinery. Product
+definitions should be data consumed by that machinery, so adding a reviewed
+Palamedes metric does not require Palamedes-specific branches in the SDK or
+service. This boundary is a proposed extension, not the current generic API.
+
+| Owner                  | Responsibilities                                                                                                                                                                                                                                                                                               |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Host product           | Define the observation unit, instrument the actual operation, map private/custom values to approved categories, and provide product-specific disclosure and settings. Decide which observations are useful and propose their purposes and collection requirements for review.                                  |
+| Product metric catalog | Declare stable metric IDs, units, allowed dimensions/types/values, purpose and authorization requirements, identifier scope, aggregation, retention, and cardinality limits. Keep these definitions versioned and reviewed with the product integration.                                                       |
+| Shared Rust SDK        | Evaluate consent, refusals, opt-out, offline and CI policy before collecting additional values; validate dimensions; aggregate locally; manage bounded queues, retries, deletion, and background delivery. Offer common status/control APIs and optional, gated helpers for repository and system information. |
+| app-tracking service   | Accept only registered product definitions and authorized report shapes; enforce collection scope, size/cardinality limits, retention, and deletion. Store and report supported measures while preserving their units and coverage limits.                                                                     |
+
+Start with counters and typed dimensions needed by the documented cases.
+Categorical dimensions use explicit public values or bounded buckets;
+pseudonymous installation/project identifiers require their separately declared
+scope and controls. Do not provide unrestricted property bags, private names,
+or arbitrary event payloads just because transport can serialize them. A new
+measurement primitive needs its own contract assessment; another metric using
+an existing primitive should primarily require a definition and instrumentation.
+
+Use one canonical definition per product to produce or validate the SDK's
+typed descriptors and the service's trusted registry. For the initial design,
+reviewed repository files and build-time validation are sufficient; no dynamic
+registration service is needed. Register a definition before deploying a client
+that emits it. The receiver does not trust definitions or a
+`requires_consent: false` flag supplied by an incoming request. Clients can be
+modified, so SDK checks are not a server authorization boundary or proof of
+authentic tool execution.
+
+The SDK should apply common rules to declared purposes. It must not infer a
+legal basis from a field name or offer an unrestricted host override around
+consent. Optional product usage stays in the usage scope described above;
+necessary service protection is assessed at the actual service boundary. A
+product cannot route ordinary usage events through a generic "security" bypass.
+
+One documented product/purpose scope can cover several reviewed metrics; this
+does not imply a separate prompt for every counter or dimension. Conversely,
+adding an incompatible purpose or materially expanding the disclosed scope
+needs a fresh assessment and, where required, renewed consent. A committed
+metric catalog describes behavior; it does not grant consent to repository
+users.
+
+### Illustrative Rust interface
+
+The following is an API design sketch, not code supported by the current
+crate. `metrics` contains typed descriptors and dimension types checked against
+the product catalog. The host places each call at the observation boundary:
+
+```rust
+// After a native CLI invocation, count that invocation once.
+tracking.record(&metrics::COMMAND_RUN, || metrics::CommandRun {
+    command: metrics::CommandCategory::CatalogCompile,
+});
+
+// Separately, after successfully loading one catalog resource.
+tracking.record(&metrics::CATALOG_LOADED, || metrics::CatalogLoaded {
+    format: metrics::CatalogFormat::Po,
+});
+
+// Schedule due delivery; do not wait for a network response in the CLI.
+tracking.flush_in_background();
+```
+
+`record` evaluates effective collection policy before invoking its closure.
+The SDK also gates any common repository or system-information helpers; merely
+constructing the client must not collect those dimensions. A denied observation
+does not create a usage row or queue entry. Permitted observations increment
+local aggregates rather than making one request per event. Offline mode and
+upload policy remain distinct from collection policy. Shared APIs expose
+status, preview, enable, disable, and deletion controls; the host renders its
+own CLI text and handles errors without changing the command's result.
+
+This API separates command invocations, component dispatches, and catalog loads
+without making the infrastructure understand how Palamedes compiles a catalog.
+Common context such as tool version belongs in SDK-managed report context;
+optional OS/CPU/project dimensions remain subject to the declared scope and
+collection gate.
+
+### Gap from the implemented contract
+
+The current Rust API accepts a fixed
+[`Invocation`](../../crates/app-tracking/src/telemetry/mod.rs), and its
+[embedded policy](../../contracts/telemetry-v1-policy.json) contains tool and
+command allowlists. The
+[receiver contract](../../src/telemetry/contract.ts) validates fixed invocation
+rows. The existing project-context closure already demonstrates collection
+after consent, but it does not provide arbitrary typed metrics.
+
+Implementing this boundary therefore requires extending the maintained metric
+definitions, Rust interface, wire/storage contracts, and reporting together.
+Do not claim this sketch works by configuration alone today. Preserve current
+consent/refusal and background-delivery behavior, validate unknown metrics and
+dimensions at both boundaries, and migrate existing command counts with their
+units intact. Keep executable schema details in the maintained contracts rather
+than treating this sketch as a second source of truth.
+
 ## Controls and boundaries
 
 - Keep update delivery usable without product-reporting consent. A shared
@@ -286,3 +385,6 @@ exemption for a Rust CLI.
 - 2026-10-27: Record the proposed metric matrix, separate Palamedes command,
   component, and catalog use cases, and link each assessment to primary
   evidence. Keep current opt-in contracts and deployment behavior unchanged.
+- 2026-10-27: Propose host-owned metric definitions with shared SDK controls
+  and a trusted service registry. Add an illustrative Rust interface and make
+  the gap from the implemented invocation-only contract explicit.
