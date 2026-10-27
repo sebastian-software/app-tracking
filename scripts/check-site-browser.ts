@@ -8,6 +8,7 @@ const files = new Map([
   ["/app-tracking/", ["index.html", "text/html; charset=utf-8"]],
   ["/app-tracking/styles.css", ["styles.css", "text/css"]],
   ["/app-tracking/favicon.svg", ["favicon.svg", "image/svg+xml"]],
+  ["/app-tracking/redirect.js", ["redirect.js", "text/javascript"]],
 ]);
 const server = createServer((request, response) => {
   void (async () => {
@@ -26,7 +27,38 @@ const origin = `http://127.0.0.1:${port}`;
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
 try {
   browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
+  const canonical = "https://app-tracking.sebastian-software.com/";
+  const redirectContext = await browser.newContext();
+  const redirectPage = await redirectContext.newPage();
+  const redirectRequests: string[] = [];
+  await redirectPage.route("**/*", (route) => {
+    const url = new URL(route.request().url());
+    if (url.origin === new URL(canonical).origin) {
+      redirectRequests.push(route.request().url());
+      return route.fulfill({ contentType: "text/html", body: "<h1>Destination</h1>" });
+    }
+    if (url.origin === origin) return route.continue();
+    throw new Error(`Unexpected redirect request: ${url.href}`);
+  });
+  for (const hash of ["", "#data", "#controls", "#privacy", "#questions", "#custom-section"]) {
+    await redirectPage.goto(`${origin}/app-tracking/?discard=this${hash}`);
+    await redirectPage.waitForURL(`${canonical}${hash}`);
+    assert.equal(redirectPage.url(), `${canonical}${hash}`);
+  }
+  assert.equal(redirectRequests.length, 6);
+  assert.deepEqual(await redirectContext.cookies(), []);
+  await redirectContext.close();
+
+  const noScript = await browser.newContext({ javaScriptEnabled: false });
+  const staticPage = await noScript.newPage();
+  await staticPage.goto(`${origin}/app-tracking/#privacy`);
+  assert.equal(await staticPage.getByRole("link", { name: "Continue in English" }).count(), 1);
+  assert.equal(await staticPage.getByRole("link", { name: "Read the German version" }).count(), 1);
+  await noScript.close();
+
+  // Keep JavaScript available for axe's timers, but prevent the redirect during audits.
+  const fallback = await browser.newContext();
+  const page = await fallback.newPage();
   const errors: string[] = [];
   const externalRequests: string[] = [];
   const badResponses: string[] = [];
@@ -35,6 +67,9 @@ try {
     if (response.status() >= 400) badResponses.push(response.url());
   });
   await page.route("**/*", (route) => {
+    if (route.request().url() === `${origin}/app-tracking/redirect.js`) {
+      return route.fulfill({ contentType: "text/javascript", body: "" });
+    }
     if (new URL(route.request().url()).origin !== origin) {
       externalRequests.push(route.request().url());
       return route.abort();
@@ -54,8 +89,8 @@ try {
   ] as const) {
     await page.setViewportSize({ width, height });
     await page.goto(`${origin}/app-tracking/`);
-    assert.equal(await page.locator("h1").innerText(), "Your tools.\nYour choice.");
-    assert.equal(await page.locator('script, iframe, [src^="http"]').count(), 0);
+    assert.equal(await page.locator("h1").innerText(), "The app-tracking website has moved.");
+    assert.equal(await page.locator('iframe, [src^="http"]').count(), 0);
     assert.equal(await page.evaluate(() => localStorage.length + sessionStorage.length), 0);
     assert.deepEqual(await page.context().cookies(), []);
     assert.ok(
@@ -63,28 +98,19 @@ try {
       `${name}: horizontal overflow`,
     );
 
-    const missingAnchors = await page
-      .locator('a[href^="#"]')
-      .evaluateAll((links) =>
-        links
-          .map((link) => link.getAttribute("href")!.slice(1))
-          .filter((id) => !document.getElementById(id)),
-      );
-    assert.deepEqual(missingAnchors, [], `${name}: broken section links`);
+    assert.equal(
+      await page.getByRole("link", { name: "Continue in English" }).getAttribute("href"),
+      canonical,
+    );
+    assert.equal(
+      await page.getByRole("link", { name: "Read the German version" }).getAttribute("href"),
+      "https://app-tracking.sebastian-software.de/",
+    );
     await page.keyboard.press("Tab");
-    assert.equal(await page.locator(":focus").innerText(), "Skip to content");
-    const question = page.getByText("Does visiting this page opt me in?", { exact: true });
-    await question.focus();
-    await page.keyboard.press("Enter");
-    assert.equal(await question.locator("..").getAttribute("open"), "");
-    await page
-      .getByText("This page cannot change your tool’s settings", { exact: false })
-      .waitFor();
-    await page.keyboard.press("Enter");
-    await page.evaluate(() => window.scrollTo(0, 0));
+    assert.equal(await page.locator(":focus").innerText(), "Continue in English");
     await page.screenshot({ path: `dist/site-evidence/${name}.png`, fullPage: true });
 
-    // Inject the local audit tool only in this test; the delivered site has no script.
+    // The audit tool is local and is never part of the delivered page.
     await page.evaluate(axe);
     const violations = await page.evaluate(async () => {
       const audit = (
@@ -108,20 +134,12 @@ try {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(`${origin}/app-tracking/`);
   await page.screenshot({ path: "dist/site-evidence/desktop-first-screen.png" });
-  // The page must remain usable with JavaScript disabled.
-  const noScript = await browser.newContext({ javaScriptEnabled: false });
-  const staticPage = await noScript.newPage();
-  await staticPage.goto(`${origin}/app-tracking/`);
-  await staticPage.getByText("Are update checks a usage report?", { exact: true }).click();
-  await staticPage
-    .getByText("No. Version checks use a separate public endpoint", { exact: false })
-    .waitFor();
-  await noScript.close();
+  await fallback.close();
   assert.deepEqual(externalRequests, []);
   assert.deepEqual(badResponses, []);
   assert.deepEqual(errors, []);
   console.log(
-    "Website verified: four viewports, keyboard FAQ, no-script fallback, local assets, no browser storage or external requests, and axe accessibility checks.",
+    "Compatibility page verified: canonical redirects with preserved fragments and discarded queries; no-script links; accessible fallback at four viewports; no cookies, browser storage, or unexpected requests.",
   );
 } finally {
   await browser?.close();
