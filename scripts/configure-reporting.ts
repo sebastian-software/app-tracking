@@ -3,7 +3,7 @@ import { bunnyApi, required } from "./bunny.ts";
 import type { Target } from "./provision.ts";
 import { migrate } from "./storage/migrate.ts";
 import { psql } from "./storage/psql.ts";
-import { grantReporting } from "./storage/grant-reporting.ts";
+import { grantReporting, prepareReportingLogin } from "./storage/grant-reporting.ts";
 import { checkRuntime } from "./storage/check-runtime.ts";
 import { validateWorkOSConfig } from "../src/reporting/auth.ts";
 
@@ -25,7 +25,7 @@ try {
     };
     validateWorkOSConfig(config);
     await migrate(migration);
-    await grantReporting(migration, await psql(url, "SELECT current_user"));
+    await grantReporting(migration, await prepareReportingLogin(migration, url));
     await checkRuntime(url);
     if (
       (await psql(

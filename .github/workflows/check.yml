@@ -82,14 +82,11 @@ jobs:
           GRANT app_tracking_owner TO app_tracking_migrator;
           ALTER ROLE app_tracking_runtime SET statement_timeout = '2500ms';
           ALTER ROLE app_tracking_runtime SET lock_timeout = '1500ms';
-          ALTER ROLE app_tracking_reporter SET statement_timeout = '2500ms';
-          ALTER ROLE app_tracking_reporter SET lock_timeout = '1500ms';
           SQL
           psql -X -v ON_ERROR_STOP=1 -c 'CREATE DATABASE app_tracking OWNER app_tracking_owner;'
           psql -X -v ON_ERROR_STOP=1 -c 'CREATE DATABASE app_tracking_restore OWNER app_tracking_owner;'
           psql -X -v ON_ERROR_STOP=1 -c 'REVOKE ALL ON DATABASE app_tracking_restore FROM PUBLIC; GRANT CONNECT ON DATABASE app_tracking_restore TO app_tracking_migrator,app_tracking_runtime;'
           psql -X -v ON_ERROR_STOP=1 -c 'REVOKE ALL ON DATABASE app_tracking FROM PUBLIC; GRANT CONNECT ON DATABASE app_tracking TO app_tracking_migrator,app_tracking_runtime;'
-          psql -X -v ON_ERROR_STOP=1 -c 'GRANT CONNECT ON DATABASE app_tracking TO app_tracking_reporter;'
       - name: Read MSRV from Cargo.toml
         id: rust
         run: |
