@@ -6,8 +6,13 @@ import { publish } from "./release.ts";
 import { verifyDeployment, waitForRevision } from "./verify-deployment.ts";
 import type { Target } from "./provision.ts";
 // Restore an immutable artifact from a previously verified release, never rebuilt source.
-const manifest: { revision: string; sha256: string; telemetry?: boolean; reporting?: boolean } =
-  JSON.parse(await readFile("rollback/release.json", "utf8"));
+const manifest: {
+  revision: string;
+  sha256: string;
+  telemetry?: boolean;
+  reporting?: boolean;
+  events?: boolean;
+} = JSON.parse(await readFile("rollback/release.json", "utf8"));
 if (!/^[a-f0-9]{40}$/.test(manifest.revision)) throw new Error("Invalid rollback revision");
 execFileSync("git", ["merge-base", "--is-ancestor", manifest.revision, "origin/main"]);
 const code = await readFile("rollback/edge.js", "utf8");
@@ -30,5 +35,12 @@ await api("PUT", `/compute/script/${target.scriptId}/secrets`, {
 });
 await publish(api, target, code, manifest.revision);
 await waitForRevision(target.base, manifest.revision);
-await verifyDeployment(target.base, manifest.revision, fetch, telemetryEnabled, reportingEnabled);
+await verifyDeployment(
+  target.base,
+  manifest.revision,
+  fetch,
+  telemetryEnabled,
+  reportingEnabled,
+  manifest.events === true,
+);
 console.log("Rollback restored the verified artifact; CDN purge and contract checks passed.");

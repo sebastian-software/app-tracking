@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-22
-- Last updated: 2026-10-23
+- Last updated: 2026-10-27
 
 ## Context
 
@@ -22,6 +22,14 @@ Telemetry requires explicit opt-in before usage counters, reporting identity,
 or project identity are collected for this purpose. Consent covers documented
 fields and purposes. Existing opt-out-based reporting does not establish
 consent to the new protocol.
+
+The shared Rust client owns the explicit permission request. A host passes a
+product-specific explanation to `request_opt_in(message)`; the library adds
+its data summary, displays yes/no, and persists the answer. Saved refusals and
+grants are reused. Noninteractive/CI/worker contexts never open a new dialog,
+and an interrupted request does not create a decision. Hosts can change an
+explicit saved choice through `set_opt_in(bool)` without owning another
+preference store. See the [unified client guide](../unified-client.md).
 
 The client summarizes usage locally and sends bounded batches. Withdrawal
 stops collection and upload, clears pending reports, and provides a way to
@@ -71,3 +79,6 @@ CLI reporting. It does not change this accepted opt-in decision.
   replay protection, explicit renewal/reset, and the maintained v1 contracts.
   Keep provider recovery proportionate: no separate deletion history or blanket
   purge, and no claim that a database rollback preserves later deletions.
+
+- 2026-10-27: Centralize the permission prompt, saved yes/no decision, and
+  noninteractive safeguards in the shared Rust library.

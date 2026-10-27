@@ -3,7 +3,7 @@
 The public explainer lives in [`site/`](../site/index.html) and is deployed to
 <https://sebastian-software.github.io/app-tracking/>. It gives users of tools
 such as Dalo and Palamedes a readable introduction to the implemented v1
-contract. It does not establish a live service's activation status or replace
+invocation and unified-client reporting contracts. It does not establish a live service's activation status or replace
 the released consumer privacy notice required by the [operations runbook](operations.md).
 
 ## Preview and verify
@@ -64,7 +64,9 @@ own opt-in flow. Linking to this overview alone does not complete that flow.
 ## Content and privacy boundaries
 
 Use US English and check claims against the [consent contract](telemetry-consent.md),
-[wire schema](../contracts/telemetry-v1.schema.json),
+[legacy wire schema](../contracts/telemetry-v1.schema.json),
+[unified client](unified-client.md), [event contract](event-batches.md),
+[registered product metrics](../contracts/event-catalog.json),
 [retention policy](telemetry-retention.md), and [operations runbook](operations.md).
 When these contracts change, review the page and its reviewed date together.
 Keep proposed metrics distinct from released behavior.

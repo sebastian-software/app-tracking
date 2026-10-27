@@ -4,8 +4,9 @@ Useful update notices. Optional usage reporting. Clear choices.
 
 app-tracking gives developer tools a shared service and Rust client for update
 checks and opt-in usage reporting. It helps maintainers understand which
-versions and command categories are used, so they can make informed decisions
-about their tools. You can keep update checks enabled without sharing usage.
+versions, command categories, and supported platforms are used, so they can
+make informed decisions about their tools. You can keep update checks enabled
+without sharing usage.
 
 **Using a tool that links here?** Start with
 [what is shared, why, and how you stay in control](https://sebastian-software.github.io/app-tracking/).
@@ -14,7 +15,8 @@ details.
 
 ## Your choice comes first
 
-The current v1 design keeps update checks and usage reporting independent:
+Update checks and usage reporting remain independent. Every metric in the
+current shipped event catalog requires opt-in:
 
 - **Reporting starts with your opt-in.** Before consent, the client creates no
   reporting identity, project hash, usage counters, or queue. CI reporting
@@ -25,34 +27,56 @@ The current v1 design keeps update checks and usage reporting independent:
 - **You can inspect and change your choice.** Integrating tools must expose
   status, an unsent-payload preview, disable, and deletion controls. Disabling
   stops collection and upload and discards unsent usage. Deletion is a separate
-  request; an offline request stays visibly pending until resolved.
+  request; offline mode prevents that request from reaching the service.
 - **Reporting stays in the background.** The Rust client can record locally and
   deliver due reports in a short-lived worker, without waiting for telemetry
   networking in the command you run. Offline mode blocks networking.
 
-Control names belong to each integrating tool. See its documentation for the
-commands and settings it provides, or read the shared
-[consent and controls contract](docs/telemetry-consent.md).
+Control commands belong to each integrating tool. The unified Rust SDK owns
+its permission dialog and saved choice; the host supplies the product-specific
+reason and exposes the settings. It needs no separate opt-in preference file.
+See the [unified client guide](docs/unified-client.md) for these controls and
+the [legacy consent contract](docs/telemetry-consent.md) for invocation-client
+behavior. The legacy client bounds pending offline deletion to 90 days after
+withdrawal, then shows deletion as unverified if it was not acknowledged.
 
 ## What reporting can share
 
-With consent, v1 summarizes invocations locally and normally uploads daily
-while you use the tool. Reports contain the UTC day, tool and version, an
-allowlisted command category, count, local/CI context, consent revision, and a
-separate installation ID for the tool and profile. Registration records consent
-time; installation and batch IDs also encode their creation time.
+Both reporting contracts aggregate counts locally by UTC day and normally
+upload daily while the tool is used. They have distinct payloads and state:
 
-When reliable repository metadata exists, the client can include a SHA-256 hash
-of the normalized repository URL. This lets maintainers count reporting
+- **Legacy invocation reporting** shares tool/version, an allowlisted command
+  category, count, local/CI context, consent revision, and a tool/profile-scoped
+  installation ID. Registration records consent time; installation and batch
+  UUIDs encode their creation time. See the [invocation contract](docs/telemetry-api.md).
+- **Generic event reporting** shares tool/version, metric, finite categorical
+  dimensions, UTC day, count, local/CI context, and the explicit grant time.
+  Installation and batch IDs are random hexadecimal identifiers with no
+  embedded timestamp. See the [event-batch contract](docs/event-batches.md).
+
+The [current event catalog](contracts/event-catalog.json) defines CLI invocation
+counts for Dalo and Palamedes, verified resource-download counts by kind for
+Ferriki, and Ferriki language-use counts by language and explicit/dependency
+source. All shipped definitions use `opt_in`, full system context, and optional
+project context. Full system context includes OS family and normalized version,
+executable architecture, and CPU family; Linux also separates distribution,
+distribution version, and kernel version. Raw hardware model strings are not
+sent. The SDK checks collection policy before resolving system or project
+context. Catalog definitions do not establish that consumer instrumentation is
+already released.
+
+When reliable repository metadata exists, both clients can include a SHA-256
+hash of the normalized repository URL. This lets maintainers count reporting
 repositories across clones, developers, and tools without receiving the URL.
 **The hash is guessable from a known URL, so reporting is pseudonymous, not
 promised anonymous.** Installation IDs are separate across tools.
 
 The reporting payload excludes source code, command arguments, file paths,
 repository URLs, usernames, machine names, environment contents, and skill
-content or names. The [wire contract](docs/telemetry-api.md) defines the exact
-fields; the [project identity contract](docs/project-identity.md) explains the
-repository hash.
+content or names. The [invocation contract](docs/telemetry-api.md) defines legacy
+fields, and the [event-batch contract](docs/event-batches.md) owns generic fields.
+The [project identity contract](docs/project-identity.md) explains the repository
+hash.
 
 The retention contract limits active usage reporting to 90 days, with physical
 cleanup within another 24 hours and a seven-day maximum policy for ordinary
@@ -81,10 +105,19 @@ production telemetry activation are separate steps. Private
 authorization, and a separate database login. Its counts describe participating
 installations and repositories, not people or everyone who uses a tool.
 
-Broader metric definitions and possible service statistics are being explored in
-[proposed ADR 0010](docs/adr/0010-metrics-purposes-and-consent.md). That proposal
-does not change v1's opt-in requirement or enable new collection. Durable
-historical summaries and public usage exports remain proposed in
+The [unified client](docs/unified-client.md) adds one `record` API, verified
+resource downloads, shared system collectors, and a persisted permission flow.
+Its [generic event batches](docs/event-batches.md) are stored separately from
+legacy invocation counts; existing charts do not include them. Node support,
+consumer rollout, and the new reporting interface remain follow-up work under
+[issue #48](https://github.com/sebastian-software/app-tracking/issues/48).
+
+[ADR 0010](docs/adr/0010-metrics-purposes-and-consent.md) retains proposed
+assessments for broader metrics and service statistics alongside the implemented
+client work. The generic protocol supports an opt-out route, but the current
+shipped catalog contains no production baseline metrics. Neither that mechanism nor the
+proposal enables default-on reporting. Durable historical summaries and public
+usage exports remain proposed in
 [RFC 0004](docs/rfcs/0004-historical-usage-summaries.md).
 
 ## Try the service locally
@@ -118,9 +151,19 @@ exported `createHandler` for integration; both have no external imports. The
 ## Integrate or contribute
 
 For a Rust tool, start with the [crate README](crates/app-tracking/README.md),
-then follow the [update integration guide](docs/rust-client.md) or the
-[telemetry integration guide](docs/rust-telemetry-client.md). The host owns its
-user-facing controls, output policy, and consent flow.
+then follow the [unified client guide](docs/unified-client.md). The SDK's explicit
+`request_opt_in(reason)` call presents its shared explanation and saves the
+answer for the tool/service/profile. The host chooses a suitable interactive
+point, supplies the reason and privacy/settings link, maps process restrictions,
+and exposes control commands. Construction, `record`, and `download` do not
+prompt automatically; a changed metric scope needs a fresh permission request.
+Legacy consent is not imported into the new client.
+
+The [update integration guide](docs/rust-client.md) and
+[legacy telemetry guide](docs/rust-telemetry-client.md) remain available for
+existing APIs. Adopt generic reporting only after its service migration and
+runtime grants are deployed; the [deployment runbook](docs/deployment.md)
+describes service-first rollout and verification.
 
 Questions, corrections, and integration ideas are welcome in
 [GitHub issues](https://github.com/sebastian-software/app-tracking/issues).
@@ -133,6 +176,7 @@ identifiers rather than real telemetry or private infrastructure details.
 
 | Looking for…                       | Start here                                                                                                                                                                                                  |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unified metrics and downloads      | [Unified client](docs/unified-client.md), [event batches](docs/event-batches.md), [current catalog](contracts/event-catalog.json)                                                                           |
 | Terms and design decisions         | [Glossary](GLOSSARY.md), [ADRs](docs/adr/README.md), [RFCs](docs/rfcs/README.md)                                                                                                                            |
 | Consent, fields, and data lifetime | [Consent](docs/telemetry-consent.md), [API](docs/telemetry-api.md), [retention](docs/telemetry-retention.md), [project identity](docs/project-identity.md)                                                  |
 | Service architecture and adoption  | [Service and data model](docs/rfcs/0001-service-api-and-data-model.md), [client and measurement](docs/rfcs/0002-client-consent-and-measurement.md), [migration](docs/rfcs/0003-deployment-and-migration.md) |

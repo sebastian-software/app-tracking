@@ -132,8 +132,52 @@ probe retains cleanup authority only in ignored, private runner state and
 retries cleanup in an `always()` step. Public output contains pass/fail only.
 Admin and public aggregate routes remain disabled.
 
+The same enabled deployment verifies `/v1/event-batches` with a separate owned
+synthetic identity: acceptance, an identical replay receipt, conflicting replay
+rejection, credential isolation, deletion, and rejection after deletion. Its
+cleanup authority stays in `.deployment/event-probe.json` with private file
+permissions. A generic routing 404 does not count as confirmed deletion; cleanup
+state is retained for retry. Neither probe reads real traffic.
+
 Release manifests record whether telemetry was enabled. Rollback restores the
 original artifact and its effective activation state, honoring a current `0`
 kill switch. Older manifests default to closed telemetry. Additive schemas and
 runtime credentials are retained; rollback never drops tables or reverses
 migrations. A normal deployment restores main afterward.
+
+The manifest's `events` capability records whether the bundle implements generic
+events. Restoring an older artifact without this field verifies the existing
+version and invocation endpoints and expects generic routes to be absent.
+It leaves migration 0008 and its data intact. During that rollback, unified
+clients retain bounded pending batches and back off; legacy clients continue
+using their original endpoints. Redeploy main to restore generic event delivery.
+
+## Published unified-client verification
+
+Deploy migration 0008 and the generic event routes before publishing/adopting
+the new client. Verify the old-artifact rollback and restoration of current main
+before consumer migration. Merge the Release Please PR only after the service
+is ready, then wait for the matching GitHub release and crates.io publication.
+
+The existing deployment workflow can verify an exact published crate without
+deploying another bundle:
+
+```sh
+gh workflow run deploy.yml --ref main -f event_client_version=VERSION
+```
+
+This builds a standalone consumer from crates.io, proves that noninteractive
+permission requests do not prompt and refusal creates no reporting identity,
+then explicitly authorizes an isolated synthetic CI profile. It records one
+language counter, downloads and verifies the public health resource, and lets
+the SDK worker upload both counters. Database assertions are limited to this
+run's random installation identifier. The client then requests authenticated
+deletion, and the check confirms that its usage rows and batches are gone.
+The synthetic version is `0.0.0-app-tracking-probe`.
+
+The proof uses the existing Actions migration secret only in its parent
+verification process, never in Cargo/build scripts or the native consumer.
+The `always()` cleanup step retries only the identity created by this run.
+Public output contains pass/fail assertions and the public crate version.
+Consumer adoption, Node support, shared device profiles, and the generic-event
+dashboard remain separate work; see [issue #48](https://github.com/sebastian-software/app-tracking/issues/48).

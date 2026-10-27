@@ -1,4 +1,5 @@
 import { neon, neonConfig } from "@neondatabase/serverless";
+import type { EventBatch } from "../telemetry/events.ts";
 
 // PlanetScale's documented HTTP endpoint; no WebSocket/TCP dependency at the edge.
 neonConfig.fetchEndpoint = (host) => `https://${host}/sql`;
@@ -82,6 +83,30 @@ export function createStorage(url: string) {
     }
   }
   return {
+    submitEvents(batch: EventBatch, hash: string, tokenHash: string | null, signal: AbortSignal) {
+      return query(
+        "SELECT app_tracking.accept_events_v1($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb) AS result",
+        [
+          batch.tool_id,
+          batch.collection,
+          batch.installation_id ?? null,
+          tokenHash,
+          batch.consented_at ?? null,
+          batch.mode,
+          batch.batch_id,
+          hash,
+          JSON.stringify(batch.rows),
+        ],
+        signal,
+      );
+    },
+    deleteEvents(tool: string, id: string, tokenHash: string, signal: AbortSignal) {
+      return query(
+        "SELECT app_tracking.delete_events_v1($1,$2,$3) AS result",
+        [tool, id, tokenHash],
+        signal,
+      );
+    },
     register(
       tool: string,
       id: string,

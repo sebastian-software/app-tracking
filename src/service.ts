@@ -22,7 +22,12 @@ export function createService(
         return failure("service_unavailable");
       }
     }
-    if (path !== "/v1/usage-batches" && !/^\/v1\/installations\/[^/]+$/.test(path))
+    if (
+      path !== "/v1/usage-batches" &&
+      !/^\/v1\/installations\/[^/]+$/.test(path) &&
+      path !== "/v1/event-batches" &&
+      !/^\/v1\/event-installations\/[0-9a-f]{64}$/.test(path)
+    )
       return version(request);
     try {
       const handle = telemetry();

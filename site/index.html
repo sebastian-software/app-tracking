@@ -77,9 +77,9 @@
       <div class="scope-note wrap">
         <span class="scope-label">What this page covers</span>
         <p>
-          The current <code>telemetry-v1</code> contract for Sebastian Software tools, including
-          Dalo and Palamedes. Availability and controls depend on the tool and release. This page
-          does not enable reporting or establish that a live deployment is active.
+          The implemented invocation and unified-client reporting contracts for Sebastian Software
+          tools. All currently registered product metrics require opt-in. Availability and controls
+          depend on the tool and release; this page does not establish live activation.
         </p>
       </div>
 
@@ -90,8 +90,9 @@
         </div>
         <div class="purpose-copy">
           <p>
-            Knowing which commands and versions are used helps us decide where to spend maintenance
-            effort and see which releases are reaching reporting installations.
+            Knowing which commands, versions, and platforms are used helps us decide where to spend
+            maintenance effort. Registered resource and language counters can also help us
+            prioritize support, when an integrating tool makes those observations available.
           </p>
           <p>
             app-tracking gives our developer tools a shared service for update checks and optional
@@ -111,7 +112,8 @@
             <h2 id="data-title">Counts of use.<br />Your work stays yours.</h2>
             <p>
               After opt-in, the tool counts locally and normally sends daily batches over HTTPS
-              while you use it. Here’s what the v1 contract allows.
+              while you use it. The unified client adds registered event counters alongside the
+              existing invocation protocol. The tool’s disclosure must say which it uses.
             </p>
           </div>
           <div class="data-columns">
@@ -119,22 +121,38 @@
               <h3><span aria-hidden="true">↗</span> In a usage report</h3>
               <dl>
                 <div>
-                  <dt>Tool, version &amp; command category</dt>
+                  <dt>Tool, version &amp; registered categories</dt>
                   <dd>
-                    For example, how often a tool’s <code>lint</code> category runs on a particular
-                    version.
+                    Dalo and Palamedes register command categories such as <code>lint</code>.
+                    Ferriki’s catalog registers download kind (grammar, bytecode, or theme),
+                    language category, and explicit/dependency source. Catalog registration does not
+                    mean a consumer has enabled reporting.
                   </dd>
                 </div>
                 <div>
-                  <dt>UTC day &amp; invocation count</dt>
-                  <dd>Daily counts, rather than a timeline of individual commands.</dd>
+                  <dt>UTC day &amp; count</dt>
+                  <dd>
+                    Daily invocation or registered-event counts, rather than a timeline of
+                    individual commands. Generic event counts stay separate from legacy invocation
+                    statistics.
+                  </dd>
+                </div>
+                <div>
+                  <dt>System categories in the unified client</dt>
+                  <dd>
+                    The current catalog selects OS family/version, executable architecture, and CPU
+                    family. Linux context can include distribution/version and kernel version. These
+                    are bounded categories, not raw hardware model strings. The legacy invocation
+                    payload does not include this system context.
+                  </dd>
                 </div>
                 <div>
                   <dt>Reporting identifiers</dt>
                   <dd>
-                    An installation ID scoped to the tool and profile, a batch ID, and the consent
-                    revision. Registration also includes consent time and local or CI context. IDs
-                    contain their creation time.
+                    A tool- and profile-scoped installation ID, batch ID, local/CI context, and
+                    consent metadata. Legacy invocation IDs contain creation times and use a consent
+                    revision. The unified client uses random hexadecimal IDs and sends the explicit
+                    grant timestamp separately.
                   </dd>
                 </div>
                 <div>
@@ -176,8 +194,14 @@
           </aside>
           <a
             class="text-link"
+            href="https://github.com/sebastian-software/app-tracking/blob/main/docs/event-batches.md"
+            >Read the unified event contract <span aria-hidden="true">↗</span></a
+          >
+          <span aria-hidden="true"> · </span>
+          <a
+            class="text-link"
             href="https://github.com/sebastian-software/app-tracking/blob/main/docs/telemetry-api.md"
-            >Read the exact fields and API contract <span aria-hidden="true">↗</span></a
+            >Legacy invocation fields <span aria-hidden="true">↗</span></a
           >
         </div>
       </section>
@@ -218,9 +242,10 @@
               <h3>Ask to delete received reports</h3>
               <p>
                 The tool uses its locally held credential to request deletion of retained active
-                contributions. Offline requests remain visibly pending while retryable. After 90
-                days without acknowledgement, deletion is shown as unverified; explicitly forgetting
-                local state can end retries earlier. If the credential is lost, contact us for help.
+                contributions. Offline deletion cannot be confirmed until the tool reconnects and
+                receives an acknowledgement. The legacy invocation client marks deletion unverified
+                after 90 days without confirmation; explicitly forgetting its local state can end
+                retries earlier. If the credential is lost, contact us for help.
               </p>
             </div>
           </li>
@@ -229,7 +254,7 @@
           <div>
             <h3>A shared off switch</h3>
             <p>
-              For tools using this client, either variable below vetoes ordinary usage collection
+              Integrations must honor either variable below as a veto on ordinary usage collection
               and upload, even with an existing opt-in. This is a local setting, not a server-side
               deletion request.
             </p>
@@ -250,7 +275,7 @@ export APP_TRACKING_TELEMETRY=off</code></pre>
             <p class="eyebrow">Care beyond collection</p>
             <h2 id="privacy-title">Clear boundaries.<br />Limited retention.</h2>
             <p>
-              These are the v1 policy requirements. The
+              These are the reporting policy requirements. The
               <a
                 href="https://github.com/sebastian-software/app-tracking/blob/main/docs/operations.md"
                 >activation runbook</a
@@ -264,8 +289,10 @@ export APP_TRACKING_TELEMETRY=off</code></pre>
               <dt><span class="fact-number">90 days</span> of active usage reporting</dt>
               <dd>
                 Usage expires from reporting after at most 90 days. Physical cleanup follows within
-                another 24 hours. Receipts last 90 days from receipt; minimal revocation records
-                last 90 days after revocation, without usage or repository hashes.
+                another 24 hours. Receipts last 90 days from receipt. Legacy invocation revocation
+                records last 90 days after revocation, without usage or repository hashes. The
+                generic-event contract separately expires receipts and inactive identity state after
+                90 days.
               </dd>
             </div>
             <div>
@@ -368,9 +395,12 @@ export APP_TRACKING_TELEMETRY=off</code></pre>
             <summary>What about proposals for other metrics?</summary>
             <div>
               <p>
-                The repository discusses additional metrics and different consent models. Those
-                proposals do not change the implemented v1 contract described here. Any expanded
-                collection needs its own implementation, disclosure, and release decisions.
+                The unified client already implements registered command, download-kind, language,
+                and system categories. All shipped product definitions are opt-in; consumer
+                adoption, Node support, and the new reporting interface remain follow-up work. The
+                API also supports a baseline route without an installation ID, but no production
+                baseline metric is registered. Proposals for further metrics or consent models do
+                not activate them; expanded collection needs disclosure and release decisions.
               </p>
               <a
                 href="https://github.com/sebastian-software/app-tracking/blob/main/docs/adr/0010-metrics-purposes-and-consent.md"

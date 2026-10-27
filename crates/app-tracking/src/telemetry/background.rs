@@ -52,19 +52,19 @@ pub(super) fn start(
             created_ms: now,
         })?;
     }
-    spawn_worker(&nonce)
+    spawn_worker(&nonce, BACKGROUND_WORKER_ARGUMENT)
 }
 
 #[cfg(windows)]
-fn spawn_worker(nonce: &str) -> Result<(), Error> {
-    windows_spawn::spawn(nonce).map_err(|_| Error::Background)
+pub(crate) fn spawn_worker(nonce: &str, argument: &str) -> Result<(), Error> {
+    windows_spawn::spawn(nonce, argument).map_err(|_| Error::Background)
 }
 
 #[cfg(not(windows))]
-fn spawn_worker(nonce: &str) -> Result<(), Error> {
+pub(crate) fn spawn_worker(nonce: &str, argument: &str) -> Result<(), Error> {
     let mut command = Command::new(std::env::current_exe().map_err(|_| Error::Background)?);
     command
-        .arg(BACKGROUND_WORKER_ARGUMENT)
+        .arg(argument)
         .arg(nonce)
         .stdin(Stdio::null())
         .stdout(Stdio::null())

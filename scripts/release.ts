@@ -23,6 +23,7 @@ if (import.meta.main) {
       sha256: hash,
       telemetry: process.env.TELEMETRY_ENABLED === "1",
       reporting: process.env.REPORTING_ENABLED === "1",
+      events: true,
     }) + "\n",
   );
   console.log(
