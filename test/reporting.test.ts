@@ -43,6 +43,50 @@ test("reporting HTTP failures retain only bounded transport diagnostics", async 
     globalThis.fetch = original;
   }
 });
+test("provider PostgreSQL URLs normalize native TLS parameters for the HTTP driver", async () => {
+  const original = globalThis.fetch;
+  const urls = [
+    "postgres://fixture:private@fixture.pg.psdb.cloud/app_tracking?sslmode=verify-full",
+    "postgresql://fixture:private@fixture.pg.psdb.cloud/app_tracking?sslmode=require&channel_binding=require",
+  ];
+  let calls = 0;
+  try {
+    globalThis.fetch = async (input, init) => {
+      assert.equal(String(input), "https://fixture.pg.psdb.cloud/sql");
+      const connection = new URL(new Headers(init?.headers).get("Neon-Connection-String")!);
+      assert.equal(connection.protocol, "postgresql:");
+      assert.equal(connection.pathname, "/app_tracking");
+      assert.equal(connection.searchParams.has("sslmode"), false);
+      assert.equal(connection.searchParams.has("channel_binding"), false);
+      calls++;
+      return Response.json({
+        fields: [{ name: "result", dataTypeID: 3802 }],
+        rows: [['{"schema_version":1}']],
+      });
+    };
+    for (const url of urls) {
+      const result = await createReportingStorage(url).usage(
+        { from: "2026-10-01", until: "2026-10-02", tool: "all", mode: "local" },
+        new AbortController().signal,
+      );
+      assert.deepEqual(result, { schema_version: 1 });
+    }
+    assert.equal(calls, 2);
+    for (const query of [
+      "sslmode=disable",
+      "options=-c%20role=postgres",
+      "sslmode=require&sslmode=disable",
+    ]) {
+      assert.throws(() =>
+        createReportingStorage(
+          "postgresql://fixture:private@fixture.pg.psdb.cloud/app_tracking?" + query,
+        ),
+      );
+    }
+  } finally {
+    globalThis.fetch = original;
+  }
+});
 
 test("unauthorized sessions and legacy keys are rejected before storage construction", async () => {
   let calls = 0;

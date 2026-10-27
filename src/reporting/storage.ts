@@ -31,6 +31,7 @@ const failureLabels = [
   "timeout",
   "aborted",
   "network",
+  "configuration",
 ];
 class ReportingStorageError extends Error {
   readonly code: string;
@@ -45,16 +46,31 @@ export function reportingFailureLabel(error: unknown): string {
 }
 export function createReportingStorage(url: string): ReportingStorage {
   const parsed = new URL(url);
+  // Provider-generated PostgreSQL URLs may include native TLS options. HTTPS
+  // fetch already verifies the endpoint certificate; keep those options out of
+  // the HTTP proxy's connection startup parameters.
+  for (const key of parsed.searchParams.keys()) {
+    const values = parsed.searchParams.getAll(key);
+    if (
+      values.length !== 1 ||
+      !(
+        (key === "sslmode" && ["require", "verify-ca", "verify-full"].includes(values[0]!)) ||
+        (key === "channel_binding" && values[0] === "require")
+      )
+    )
+      throw new ReportingStorageError("configuration");
+  }
   if (
-    parsed.protocol !== "postgresql:" ||
+    !["postgres:", "postgresql:"].includes(parsed.protocol) ||
     !parsed.hostname.endsWith(".pg.psdb.cloud") ||
     !parsed.username ||
     !parsed.password ||
-    parsed.hash ||
-    parsed.search
+    parsed.hash
   )
-    throw new Error("Reporting storage configuration is invalid");
-  const sql = neon(url);
+    throw new ReportingStorageError("configuration");
+  parsed.protocol = "postgresql:";
+  parsed.search = "";
+  const sql = neon(parsed.href);
   return {
     async usage(query, signal) {
       const trace: { subrequests: number; responseStatus?: number } = { subrequests: 0 };

@@ -162,6 +162,11 @@ processes maintainer identity/session data for this separate login purpose.
    response without logging statistics. Failures expose only a fixed stage and
    an allowlisted SQLSTATE code, HTTP status, or transport-failure category,
    never SQL, parameters, response bodies, or driver messages.
+   Provider URLs may use either `postgres://` or `postgresql://` and native TLS
+   parameters (`sslmode=require`, `verify-ca`, or `verify-full`, and
+   `channel_binding=require`). The reporting HTTP adapter normalizes the scheme
+   and removes these native transport parameters before using the verified
+   HTTPS endpoint. Other connection parameters and duplicate options are rejected.
 4. Configure encrypted repository Actions secrets below. Generate the cookie
    password as 32 random bytes encoded in 64 lowercase hexadecimal characters;
    keep it in a private credential store, never a public file, chat, or log.
