@@ -195,7 +195,7 @@ test("WorkOS authorization rejects old keys, absent/corrupt cookies, wrong org, 
       [{ sub_type: "widget" }, 401],
       [{ sub_profile: "agent" }, 401],
       [{ act: { sub: "someone" } }, 401],
-      [{ auth_time: Math.floor(Date.now() / 1000) - 28801 }, 401],
+      [{ auth_time: Math.floor(Date.now() / 1000) - 604801 }, 401],
     ] as const) {
       const result = await auth.check(request("/v1/admin/usage", await seal(await token(claims))));
       assert.ok("response" in result);
@@ -260,10 +260,21 @@ test("a refreshed cookie is preserved when the authorized statistics query fails
     assert.deepEqual(await response.json(), { error: "service_unavailable" });
   }));
 
-test("refresh cannot revive an eight-hour session, retain revoked access, or change its authentication time", async () => {
+test("an authorized session remains usable after six days without extending its seven-day limit", async () =>
+  fixture(async ({ auth, seal }) => {
+    const now = Math.floor(Date.now() / 1000),
+      session = await seal(await token({ auth_time: now - 6 * 24 * 60 * 60 }));
+    const result = await auth.check(request("/v1/admin/usage", session));
+    assert.ok("headers" in result);
+    assert.equal(result.headers.getSetCookie().length, 0);
+  }));
+
+test("refresh cannot revive a seven-day session, retain revoked access, or change its authentication time", async () => {
   await fixture(async ({ auth, seal, calls }) => {
     const now = Math.floor(Date.now() / 1000),
-      session = await seal(await token({ iat: now - 600, exp: now - 300, auth_time: now - 28801 }));
+      session = await seal(
+        await token({ iat: now - 600, exp: now - 300, auth_time: now - 604801 }),
+      );
     calls.length = 0;
     const result = await auth.check(request("/v1/admin/usage", session));
     assert.ok("response" in result);

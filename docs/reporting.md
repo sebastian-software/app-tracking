@@ -109,7 +109,7 @@ JWKS failures return 503 without clearing the cookie. Invalid authority returns
 identifiers, and cookie contents are never logged. SDK HTTP calls and JWKS
 fetches each have a five-second deadline; automatic SDK retries are disabled.
 
-Application sessions last at most eight hours from `auth_time`; refresh does
+Application sessions last at most seven days from `auth_time`; refresh does
 not extend this maximum. WorkOS permission changes/revocation can remain unseen
 until a current access token expires or reaches the five-minute age limit
 (with five seconds of clock tolerance). This is not an immediate online
@@ -139,8 +139,9 @@ processes maintainer identity/session data for this separate login purpose.
    URI, `/admin/login` as the initiate-login URI, and `/admin` as the default
    sign-out URI. The server integration needs no browser CORS origin or WorkOS
    JavaScript in the dashboard. Set access tokens to five minutes and the
-   maximum session to eight hours. Record the exact issuer from this environment;
-   WorkOS documentation contains examples both with and without a trailing
+   maximum session to seven days, with a six-day inactivity timeout (WorkOS
+   requires inactivity to be shorter than the maximum). Record the exact issuer
+   from this environment; WorkOS documentation contains examples both with and without a trailing
    slash, so do not normalize or guess it. Custom-domain changes require a new
    issuer/configuration check.
 3. Create a **separate** app-specific PlanetScale PostgreSQL login. Do not reuse

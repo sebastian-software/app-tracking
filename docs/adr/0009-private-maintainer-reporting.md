@@ -17,7 +17,7 @@ A shared secret provides no personal identity or account lifecycle, while WorkOS
 is the intended reusable identity provider. OAuth state and PKCE bind callbacks
 to a short-lived server-encrypted cookie. Tokens stay outside page JavaScript
 and browser storage; no maintainer account/session table is added to PlanetScale.
-Refresh preserves the eight-hour maximum session and rechecks permissions.
+Refresh preserves the seven-day maximum session and rechecks permissions.
 Short-lived access tokens bound the delay before access changes take effect;
 provider verification outages fail closed without clearing valid local state.
 Version delivery and CLI consent remain independent of this login system.
@@ -43,3 +43,6 @@ not proof that credentials or production reporting are enabled.
 - 2026-10-27: Separate maintainer authority and compute bounded private usage
   statistics directly from retained reports. Replace the initial key prototype
   with WorkOS AuthKit, explicit organization/permission checks, and sealed sessions.
+- 2026-10-27: Keep sessions usable for seven days to avoid daily sign-ins.
+  Five-minute access tokens still bound permission-change propagation; refresh
+  cannot extend the original seven-day authentication window.

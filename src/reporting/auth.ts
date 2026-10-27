@@ -25,7 +25,7 @@ export interface ReportingAuth {
 }
 const sessionName = "__Host-app-tracking-session",
   flowName = "__Host-app-tracking-login";
-const sessionSeconds = 8 * 60 * 60;
+const sessionSeconds = 7 * 24 * 60 * 60;
 
 export function validateWorkOSConfig(config: WorkOSConfig): void {
   const origin = new URL(config.origin),
