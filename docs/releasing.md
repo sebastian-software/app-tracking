@@ -4,6 +4,11 @@ Release Please manages the shared `app-tracking` crate. The Bunny service still
 deploys main-branch commits through its existing deployment workflow. The
 private root Node package is development/build tooling; it is not published.
 
+Release Please owns `crates/app-tracking/CHANGELOG.md`. Its generated Markdown
+is narrowly excluded from Oxfmt in `.prettierignore`, since Release Please does
+not run the repository formatter and regenerates that output on PR updates.
+All authored Markdown remains subject to the normal formatting check.
+
 ## Normal flow
 
 1. Use Conventional Commit PR titles and squash commits: `fix:` produces a
