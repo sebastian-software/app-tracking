@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/sebastian-software/app-tracking/compare/app-tracking-v0.3.0...app-tracking-v0.4.0) (2026-10-27)
+
+
+### Features
+
+* ship unified Rust tracking and verified downloads ([#56](https://github.com/sebastian-software/app-tracking/issues/56)) ([8f60d40](https://github.com/sebastian-software/app-tracking/commit/8f60d40e8264cf894f59a1ea56119f278b0a9dc9))
+
 ## [0.3.0](https://github.com/sebastian-software/app-tracking/releases/tag/app-tracking-v0.3.0) (2026-10-26)
 
 ### Features
