@@ -1,5 +1,6 @@
 import { adminReply, checkedUsage, privateHeaders, utcDay, usageQuery } from "./contract.ts";
 import type { ReportingStorage } from "./storage.ts";
+import { reportingFailureLabel } from "./storage.ts";
 import { adminHTML, adminCSS, adminJS } from "./view.ts";
 import type { ReportingAuth } from "./auth.ts";
 
@@ -54,15 +55,10 @@ export function createReportingHandler(storage: () => ReportingStorage, auth: Re
       return reply(checkedUsage(result, query));
     } catch (error) {
       const response = reply({ error: "service_unavailable" }, 503);
-      const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
-      const knownCode =
-        typeof code === "string" &&
-        ["42501", "57014", "42883", "42P01", "42703", "22P02", "22023", "P0001", "XX000"].includes(
-          code,
-        )
-          ? code
-          : "unavailable";
-      response.headers.set("X-App-Tracking-Reporting-Failure", stage + ":" + knownCode);
+      response.headers.set(
+        "X-App-Tracking-Reporting-Failure",
+        stage + ":" + reportingFailureLabel(error),
+      );
       return response;
     }
   };

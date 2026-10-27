@@ -160,7 +160,8 @@ processes maintainer identity/session data for this separate login purpose.
    runtime's effective query/parameter logging restrictions. Deployment also
    reads one day through the reporting HTTP driver and validates the aggregate
    response without logging statistics. Failures expose only a fixed stage and
-   an allowlisted SQLSTATE code, never SQL, parameters, or driver messages.
+   an allowlisted SQLSTATE code, HTTP status, or transport-failure category,
+   never SQL, parameters, response bodies, or driver messages.
 4. Configure encrypted repository Actions secrets below. Generate the cookie
    password as 32 random bytes encoded in 64 lowercase hexadecimal characters;
    keep it in a private credential store, never a public file, chat, or log.

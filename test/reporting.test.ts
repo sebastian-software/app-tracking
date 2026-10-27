@@ -4,6 +4,7 @@ import { createReportingHandler } from "../src/reporting/handler.ts";
 import { createService } from "../src/service.ts";
 import { usageQuery, checkedUsage, type UsageQuery } from "../src/reporting/contract.ts";
 import { reportingFixtureAuth, usageFixture } from "./fixtures/reporting.ts";
+import { createReportingStorage, reportingFailureLabel } from "../src/reporting/storage.ts";
 const path = "/v1/admin/usage?from=2026-10-01&until=2026-10-28";
 const request = (suffix = path, session = "active") =>
   new Request(`https://stats.example.test${suffix}`, {
@@ -14,6 +15,34 @@ const request = (suffix = path, session = "active") =>
           ? { authorization: `Bearer ${session}` }
           : {},
   });
+
+test("reporting HTTP failures retain only bounded transport diagnostics", async () => {
+  const original = globalThis.fetch;
+  const storage = createReportingStorage(
+    "postgresql://fixture:private@fixture.pg.psdb.cloud/app_tracking",
+  );
+  const query: UsageQuery = { from: "2026-10-01", until: "2026-10-02", tool: "all", mode: "local" };
+  try {
+    for (const status of [401, 403, 503]) {
+      globalThis.fetch = async () => new Response("private provider details", { status });
+      await assert.rejects(storage.usage(query, new AbortController().signal), (error: unknown) => {
+        assert.equal(reportingFailureLabel(error), "http_" + status);
+        assert.ok(error instanceof Error && !error.message.includes("private"));
+        return true;
+      });
+    }
+    globalThis.fetch = async () => {
+      throw new DOMException("private provider details", "TimeoutError");
+    };
+    await assert.rejects(storage.usage(query, new AbortController().signal), (error: unknown) => {
+      assert.equal(reportingFailureLabel(error), "timeout");
+      return true;
+    });
+    assert.equal(reportingFailureLabel({ code: "private provider details" }), "unavailable");
+  } finally {
+    globalThis.fetch = original;
+  }
+});
 
 test("unauthorized sessions and legacy keys are rejected before storage construction", async () => {
   let calls = 0;
