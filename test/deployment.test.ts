@@ -7,7 +7,7 @@ import type { BunnyApi } from "../scripts/bunny.ts";
 test("provisioning converges twice without duplicating or rewriting resources", async () => {
   let created = false;
   let writes = 0;
-  const zone: Record<string, unknown> = { EdgeRules: [] };
+  const zone: Record<string, unknown> = { EdgeRules: [], DisableCookies: true };
   const script = {
     Id: 1,
     Name: "app-tracking",
@@ -32,6 +32,7 @@ test("provisioning converges twice without duplicating or rewriting resources", 
   assert.equal((await provision(api, "app-tracking", "isolated-zone")).changes, 2);
   assert.equal((await provision(api, "app-tracking", "isolated-zone")).changes, 0);
   assert.equal(writes, 2);
+  assert.equal(zone.DisableCookies, false);
   assert.deepEqual(Object.fromEntries(Object.keys(SETTINGS).map((k) => [k, zone[k]])), SETTINGS);
   zone.EdgeRules = [{ Description: "foreign TTL override" }];
   await assert.rejects(provision(api, "app-tracking", "isolated-zone"), /Unexpected edge rules/);
@@ -89,6 +90,28 @@ test("deployment probe rejects a stale revision and uncached private-route viola
   await verifyDeployment("https://example.com", revision, fake);
   const reporting: typeof fetch = async (input, init) => {
     const path = new URL(String(input)).pathname;
+    if (path === "/admin/login" || path === "/admin/logout") {
+      const headers = new Headers({
+        "X-App-Revision": revision,
+        "Cache-Control": "private, no-store",
+      });
+      if (path === "/admin/login") {
+        assert.equal(init?.redirect, "manual");
+        headers.set("Location", "https://api.workos.com/user_management/authorize");
+        headers.append(
+          "Set-Cookie",
+          "__Host-app-tracking-login=fixture; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=600",
+        );
+        return new Response(null, { status: 303, headers });
+      }
+      assert.equal(init?.method, "POST");
+      for (const name of ["login", "session"])
+        headers.append(
+          "Set-Cookie",
+          `__Host-app-tracking-${name}=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0`,
+        );
+      return Response.json({ location: "https://example.com/admin" }, { headers });
+    }
     if (path === "/admin" || path === "/v1/admin/usage")
       return new Response(null, {
         status: path === "/admin" ? 200 : 401,
@@ -97,6 +120,25 @@ test("deployment probe rejects a stale revision and uncached private-route viola
     return fake(input, init);
   };
   await verifyDeployment("https://example.com", revision, reporting, false, true);
+  const strippedCookies: typeof fetch = async (input, init) => {
+    const response = await reporting(input, init);
+    response.headers.delete("set-cookie");
+    return response;
+  };
+  await assert.rejects(
+    verifyDeployment("https://example.com", revision, strippedCookies, false, true),
+    /secure login cookie/,
+  );
+  const combinedLogoutCookies: typeof fetch = async (input, init) => {
+    const response = await reporting(input, init);
+    if (new URL(String(input)).pathname === "/admin/logout")
+      response.headers.set("set-cookie", response.headers.getSetCookie().join(", "));
+    return response;
+  };
+  await assert.rejects(
+    verifyDeployment("https://example.com", revision, combinedLogoutCookies, false, true),
+    /session-cookie deletion headers/,
+  );
   const cachedReporting: typeof fetch = async (input, init) => {
     const response = await reporting(input, init);
     if (new URL(String(input)).pathname === "/v1/admin/usage")

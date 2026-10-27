@@ -3,6 +3,7 @@ import { bunnyApi, required, type BunnyApi } from "./bunny.ts";
 export const SETTINGS = {
   IgnoreQueryStrings: false,
   EnableSmartCache: false,
+  DisableCookies: false,
   CacheControlMaxAgeOverride: -1,
   CacheControlPublicMaxAgeOverride: -1,
   CacheErrorResponses: false,
