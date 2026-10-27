@@ -73,6 +73,27 @@ function redirect(path: string, headers = new Headers()): Response {
   return new Response(null, { status: 303, headers });
 }
 
+function callbackFailure(error: unknown): string {
+  if (error instanceof errors.JWTClaimValidationFailed) {
+    if (error.claim === "iss") {
+      if (error.payload.iss === "https://api.workos.com/") return "issuer_api_trailing_slash";
+      if (error.payload.iss === "https://api.workos.com") return "issuer_api";
+      return "issuer_other";
+    }
+    if (["auth_time", "client_id", "iat", "exp", "sid", "sub", "aud"].includes(error.claim))
+      return (error.reason === "missing" ? "missing_" : "claim_") + error.claim;
+    return "claim_invalid";
+  }
+  if (error instanceof errors.JWTExpired) return "token_expired";
+  if (error instanceof errors.JWSSignatureVerificationFailed) return "signature_invalid";
+  if (error instanceof errors.JWKSTimeout) return "jwks_timeout";
+  if (error instanceof errors.JWTInvalid) return "token_invalid";
+  if (error instanceof Error && error.message === "Session exceeds the supported cookie size")
+    return "cookie_size";
+  if (error instanceof TypeError) return "runtime_type";
+  return "unavailable";
+}
+
 export function createWorkOSAuth(config: WorkOSConfig): ReportingAuth {
   validateWorkOSConfig(config);
   const client = new WorkOS(config.apiKey, {
@@ -204,6 +225,7 @@ export function createWorkOSAuth(config: WorkOSConfig): ReportingAuth {
         if (request.method !== "GET") return adminReply({ error: "method_not_allowed" }, 405);
         const headers = new Headers();
         setCookie(headers, flowName, "", 0);
+        let stage = "binding";
         try {
           const state = url.searchParams.get("state"),
             code = url.searchParams.get("code"),
@@ -227,12 +249,14 @@ export function createWorkOSAuth(config: WorkOSConfig): ReportingAuth {
           });
           if (payload.state !== state || typeof payload.verifier !== "string")
             throw new Error("Invalid callback binding");
+          stage = "exchange";
           const result = await client.userManagement.authenticateWithCode({
             clientId: config.clientId,
             code,
             codeVerifier: payload.verifier,
             session: { sealSession: true, cookiePassword: config.cookiePassword },
           });
+          stage = "verify";
           const payloadClaims = await claims(result.accessToken);
           if (
             !permitted(
@@ -244,6 +268,7 @@ export function createWorkOSAuth(config: WorkOSConfig): ReportingAuth {
             !result.sealedSession
           )
             return redirect("/admin?auth=denied", headers);
+          stage = "session";
           setCookie(
             headers,
             sessionName,
@@ -251,7 +276,10 @@ export function createWorkOSAuth(config: WorkOSConfig): ReportingAuth {
             Number(payloadClaims.auth_time) + sessionSeconds - Date.now() / 1000,
           );
           return redirect("/admin", headers);
-        } catch {
+        } catch (error) {
+          // Fixed labels only: never include provider messages, claim values,
+          // identifiers, URLs, tokens, or cookies in diagnostic output.
+          headers.set("X-App-Tracking-Login-Failure", stage + ":" + callbackFailure(error));
           return redirect("/admin?auth=failed", headers);
         }
       }
