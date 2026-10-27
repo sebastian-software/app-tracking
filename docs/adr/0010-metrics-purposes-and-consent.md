@@ -194,29 +194,34 @@ needs a fresh assessment and, where required, renewed consent. A committed
 metric catalog describes behavior; it does not grant consent to repository
 users.
 
-### Two collection routes
+### One recording API and a persisted choice
 
-Expose two explicit collection entry points in the SDK. The product metric
-catalog assigns each metric to one route, and both client and receiver validate
-that assignment. The method names below are proposed API names.
+Expose `record` and `download` as the two operation entry points. A separate
+`request_opt_in(message)` method owns the permission flow: the host provides
+its reason, and the library displays the explanation plus a data summary,
+asks yes/no, and persists the answer. Both saved grants and refusals are reused.
+If no answer is submitted, the choice remains undecided. The library does not prompt
+in CI, background workers, nonterminal input/output, or host-designated
+noninteractive modes. A separate `set_opt_in(bool)` supports explicit settings
+changes. Ordinary operations neither prompt nor repeat a mode argument or
+maintain their own preference file.
 
-| Entry point      | Behavior                                                                                                                    |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `record_opt_out` | No affirmative grant is required for this metric. Collect by default while its analytics opt-out and host policy permit it. |
-| `record_opt_in`  | Collect only with an affirmative grant covering the metric's scope. Otherwise skip it without evaluating its data closure.  |
+The product catalog still assigns each metric to an `opt_out` or `opt_in`
+collection route. The client evaluates that assignment against its saved
+choice and process policy. `set_opt_in(false)` selects baseline behavior and
+removes unsent opt-in observations. `set_opt_in(true)` also permits registered
+opt-in observations. A separate `set_disabled(true)` stops both routes.
 
-Both routes use the same typed definitions, shared system context, aggregation,
-and delivery machinery. Both honor applicable disabling and offline controls;
-offline mode suppresses network activity, not necessarily already authorized
-local aggregation. An opt-in metric never falls back to the opt-out route when
-consent is absent. The opt-out route does not silently inherit an opt-in
-installation credential, shared device/project identifier, or extra context.
-Each route attaches only the context declared for that report.
+Both routes use shared context collection, aggregation, and background
+delivery. Offline mode suppresses network activity while permitted local
+counting can continue. Declined opt-in observations are skipped before their
+data closure or system collector runs. They never fall back to a baseline
+counter. Baseline batches carry neither an installation ID nor its credential.
 
-This separates the collection mechanism from individual metric assessments.
-The matrix determines which definitions can use each route; the SDK does not
-make that decision afresh on each invocation. Adding the opt-out mechanism
-does not activate any currently unresolved metric.
+These are mechanisms. The maintained catalog chooses the route and context
+for each metric once, and the receiver validates that assignment. The initial
+shipped definitions use opt-in for CLI and Ferriki usage; the opt-out route is
+exercised with synthetic definitions without activating an unresolved baseline.
 
 ### Shared system context
 
@@ -257,42 +262,34 @@ current assessment, U08-U12 remain opt-in; none becomes an approved default-on
 baseline through this SDK design. No-opt-in candidates and unresolved cases
 need their stated assessment before activation.
 
-### Illustrative Rust interface
+### Rust interface
 
-The following is an API design sketch, not code supported by the current
-crate. `metrics` contains typed descriptors and dimension types checked against
-the product catalog. The host places each call at the observation boundary:
+The new [`client::Client`](../../crates/app-tracking/src/client/mod.rs) provides
+the shared API alongside the compatible legacy telemetry client. A host
+selects its registered product catalog at construction:
 
 ```rust
-// After a native CLI invocation, count that invocation once.
-tracking.record_opt_in(&metrics::COMMAND_RUN, || metrics::CommandRun {
-    command: metrics::CommandCategory::CatalogCompile,
-});
+use app_tracking::client::Client;
+use std::collections::BTreeMap;
 
-// Separately, after successfully loading one catalog resource.
-tracking.record_opt_in(&metrics::CATALOG_LOADED, || metrics::CatalogLoaded {
-    format: metrics::CatalogFormat::Po,
-});
+let client = Client::registered(origin, state_root, "palamedes", "2.0.0")?;
 
-// Schedule due delivery; do not wait for a network response in the CLI.
-tracking.flush_in_background();
+// The SDK displays the reason, asks yes/no, and saves the answer once.
+let permission = client.request_opt_in("Help prioritize Palamedes commands and platform support.")?;
+
+client.record("cli.invocation", || BTreeMap::from([
+    ("command".into(), "catalogcompile".into()),
+]))?;
+
+client.flush_in_background()?;
 ```
 
-Both recording methods evaluate effective collection policy before invoking
-their closures.
-The SDK also gates any common repository or system-information helpers; merely
-constructing the client must not collect those dimensions. A denied observation
-does not create a usage row or queue entry. Permitted observations increment
-local aggregates rather than making one request per event. Offline mode and
-upload policy remain distinct from collection policy. Shared APIs expose
-status, preview, enable, disable, and deletion controls; the host renders its
-own CLI text and handles errors without changing the command's result.
-
-This API separates command invocations, component dispatches, and catalog loads
-without making the infrastructure understand how Palamedes compiles a catalog.
-Common context such as tool version belongs in SDK-managed report context;
-optional OS/CPU/project dimensions remain subject to the declared scope and
-collection gate.
+The host intercepts the client's reserved worker argument before normal
+command parsing. The library owns settings, queue state, collection gating,
+the permission dialog, and worker handoff. No reporting network wait runs in the ordinary process;
+local persistence still performs filesystem I/O. Hosts handle advisory errors
+without changing command output or status. The
+[client guide](../unified-client.md) owns integration details and limits.
 
 ### Tracking and resource downloads
 
@@ -301,20 +298,19 @@ records an observation and returns without waiting for network delivery. A
 resource-download operation obtains bytes needed by the caller and returns a
 verified artifact or a download error. Its associated observation uses the
 route declared for that metric. This requires a download API as well as the
-two recording APIs, not a separate client implementation for every combination.
+one recording API and a persisted setting, without a separate client implementation for every combination.
 
 Shared downloads are already planned in
 [issue #48](https://github.com/sebastian-software/app-tracking/issues/48), with
 [Ferriki #324](https://github.com/sebastian-software/ferriki/issues/324) as a
 consumer. The SDK performs the actual HTTP transfer directly from the resource
 CDN; app-tracking need not proxy resource bytes. The caller continues to own
-its resource cache. An illustrative call, using a download client configured
-with the shared reporter, is:
+its resource cache. A call through the same client is:
 
 ```rust
 // The descriptor supplies the public resource ID, URL, expected size and
 // SHA-256, plus the registered download metric and its collection route.
-let verified = downloads.download(&resource)?;
+let verified = client.download(&resource, &DownloadOptions::default())?;
 cache.store(verified)?;
 ```
 
@@ -341,25 +337,21 @@ The Rust and Node integrations in #48 should share event definitions and
 counting semantics without forcing a network/tracking dependency into Ferriki's
 offline-only library builds.
 
-### Gap from the implemented contract
+### Compatibility and remaining integration
 
-The current Rust API accepts a fixed
-[`Invocation`](../../crates/app-tracking/src/telemetry/mod.rs), and its
-[embedded policy](../../contracts/telemetry-v1-policy.json) contains tool and
-command allowlists. The
-[receiver contract](../../src/telemetry/contract.ts) validates fixed invocation
-rows. The existing project-context closure already demonstrates collection
-after consent, but it does not provide arbitrary typed metrics. The crate also
-has no shared artifact-download API: `UpdateClient` fetches release metadata,
-not resource payloads.
+The legacy [`Invocation`](../../crates/app-tracking/src/telemetry/mod.rs)
+contract continues to serve existing Dalo/Palamedes consumers unchanged. New
+clients use separate local state, registered counter definitions, and
+`/v1/event-batches`. Existing legacy grants are not imported as new-client
+choices. The wire schema remains version 1; there is no automatic new grant or
+consumer activation through importing the crate.
 
-Implementing this boundary therefore requires extending the maintained metric
-definitions, Rust interface, wire/storage contracts, and reporting together.
-Do not claim this sketch works by configuration alone today. Preserve current
-consent/refusal and background-delivery behavior, validate unknown metrics and
-dimensions at both boundaries, and migrate existing command counts with their
-units intact. Keep executable schema details in the maintained contracts rather
-than treating this sketch as a second source of truth.
+The new receiver and additive migration keep generic counters separate from
+legacy invocation counts. The existing dashboard still measures the legacy
+CLI stream. Node support, cross-tool profile linking, Ferriki adoption, and the
+new reporting interface remain follow-up work in #48. The
+[event contract](../event-batches.md) owns executable-field semantics and rollout
+requirements. This implementation does not close that broader issue.
 
 ## Controls and boundaries
 
@@ -507,3 +499,11 @@ exemption for a Rust CLI.
 - 2026-10-27: Specify opt-out and opt-in recording entry points independently
   of operation type. Connect the planned shared download client in #48 to the
   same reporting controls, with verified-transfer and cached-use semantics.
+- 2026-10-27: Replace the separate recording methods with one `record` API and
+  a library-owned persisted opt-in choice. Connect the Rust client, shared
+  system context, resource downloads, and separate generic counter ingestion;
+  keep broader consumer and reporting work explicit.
+
+- 2026-10-27: Keep the permission explanation, yes/no interaction, and saved
+  decision in the shared Rust client; products supply the reason and choose
+  a suitable request boundary. Preserve an undecided state on EOF/unavailability.

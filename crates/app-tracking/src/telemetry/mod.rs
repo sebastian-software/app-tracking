@@ -20,7 +20,7 @@
 //! # }
 //! ```
 
-mod background;
+pub(crate) mod background;
 mod policy;
 mod state;
 mod store;

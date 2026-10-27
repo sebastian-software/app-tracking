@@ -1,7 +1,10 @@
-//! Advisory version checks and explicit, consent-gated [`project`] identity.
-//! [`telemetry`] supplies an opt-in lifecycle only when explicitly called by a
-//! host. No automatic collection, output, environment-variable policy,
-//! installation, or background worker is provided.
+//! Advisory version checks, consent-gated [`project`] identity, and reporting.
+//! [`telemetry`] preserves the legacy CLI lifecycle. [`client`] provides shared
+//! counters, saved settings, system context, and verified resource downloads.
+//! Import/construction performs no collection. Hosts choose policy, private
+//! state, observation boundaries, and the reserved background-worker entry.
+//! Only an explicit [`client::Client::request_opt_in`] can display a permission
+//! dialog. Automatic operations print nothing; updates are never installed or executed.
 //!
 //! Call [`UpdateClient::check`] once at a host-controlled point in a command. The
 //! call completes synchronously; a due request has a 200 ms network deadline.
@@ -20,6 +23,7 @@
 //! # }
 //! ```
 mod cache;
+pub mod client;
 pub mod project;
 pub mod telemetry;
 mod wire;

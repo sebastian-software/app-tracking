@@ -47,8 +47,20 @@ An actual request to an operated online endpoint, including requests served
 from a shared cache. It is not evidence of a local command or unique user.
 
 **Usage report**:
-A set of locally summarized invocation counts submitted by a reporting
-installation.
+A set of locally summarized observations. Legacy reports contain invocation
+counts; generic reports retain each registered metric's observation unit.
+
+**Metric**:
+A registered measurement with a stable ID, observation unit, collection route,
+and allowed dimensions. A generic counter is not automatically a CLI invocation.
+
+**Resource descriptor**:
+The caller's resource identity, URL, expected byte length, and SHA-256, with an
+optional registered download observation. It does not define cache placement.
+
+**Verified download**:
+A completed transfer whose length and digest match its resource descriptor.
+It is distinct from a cache read or subsequent use of the resource.
 
 **Closed batch**:
 An immutable snapshot of summarized usage submitted as one operation. A retry
