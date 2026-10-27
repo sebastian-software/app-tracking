@@ -9,7 +9,8 @@ make informed decisions about their tools. You can keep update checks enabled
 without sharing usage.
 
 **Using a tool that links here?** Start with
-[what is shared, why, and how you stay in control](https://sebastian-software.github.io/app-tracking/).
+[what is shared, why, and how you stay in control](https://app-tracking.sebastian-software.com/)
+([German](https://app-tracking.sebastian-software.de/)).
 The page explains the design in plain language; the contracts below provide the
 details.
 
