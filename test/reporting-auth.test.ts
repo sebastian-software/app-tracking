@@ -208,6 +208,26 @@ test("WorkOS authorization rejects old keys, absent/corrupt cookies, wrong org, 
     assert.equal(invalid.response.status, 401);
   }));
 
+test("callback diagnostics expose only a fixed phase and failure label", async () => {
+  for (const [claims, expected] of [
+    [{ iss: "https://api.workos.com/" }, "verify:issuer_api_trailing_slash"],
+    [{ auth_time: undefined }, "verify:missing_auth_time"],
+  ] as const)
+    await fixture(async ({ auth, seal }) => {
+      await seal(await token(claims));
+      const start = await auth.route(request("/admin/login")),
+        state = new URL(start!.headers.get("location")!).searchParams.get("state"),
+        completed = await auth.route(
+          request(
+            "/admin/callback?code=fixture-code&state=" + state,
+            pair(start!.headers.getSetCookie()[0]!),
+          ),
+        );
+      assert.equal(completed!.headers.get("location"), "/admin?auth=failed");
+      assert.equal(completed!.headers.get("x-app-tracking-login-failure"), expected);
+    });
+});
+
 test("expired signed sessions refresh once, persist the rotated encrypted cookie, and recheck permissions", async () =>
   fixture(async ({ auth, seal, calls }) => {
     const now = Math.floor(Date.now() / 1000),

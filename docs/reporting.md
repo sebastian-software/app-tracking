@@ -108,6 +108,9 @@ JWKS failures return 503 without clearing the cookie. Invalid authority returns
 401; valid identity without access returns 403. Provider errors, tokens, account
 identifiers, and cookie contents are never logged. SDK HTTP calls and JWKS
 fetches each have a five-second deadline; automatic SDK retries are disabled.
+Failed callbacks expose only a fixed phase/failure label in
+`X-App-Tracking-Login-Failure`, under the same private cache policy. This header
+contains no token, cookie, account identifier, URL, or provider error message.
 
 Application sessions last at most seven days from `auth_time`; refresh does
 not extend this maximum. WorkOS permission changes/revocation can remain unseen
