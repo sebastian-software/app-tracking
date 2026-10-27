@@ -194,6 +194,45 @@ needs a fresh assessment and, where required, renewed consent. A committed
 metric catalog describes behavior; it does not grant consent to repository
 users.
 
+### Shared system context
+
+Implement supported system-information collectors once in the Rust SDK and
+make them available to every host product. The built-in field catalog owns
+their types, normalization, supported platforms, unknown values, and approved
+collection conditions. Product catalogs reference these shared definitions
+rather than maintaining separate OS/CPU detection or authorization rules.
+
+Candidates include OS family, coarse OS version, executable architecture,
+coarse CPU family/generation, and reviewed core/memory buckets or execution
+context. These are the dimensions assessed in U08-U12, not permission to probe
+every available system property. Keep executable architecture distinct from
+host CPU family, including under emulation. Unsupported detection yields an
+unknown value or omission; never fall back to raw profiler output or a
+machine-wide identifier.
+
+A product selects a shared context set once. For an eligible observation the
+SDK resolves the permitted subset and attaches it automatically; callers do
+not supply those fields on every event. Apply collection policy before running
+collectors. Reuse permitted coarse results within a process where useful, and
+stop attaching them when their authorization no longer applies. The SDK should
+not spawn a profiler or perform repeated probes for every counted operation.
+
+A field approved for collection without consent may be enabled by default for
+the assessed purpose, source, and report shape. No extra prompt is needed for
+that approved collection. Optional analytics still honors its documented
+opt-out and the host's disabling/offline controls. Field eligibility does not
+create a new upload trigger, make it necessary for every request, or authorize
+linkage with unrelated identifiers. Necessary service-protection processing
+retains its separately assessed controls.
+
+In particular, attaching a locally detected OS version or CPU generation to an
+existing update request remains a new client observation. A request being
+necessary for updates does not automatically exempt its extra analytics fields
+([E1](#e1-terminal-access-law), [E3](#e3-german-supervisory-guidance)). Under the
+current assessment, U08-U12 remain opt-in; none becomes an approved default-on
+baseline through this SDK design. No-opt-in candidates and unresolved cases
+need their stated assessment before activation.
+
 ### Illustrative Rust interface
 
 The following is an API design sketch, not code supported by the current
@@ -388,3 +427,6 @@ exemption for a Rust CLI.
 - 2026-10-27: Propose host-owned metric definitions with shared SDK controls
   and a trusted service registry. Add an illustrative Rust interface and make
   the gap from the implemented invocation-only contract explicit.
+- 2026-10-27: Centralize reusable system collectors and their field definitions
+  in the SDK, with automatic context attachment after policy checks. Separate
+  approved default-on collection from the availability of a collector.
