@@ -4,14 +4,17 @@ import { neon, neonConfig } from "@neondatabase/serverless";
 neonConfig.fetchEndpoint = (host) => `https://${host}/sql`;
 interface Trace {
   subrequests: number;
+  responseStatus?: number;
 }
-neonConfig.fetchFunction = (
+neonConfig.fetchFunction = async (
   input: RequestInfo | URL,
   options: RequestInit & { appTrackingTrace?: Trace },
 ) => {
   const { appTrackingTrace, ...init } = options;
   if (appTrackingTrace) appTrackingTrace.subrequests++;
-  return fetch(input, init);
+  const response = await fetch(input, init);
+  if (appTrackingTrace) appTrackingTrace.responseStatus = response.status;
+  return response;
 };
 export interface StorageResult {
   status: string;
