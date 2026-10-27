@@ -32,6 +32,12 @@ const failureLabels = [
   "aborted",
   "network",
   "configuration",
+  "configuration_protocol",
+  "configuration_host",
+  "configuration_credentials",
+  "configuration_fragment",
+  "configuration_tls",
+  "configuration_override",
 ];
 class ReportingStorageError extends Error {
   readonly code: string;
@@ -49,25 +55,32 @@ export function createReportingStorage(url: string): ReportingStorage {
   // Provider-generated PostgreSQL URLs may include native TLS options. HTTPS
   // fetch already verifies the endpoint certificate; keep those options out of
   // the HTTP proxy's connection startup parameters.
-  for (const key of parsed.searchParams.keys()) {
-    const values = parsed.searchParams.getAll(key);
-    if (
-      values.length !== 1 ||
-      !(
-        (key === "sslmode" && ["require", "verify-ca", "verify-full"].includes(values[0]!)) ||
-        (key === "channel_binding" && values[0] === "require")
-      )
-    )
-      throw new ReportingStorageError("configuration");
-  }
+  if (!["postgres:", "postgresql:"].includes(parsed.protocol))
+    throw new ReportingStorageError("configuration_protocol");
+  if (!parsed.hostname.endsWith(".pg.psdb.cloud"))
+    throw new ReportingStorageError("configuration_host");
+  if (!parsed.username || !parsed.password)
+    throw new ReportingStorageError("configuration_credentials");
+  if (parsed.hash) throw new ReportingStorageError("configuration_fragment");
   if (
-    !["postgres:", "postgresql:"].includes(parsed.protocol) ||
-    !parsed.hostname.endsWith(".pg.psdb.cloud") ||
-    !parsed.username ||
-    !parsed.password ||
-    parsed.hash
+    [
+      "host",
+      "hostname",
+      "port",
+      "database",
+      "user",
+      "username",
+      "password",
+      "connectionString",
+    ].some((key) => parsed.searchParams.has(key))
   )
-    throw new ReportingStorageError("configuration");
+    throw new ReportingStorageError("configuration_override");
+  if (
+    parsed.searchParams
+      .getAll("sslmode")
+      .some((value) => ["disable", "allow", "prefer"].includes(value))
+  )
+    throw new ReportingStorageError("configuration_tls");
   parsed.protocol = "postgresql:";
   parsed.search = "";
   const sql = neon(parsed.href);

@@ -4,6 +4,11 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      reporting_read_check:
+        description: Read-only reporting preflight; no deployment or database changes
+        required: false
+        type: boolean
+        default: false
       storage_proof:
         description: Run the temporary synthetic Bunny–PlanetScale integration proof
         required: false
@@ -30,8 +35,29 @@ concurrency:
   group: version-deployment
   cancel-in-progress: false
 jobs:
+  reporting-read-check:
+    if: github.event_name == 'workflow_dispatch' && inputs.reporting_read_check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa
+        with:
+          run_install: false
+          cache: true
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Verify the existing aggregate-only login without logging statistics
+        env:
+          REPORTING_DATABASE_URL: ${{ secrets.APP_TRACKING_REPORTING_DATABASE_URL }}
+        run: node scripts/check-reporting-read.ts
   deploy:
-    if: github.ref == 'refs/heads/main' && !inputs.storage_proof && !inputs.ingestion_test && !inputs.production_proof
+    if: github.ref == 'refs/heads/main' && !inputs.storage_proof && !inputs.ingestion_test && !inputs.production_proof && !inputs.reporting_read_check
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:

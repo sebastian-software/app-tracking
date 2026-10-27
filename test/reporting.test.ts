@@ -48,6 +48,7 @@ test("provider PostgreSQL URLs normalize native TLS parameters for the HTTP driv
   const urls = [
     "postgres://fixture:private@fixture.pg.psdb.cloud/app_tracking?sslmode=verify-full",
     "postgresql://fixture:private@fixture.pg.psdb.cloud/app_tracking?sslmode=require&channel_binding=require",
+    "postgresql://fixture:private@fixture.pg.psdb.cloud/app_tracking?sslmode=verify-full&sslrootcert=system&options=-c%20role%3Dpostgres",
   ];
   let calls = 0;
   try {
@@ -58,6 +59,9 @@ test("provider PostgreSQL URLs normalize native TLS parameters for the HTTP driv
       assert.equal(connection.pathname, "/app_tracking");
       assert.equal(connection.searchParams.has("sslmode"), false);
       assert.equal(connection.searchParams.has("channel_binding"), false);
+      assert.equal(connection.searchParams.has("sslrootcert"), false);
+      assert.equal(connection.searchParams.has("options"), false);
+      assert.equal(connection.username, "fixture");
       calls++;
       return Response.json({
         fields: [{ name: "result", dataTypeID: 3802 }],
@@ -71,16 +75,29 @@ test("provider PostgreSQL URLs normalize native TLS parameters for the HTTP driv
       );
       assert.deepEqual(result, { schema_version: 1 });
     }
-    assert.equal(calls, 2);
-    for (const query of [
-      "sslmode=disable",
-      "options=-c%20role=postgres",
-      "sslmode=require&sslmode=disable",
-    ]) {
+    assert.equal(calls, 3);
+    for (const query of ["sslmode=disable", "sslmode=require&sslmode=disable"]) {
       assert.throws(() =>
         createReportingStorage(
           "postgresql://fixture:private@fixture.pg.psdb.cloud/app_tracking?" + query,
         ),
+      );
+    }
+    for (const [url, label] of [
+      ["mysql://fixture:private@fixture.pg.psdb.cloud/app_tracking", "configuration_protocol"],
+      ["postgresql://fixture:private@example.test/app_tracking", "configuration_host"],
+      ["postgresql://fixture@fixture.pg.psdb.cloud/app_tracking", "configuration_credentials"],
+      [
+        "postgresql://fixture:private@fixture.pg.psdb.cloud/app_tracking#unexpected",
+        "configuration_fragment",
+      ],
+    ]) {
+      assert.throws(
+        () => createReportingStorage(url!),
+        (error: unknown) => {
+          assert.equal(reportingFailureLabel(error), label);
+          return true;
+        },
       );
     }
   } finally {

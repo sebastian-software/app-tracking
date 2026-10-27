@@ -6,8 +6,7 @@ import { psql } from "./storage/psql.ts";
 import { grantReporting, prepareReportingLogin } from "./storage/grant-reporting.ts";
 import { checkRuntime } from "./storage/check-runtime.ts";
 import { validateWorkOSConfig } from "../src/reporting/auth.ts";
-import { createReportingStorage, reportingFailureLabel } from "../src/reporting/storage.ts";
-import { checkedUsage, type UsageQuery } from "../src/reporting/contract.ts";
+import { checkReportingRead } from "./check-reporting-read.ts";
 
 try {
   const enabled = required("REPORTING_ENABLED");
@@ -38,20 +37,7 @@ try {
       throw new Error("Reporting authority is not isolated");
     // Exercise the same HTTP driver, aggregate function, and response validator
     // as the live dashboard. Never print the returned statistics.
-    const until = new Date().toISOString().slice(0, 10);
-    const from = new Date(Date.parse(until) - 86400000).toISOString().slice(0, 10);
-    const query: UsageQuery = { from, until, tool: "all", mode: "local" };
-    let readStage = "storage";
-    try {
-      const result = await createReportingStorage(url).usage(query, AbortSignal.timeout(2800));
-      readStage = "contract";
-      checkedUsage(result, query);
-    } catch (error) {
-      console.error(
-        "Reporting read check failed: " + readStage + ":" + reportingFailureLabel(error),
-      );
-      throw new Error("Reporting read check failed");
-    }
+    await checkReportingRead(url);
     await api("PUT", `/compute/script/${target.scriptId}/secrets`, {
       Name: "APP_TRACKING_REPORTING_DATABASE_URL",
       Secret: url,
