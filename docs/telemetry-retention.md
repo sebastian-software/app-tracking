@@ -16,7 +16,7 @@ constants live in [policy JSON](../contracts/telemetry-v1-policy.json), with
 | Consent declaration                 | Current revision/time/context while active; remove with active installation details. Retain no separate perpetual consent history                                                                                                                                   |
 | Unsent local usage                  | Seven UTC dates plus clock grace, at most four MiB/64 batches/4,096 open dimensions; discard on withdrawal or veto                                                                                                                                                  |
 | Pending local deletion              | Minimal credential/status for at most 90 days after withdrawal, unless acknowledged or explicitly forgotten earlier                                                                                                                                                 |
-| Usage-derived views                 | Compute from nonexpired attributable rows in v1. No durable rollups or public usage exports are enabled; no usage series survives its sources                                                                                                                       |
+| Usage-derived views                 | Private maintainer queries compute from nonexpired attributable rows, without shared caching. No durable rollups or public usage exports are enabled; no usage series survives its sources                                                                          |
 | Database backups/WAL                | Provider-managed, at most seven days for normal operation, including manual/protected copies. Not queried for reporting or exported to the repository                                                                                                               |
 | App/CDN request logs                | Disabled; no payload, ID, hash, URL, credential, SQL parameter, or per-request application log                                                                                                                                                                      |
 | Provider security/transport records | Not a measurement source. Follow the applicable provider agreement and published policy; no service-wide maximum is asserted for provider-internal records. Disclose verified product settings, unknown periods, and statutory/account-record exceptions separately |
@@ -102,8 +102,11 @@ or treat gateway hits as usage. Its concrete provider limit and source-IP
 security-record handling belong to #11's actual configuration, not an invented
 cross-region rate guarantee in this contract. Authenticated upload limits are
 specified in the wire contract. Deletion must remain accessible during an upload
-quota failure. No public or private aggregate endpoint is enabled by this issue;
-#13/#14 own authorization and small-cell/cross-query disclosure decisions.
+quota failure. The [maintainer reporting contract](reporting.md) owns the
+separately authorized private aggregate endpoint. Exact small cells are private
+controller reporting, not anonymous/public exports. Historical summaries remain
+proposed in [RFC 0004](rfcs/0004-historical-usage-summaries.md); #14 owns public
+small-cell/cross-query disclosure decisions. The 90-day detail policy is unchanged.
 
 ## Primary evidence checked 2026-10-23
 

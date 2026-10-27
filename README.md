@@ -13,13 +13,21 @@ GET, bounded oss-metrics snapshot requests, and deterministic contract tests. It
 self-contained Bunny edge script and runs locally without a database or
 telemetry. Main-branch changes deploy directly to one Bunny service after
 automated checks. The shared Rust update client is in
-[crates/app-tracking](crates/app-tracking/README.md). Usage tracking and consumer
-migrations remain separate delivery steps.
+[crates/app-tracking](crates/app-tracking/README.md).
 The [telemetry v1 contract](docs/telemetry-api.md) specifies opt-in reporting,
 with [consent/disclosure](docs/telemetry-consent.md),
 [retention](docs/telemetry-retention.md), and executable synthetic conformance
-vectors. It adds no telemetry endpoints or client collection. Accepted ADRs
-record direction; RFCs retain the remaining implementation proposals.
+vectors. Telemetry ingestion, deletion, retention, and the shared consent-gated
+Rust client are implemented; the [operations runbook](docs/operations.md) owns
+activation and live evidence. Accepted ADRs record direction; RFCs retain the
+remaining implementation proposals.
+
+The [maintainer reporting view](docs/reporting.md) provides private invocation,
+installation/project, command, and version statistics over retained UTC windows.
+It requires WorkOS maintainer authorization, a separate database login, and
+explicit enablement. No durable
+historical summaries or public usage export are enabled; their design remains
+in [RFC 0004](docs/rfcs/0004-historical-usage-summaries.md) and issue #14.
 
 ## Run and verify
 
@@ -46,7 +54,7 @@ separate, opt-in read-only check against the public oss-metrics snapshot.
 
 `pnpm build` produces `dist/edge.js` for Bunny and `dist/service.js` with an
 exported `createHandler` for integration. Both have no external imports. No
-credentials or environment configuration are needed for this slice. See the
+credentials or environment configuration are needed for version-only operation. See the
 [version API contract](docs/version-api.md) for supported paths, errors, cache
 behavior, and source-age validation.
 

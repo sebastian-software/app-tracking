@@ -30,6 +30,16 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/release-please" --ignore-scripts --no-save --no-audit --no-fund release-please@17.6.0
           node scripts/check-release-plan.mjs
       - run: pnpm check
+      - name: Verify the reporting interface with synthetic data
+        run: |
+          pnpm exec playwright install --with-deps chromium
+          node scripts/check-reporting-browser.ts
+      - name: Retain synthetic reporting screenshots
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: reporting-browser-evidence
+          path: dist/reporting-evidence
+          retention-days: 14
   storage:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -68,14 +78,18 @@ jobs:
           CREATE ROLE app_tracking_owner NOLOGIN;
           CREATE ROLE app_tracking_migrator LOGIN;
           CREATE ROLE app_tracking_runtime LOGIN;
+          CREATE ROLE app_tracking_reporter LOGIN;
           GRANT app_tracking_owner TO app_tracking_migrator;
           ALTER ROLE app_tracking_runtime SET statement_timeout = '2500ms';
           ALTER ROLE app_tracking_runtime SET lock_timeout = '1500ms';
+          ALTER ROLE app_tracking_reporter SET statement_timeout = '2500ms';
+          ALTER ROLE app_tracking_reporter SET lock_timeout = '1500ms';
           SQL
           psql -X -v ON_ERROR_STOP=1 -c 'CREATE DATABASE app_tracking OWNER app_tracking_owner;'
           psql -X -v ON_ERROR_STOP=1 -c 'CREATE DATABASE app_tracking_restore OWNER app_tracking_owner;'
           psql -X -v ON_ERROR_STOP=1 -c 'REVOKE ALL ON DATABASE app_tracking_restore FROM PUBLIC; GRANT CONNECT ON DATABASE app_tracking_restore TO app_tracking_migrator,app_tracking_runtime;'
           psql -X -v ON_ERROR_STOP=1 -c 'REVOKE ALL ON DATABASE app_tracking FROM PUBLIC; GRANT CONNECT ON DATABASE app_tracking TO app_tracking_migrator,app_tracking_runtime;'
+          psql -X -v ON_ERROR_STOP=1 -c 'GRANT CONNECT ON DATABASE app_tracking TO app_tracking_reporter;'
       - name: Read MSRV from Cargo.toml
         id: rust
         run: |
@@ -93,6 +107,8 @@ jobs:
           MIGRATION_OWNER_ROLE: app_tracking_owner
           RUNTIME_DATABASE_URL: postgresql://app_tracking_runtime@localhost/app_tracking?sslmode=disable
           RUNTIME_ROLE: app_tracking_runtime
+          REPORTING_DATABASE_URL: postgresql://app_tracking_reporter@localhost/app_tracking?sslmode=disable
+          REPORTING_ROLE: app_tracking_reporter
           RESTORE_TEST_CONTAINER: ${{ job.services.postgres.id }}
         run: |
           pnpm test:storage

@@ -18,8 +18,12 @@ if (import.meta.main) {
   await publish(bunnyApi(required("BUNNY_API_KEY")), target, code, revision);
   await writeFile(
     "dist/release.json",
-    JSON.stringify({ revision, sha256: hash, telemetry: process.env.TELEMETRY_ENABLED === "1" }) +
-      "\n",
+    JSON.stringify({
+      revision,
+      sha256: hash,
+      telemetry: process.env.TELEMETRY_ENABLED === "1",
+      reporting: process.env.REPORTING_ENABLED === "1",
+    }) + "\n",
   );
   console.log(
     "Bundle published and zone purge requested; endpoint verification is still required.",
