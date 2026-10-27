@@ -276,16 +276,18 @@ impl Drop for Guard {
 }
 
 fn private_file(path: &Path, create: bool) -> Result<File, Error> {
-    if let Ok(meta) = fs::symlink_metadata(path) {
-        if !meta.is_file() || meta.file_type().is_symlink() {
+    let metadata = fs::symlink_metadata(path).ok();
+    if metadata
+        .as_ref()
+        .is_some_and(|meta| !meta.is_file() || meta.file_type().is_symlink())
+    {
+        return Err(Error::State);
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if metadata.is_some_and(|meta| meta.permissions().mode() & 0o077 != 0) {
             return Err(Error::State);
-        }
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            if meta.permissions().mode() & 0o077 != 0 {
-                return Err(Error::State);
-            }
         }
     }
     let mut options = OpenOptions::new();

@@ -53,8 +53,9 @@ The result is `PermissionOutcome::Granted`, `Declined`, or `Unavailable`.
 `Unavailable` covers an ineligible context or a dialog without a submitted
 answer; it does not create a refusal. `status().decision` separately exposes
 `Undecided`, `Granted`, or `Declined`. No state is created before an answer.
-The SDK releases locks while the person answers and respects a concurrent
-settings change instead of overwriting it.
+The SDK releases locks while the person answers. Refusal wins when concurrent
+dialogs complete in either order; an affirmative answer cannot overwrite a
+concurrent settings change.
 
 New dialogs require terminal stdin and stderr, never run in CI or a background
 worker, and respect process-level disabling. Configure

@@ -131,7 +131,12 @@ impl Client {
         };
         let mut store = Store::open(self, true)?.ok_or(Error::State)?;
         let _network = store.network_guard()?;
-        // A concurrent settings change wins over an earlier open dialog.
+        // Refusal wins in either completion order when two dialogs race.
+        if !enabled && !store.state.disabled && !store.state.deleting {
+            self.save_choice(&mut store, false)?;
+            return Ok(PermissionOutcome::Declined);
+        }
+        // An affirmative answer cannot overwrite a concurrent settings change.
         if let Some(outcome) = self.permission(&store.state) {
             return Ok(outcome);
         }
@@ -363,18 +368,20 @@ mod tests {
 
     #[test]
     fn prompt_holds_no_locks_and_a_concurrent_refusal_wins() {
-        let directory = tempfile::tempdir().unwrap();
-        let client = super::super::tests::client(directory.path());
-        assert_eq!(
-            client
-                .request_with("Purpose", true, |_| {
-                    client.set_opt_in(false)?;
-                    Ok(Some(true))
-                })
-                .unwrap(),
-            PermissionOutcome::Declined
-        );
-        assert!(!client.status().unwrap().opt_in);
+        for (concurrent, answer) in [(false, true), (true, false)] {
+            let directory = tempfile::tempdir().unwrap();
+            let client = super::super::tests::client(directory.path());
+            assert_eq!(
+                client
+                    .request_with("Purpose", true, |_| {
+                        client.set_opt_in(concurrent)?;
+                        Ok(Some(answer))
+                    })
+                    .unwrap(),
+                PermissionOutcome::Declined
+            );
+            assert!(!client.status().unwrap().opt_in);
+        }
     }
 
     #[test]
