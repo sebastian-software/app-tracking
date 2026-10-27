@@ -113,6 +113,7 @@ for public version responses; v1 telemetry does not bundle a version lookup.
 
 - [Domain glossary](GLOSSARY.md)
 - [Architecture decisions](docs/adr/README.md)
+- [Proposed metrics, consent, and product use cases](docs/adr/0010-metrics-purposes-and-consent.md)
 - [RFCs](docs/rfcs/README.md)
 - [Service, API, and data model](docs/rfcs/0001-service-api-and-data-model.md)
 - [Client, consent, and measurement](docs/rfcs/0002-client-consent-and-measurement.md)

@@ -34,6 +34,18 @@ Maintainer access is distinct from an installation's permission to submit report
 One execution of the tool's command entry point. A wrapper and the native
 binary it launches do not constitute two invocations.
 
+**Component invocation**:
+One explicit dispatch of a tool or plugin within a host tool. It is a separate
+observation from the host's command invocation and from internal per-file work.
+
+**Catalog load**:
+A catalog resource consumed by a process. A load does not necessarily involve
+a network request, and repeated loads are not necessarily different catalogs.
+
+**Service request**:
+An actual request to an operated online endpoint, including requests served
+from a shared cache. It is not evidence of a local command or unique user.
+
 **Usage report**:
 A set of locally summarized invocation counts submitted by a reporting
 installation.
