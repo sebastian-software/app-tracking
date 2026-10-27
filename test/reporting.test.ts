@@ -1,21 +1,26 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { adminTokenHash, createReportingHandler } from "../src/reporting/handler.ts";
+import { createReportingHandler } from "../src/reporting/handler.ts";
 import { createService } from "../src/service.ts";
 import { usageQuery, checkedUsage, type UsageQuery } from "../src/reporting/contract.ts";
-import { fixtureKey, usageFixture } from "./fixtures/reporting.ts";
+import { reportingFixtureAuth, usageFixture } from "./fixtures/reporting.ts";
 const path = "/v1/admin/usage?from=2026-10-01&until=2026-10-28";
-const request = (suffix = path, key = fixtureKey) =>
+const request = (suffix = path, session = "active") =>
   new Request(`https://stats.example.test${suffix}`, {
-    headers: { authorization: `Bearer ${key}` },
+    headers:
+      session === "active"
+        ? { cookie: "reporting-fixture=active" }
+        : session
+          ? { authorization: `Bearer ${session}` }
+          : {},
   });
 
-test("reporting keys are separate and rejected before storage construction", async () => {
+test("unauthorized sessions and legacy keys are rejected before storage construction", async () => {
   let calls = 0;
   const handler = createReportingHandler(() => {
     calls++;
     throw new Error("storage");
-  }, [await adminTokenHash(fixtureKey)]);
+  }, reportingFixtureAuth());
   for (const key of ["", "a".repeat(64), `at_admin_v1_${"b".repeat(64)}`]) {
     const response = await handler(request(path, key));
     assert.equal(response.status, 401);
@@ -34,7 +39,7 @@ test("fixed aggregate route is bounded, authenticated, and uncached", async () =
         return usageFixture(query);
       },
     }),
-    [await adminTokenHash(fixtureKey)],
+    reportingFixtureAuth(),
   );
   const response = await handler(request());
   assert.equal(response.status, 200);
@@ -43,7 +48,7 @@ test("fixed aggregate route is bounded, authenticated, and uncached", async () =
   assert.equal((await response.json()).totals.active_installations, "312");
   assert.deepEqual(seen, [{ from: "2026-10-01", until: "2026-10-28", tool: "all", mode: "local" }]);
   const cross = new Request(request(), {
-    headers: { authorization: `Bearer ${fixtureKey}`, origin: "https://other.example.test" },
+    headers: { cookie: "reporting-fixture=active", origin: "https://other.example.test" },
   });
   assert.equal((await handler(cross)).status, 403);
   assert.equal(seen.length, 1);
@@ -61,14 +66,13 @@ test("dates reject overflow, reversed windows, and more than 90 days", () => {
   }
 });
 test("database errors are redacted and expiry is not a successful zero", async () => {
-  const hash = await adminTokenHash(fixtureKey);
   const failed = createReportingHandler(
     () => ({
       async usage() {
         throw new Error("postgresql://private:password@host/raw-id");
       },
     }),
-    [hash],
+    reportingFixtureAuth(),
   );
   const response = await failed(request());
   assert.equal(response.status, 503);
@@ -79,7 +83,7 @@ test("database errors are redacted and expiry is not a successful zero", async (
         return { error: "outside_retention", retained_from: "2026-08-01" };
       },
     }),
-    [hash],
+    reportingFixtureAuth(),
   );
   assert.equal((await expired(request())).status, 422);
 });
@@ -99,12 +103,12 @@ test("aggregate serialization drops unexpected private fields and rejects malfor
 test("view contains no credential or usage and is independently gated", async () => {
   const handler = createReportingHandler(() => {
     throw new Error("Must remain lazy");
-  }, [await adminTokenHash(fixtureKey)]);
+  }, reportingFixtureAuth());
   const shell = await handler(new Request("https://example.test/admin"));
   assert.equal(shell.status, 200);
   const html = await shell.text();
-  assert.ok(!html.includes(fixtureKey));
-  assert.match(html, /method="post"/);
+  assert.ok(!html.includes("reporting-fixture=active"));
+  assert.match(html, /Continue with WorkOS/);
   assert.match(shell.headers.get("content-security-policy")!, /frame-ancestors 'none'/);
   const disabled = createService(() => undefined);
   assert.equal((await disabled(new Request("https://example.test/v1/admin/usage"))).status, 404);

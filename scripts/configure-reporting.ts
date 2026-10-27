@@ -5,6 +5,7 @@ import { migrate } from "./storage/migrate.ts";
 import { psql } from "./storage/psql.ts";
 import { grantReporting } from "./storage/grant-reporting.ts";
 import { checkRuntime } from "./storage/check-runtime.ts";
+import { validateWorkOSConfig } from "../src/reporting/auth.ts";
 
 try {
   const enabled = required("REPORTING_ENABLED");
@@ -13,13 +14,16 @@ try {
   const target: Target = JSON.parse(await readFile(".deployment/target.json", "utf8"));
   if (enabled === "1") {
     const migration = required("MIGRATION_DATABASE_URL"),
-      url = required("REPORTING_DATABASE_URL"),
-      hashes = required("ADMIN_TOKEN_HASHES");
-    if (
-      hashes.split(",").length > 8 ||
-      hashes.split(",").some((value) => !/^[0-9a-f]{64}$/.test(value))
-    )
-      throw new Error("Invalid reporting credential hashes");
+      url = required("REPORTING_DATABASE_URL");
+    const config = {
+      clientId: required("WORKOS_CLIENT_ID"),
+      apiKey: required("WORKOS_API_KEY"),
+      organizationId: required("WORKOS_ORGANIZATION_ID"),
+      cookiePassword: required("WORKOS_COOKIE_PASSWORD"),
+      issuer: required("WORKOS_ISSUER"),
+      origin: target.base,
+    };
+    validateWorkOSConfig(config);
     await migrate(migration);
     await grantReporting(migration, await psql(url, "SELECT current_user"));
     await checkRuntime(url);
@@ -34,10 +38,16 @@ try {
       Name: "APP_TRACKING_REPORTING_DATABASE_URL",
       Secret: url,
     });
-    await api("PUT", `/compute/script/${target.scriptId}/secrets`, {
-      Name: "APP_TRACKING_ADMIN_TOKEN_HASHES",
-      Secret: hashes,
-    });
+    const authSecrets = {
+      APP_TRACKING_WORKOS_CLIENT_ID: config.clientId,
+      APP_TRACKING_WORKOS_API_KEY: config.apiKey,
+      APP_TRACKING_WORKOS_ORGANIZATION_ID: config.organizationId,
+      APP_TRACKING_WORKOS_COOKIE_PASSWORD: config.cookiePassword,
+      APP_TRACKING_WORKOS_ISSUER: config.issuer,
+      APP_TRACKING_REPORTING_ORIGIN: config.origin,
+    };
+    for (const [Name, Secret] of Object.entries(authSecrets))
+      await api("PUT", `/compute/script/${target.scriptId}/secrets`, { Name, Secret });
   }
   await api("PUT", `/compute/script/${target.scriptId}/secrets`, {
     Name: "APP_TRACKING_REPORTING_ENABLED",

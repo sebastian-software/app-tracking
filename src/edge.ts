@@ -20,9 +20,16 @@ const handle = createService(
   () => {
     if (env("APP_TRACKING_REPORTING_ENABLED") !== "1") return undefined;
     const url = env("APP_TRACKING_REPORTING_DATABASE_URL");
-    const hashes = env("APP_TRACKING_ADMIN_TOKEN_HASHES");
-    if (!url || !hashes) throw new Error("Reporting runtime is not configured");
-    return (reporting ??= createReportingService(url, hashes.split(",")));
+    const config = {
+      clientId: env("APP_TRACKING_WORKOS_CLIENT_ID") ?? "",
+      apiKey: env("APP_TRACKING_WORKOS_API_KEY") ?? "",
+      organizationId: env("APP_TRACKING_WORKOS_ORGANIZATION_ID") ?? "",
+      cookiePassword: env("APP_TRACKING_WORKOS_COOKIE_PASSWORD") ?? "",
+      issuer: env("APP_TRACKING_WORKOS_ISSUER") ?? "",
+      origin: env("APP_TRACKING_REPORTING_ORIGIN") ?? "",
+    };
+    if (!url) throw new Error("Reporting runtime is not configured");
+    return (reporting ??= createReportingService(url, config));
   },
 );
 BunnySDK.net.http.serve(async (request) => {

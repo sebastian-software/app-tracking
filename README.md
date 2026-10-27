@@ -24,7 +24,8 @@ remaining implementation proposals.
 
 The [maintainer reporting view](docs/reporting.md) provides private invocation,
 installation/project, command, and version statistics over retained UTC windows.
-It requires separate reporting credentials and explicit enablement. No durable
+It requires WorkOS maintainer authorization, a separate database login, and
+explicit enablement. No durable
 historical summaries or public usage export are enabled; their design remains
 in [RFC 0004](docs/rfcs/0004-historical-usage-summaries.md) and issue #14.
 

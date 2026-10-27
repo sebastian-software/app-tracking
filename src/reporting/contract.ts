@@ -145,6 +145,7 @@ export function checkedUsage(value: unknown, query: UsageQuery): UsageResult {
 }
 
 export const privateHeaders = {
+  Vary: "Cookie",
   "Cache-Control": "private, no-store",
   "CDN-Cache-Control": "no-store",
   "Surrogate-Control": "no-store",

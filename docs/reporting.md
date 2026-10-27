@@ -1,18 +1,21 @@
 # Maintainer usage reporting
 
 The private `/admin` view and `GET /v1/admin/usage` show consented CLI usage.
-They use a separate read-only maintainer key and database login. CLI reporting
-credentials grant no access. Reporting is disabled by default and is independent
-of version delivery and telemetry ingestion.
+WorkOS AuthKit authenticates maintainers; the application requires the configured
+WorkOS organization and `reporting:read` permission. A separate read-only
+database login limits queries. CLI credentials and the earlier prototype keys
+grant no access. Reporting is disabled by default and is independent of version
+delivery and telemetry ingestion.
 
 ## Query contract
 
 Request `/v1/admin/usage?from=2026-10-01&until=2026-10-28&tool=all&mode=local`
-with `Authorization: Bearer MAINTAINER_KEY`. Do not put the key in a URL,
-shell history, exported report, screenshot, or issue. The view accepts it in a
-password field and holds it only in tab memory. Reloading or signing out clears
-access. It uses no cookies or browser storage. The public HTML shell contains
-no usage data or key; the API requires authentication for every query.
+after signing in through `/admin/login`. The browser sends its encrypted
+`__Host-app-tracking-session` cookie automatically. JavaScript cannot read it:
+it is `Secure`, `HttpOnly`, host-only, `Path=/`, and `SameSite=Lax`. No token
+enters local/session storage or the page. The public HTML shell contains no
+usage data; the API verifies and authorizes the session on every query. There
+is no bearer-key fallback. A reload keeps a valid session; logout clears it.
 
 | Parameter | Meaning                                              |
 | --------- | ---------------------------------------------------- |
@@ -79,56 +82,124 @@ database result failures return a redacted 503. Errors and successes use
 `Surrogate-Control: no-store`. The view clears previous figures before querying
 and distinguishes failures, empty observations, and expired periods.
 
+## WorkOS authentication boundary
+
+`GET /admin/login` starts Hosted AuthKit sign-in for the configured application
+and organization. The server keeps state and the PKCE verifier in a ten-minute
+encrypted, HTTP-only `__Host-app-tracking-login` cookie. The callback requires
+both the matching state and that cookie before exchanging a code. Only the
+fixed `/admin/callback` redirect and `/admin` return path are used; no arbitrary
+return URL is accepted. A second login attempt replaces the pending flow, so an
+older tab may need to start again.
+
+The locked WorkOS SDK handles code exchange, session sealing/unsealing, and
+refresh-token rotation through its worker entry. `jose` verifies RS256 access
+signatures with the application's HTTPS JWKS, exact configured issuer, expiry,
+and a maximum token age of five minutes. `client_id` must match; if an `aud`
+claim exists, it must include that client. User/session identifiers and an
+`auth_time` are required. Agent/widget tokens, impersonation, unverified email,
+a different organization, and missing `reporting:read` cannot access statistics.
+An email domain, a role named `admin`, or any WorkOS account alone is insufficient.
+
+Expired signed tokens are refreshed server-side once and the replacement
+claims are checked again before access. The rotated encrypted cookie is sent
+with the response, including a subsequent database error. Temporary refresh or
+JWKS failures return 503 without clearing the cookie. Invalid authority returns
+401; valid identity without access returns 403. Provider errors, tokens, account
+identifiers, and cookie contents are never logged. SDK HTTP calls and JWKS
+fetches each have a five-second deadline; automatic SDK retries are disabled.
+
+Application sessions last at most eight hours from `auth_time`; refresh does
+not extend this maximum. WorkOS permission changes/revocation can remain unseen
+until a current access token expires or reaches the five-minute age limit
+(with five seconds of clock tolerance). This is not an immediate online
+revocation check on every query. Configure short token/session lifetimes in
+WorkOS too. Account recovery and MFA/passkey policy belong to Hosted AuthKit;
+this PR does not claim they are configured on the live account.
+
+`POST /admin/logout` requires the exact application Origin and the
+`X-App-Tracking-Action: logout` header. It clears both local cookies, then the
+view navigates to WorkOS's fixed logout URL to end the provider session. No
+GET logout or cross-origin logout is accepted. Reload/back navigation rechecks
+access before displaying statistics. The application writes no maintainer
+accounts or sessions into the telemetry database and sends no usage counts,
+repository hashes, or reporting-installation identities to WorkOS. WorkOS
+processes maintainer identity/session data for this separate login purpose.
+
 ## Enable on the existing Bunny service
 
-1. Create a **separate** app-specific PlanetScale PostgreSQL login. Do not reuse
+1. In the WorkOS operator team, configure the AuthKit application/environment
+   for app-tracking. Create/select an **application organization** for approved
+   maintainers; this is distinct from the operator team and GitHub organization.
+   Give an explicitly assigned maintainer role `reporting:read`. Keep that
+   permission off the default member role; do not enable automatic domain-wide
+   admission as a substitute for explicit access. Configure the desired sign-in
+   methods, recovery and MFA/passkey policy before using real maintainer accounts.
+2. Register the existing Bunny base URL plus `/admin/callback` as the redirect
+   URI, `/admin/login` as the initiate-login URI, and `/admin` as the default
+   sign-out URI. The server integration needs no browser CORS origin or WorkOS
+   JavaScript in the dashboard. Set access tokens to five minutes and the
+   maximum session to eight hours. Record the exact issuer from this environment;
+   WorkOS documentation contains examples both with and without a trailing
+   slash, so do not normalize or guess it. Custom-domain changes require a new
+   issuer/configuration check.
+3. Create a **separate** app-specific PlanetScale PostgreSQL login. Do not reuse
    the ingestion, owner, migration, or maintenance login. It must have no role
-   memberships or broad privileges. Set its `statement_timeout` to `2500ms`
-   and `lock_timeout` to `1500ms`; allow database connection. Keep the same
-   effective query/parameter logging restrictions as the runtime login.
-2. Generate a new 256-bit maintainer key into a new private file **outside the
-   checkout**: `node scripts/create-reporting-key.ts /PRIVATE/PATH/reporting-key.json`.
-   The helper refuses overwrite, uses mode 0600, and prints neither key nor hash.
-   Store the plaintext key in the maintainer's private credential store. It
-   grants read access to all supported tool/context aggregates, including small
-   groups; it is not a public-share credential or anonymous dataset.
-3. Put the reporting connection URL in encrypted repository Actions secret
-   `APP_TRACKING_REPORTING_DATABASE_URL`. Put only the generated `token_sha256`
-   in encrypted secret `APP_TRACKING_ADMIN_TOKEN_HASHES`. The digest includes
-   the `app-tracking-admin-v1` domain separator; do not substitute a plain
-   SHA-256 of the token. Up to eight comma-separated digests support rotation.
-4. Set Actions variable `APP_TRACKING_REPORTING_ENABLED=1` and deploy main.
-   Deployment applies additive migration 0007, verifies the login has no table
-   or ingestion authority, grants only schema usage and
-   `admin_usage_v1(date,date,text,text)` execution, checks effective logging,
-   and writes the separate encrypted Bunny secrets. The ingestion role cannot
-   execute the reporting function. Configuration failure stops deployment.
-5. Verify `/admin` loads without private data, an unauthenticated usage request
-   returns 401 with no-store headers, and repeated requests are not CDN hits.
-   The deployment verifier performs these public checks without any key. Then
-   privately open the view with a maintainer key and verify a bounded query.
-   Never publish a screenshot or fixture copied from real usage as evidence.
+   memberships or broad privileges. Set `statement_timeout` to `2500ms` and
+   `lock_timeout` to `1500ms`; allow database connection. Keep the runtime's
+   effective query/parameter logging restrictions.
+4. Configure encrypted repository Actions secrets below. Generate the cookie
+   password as 32 random bytes encoded in 64 lowercase hexadecimal characters;
+   keep it in a private credential store, never a public file, chat, or log.
+   The WorkOS API key stays server-side. Do not add it to browser configuration.
 
-The new secrets/login have to be configured before enabling reporting; the PR
-does not create production credentials or assert live activation. Only hashes,
-never plaintext maintainer keys, enter GitHub Actions and Bunny. Rotating adds a
-new hash, deploys, replaces the privately distributed key, then removes the old
-hash and deploys again. A suspected leak requires immediate removal and redeploy.
-There is no per-key identity, audit trail, MFA, or account-based authorization
-in this initial maintainer-only implementation. Request logging remains disabled.
+   | Actions secret                        | Value                                      |
+   | ------------------------------------- | ------------------------------------------ |
+   | `APP_TRACKING_REPORTING_DATABASE_URL` | Separate aggregate-only database login     |
+   | `APP_TRACKING_WORKOS_CLIENT_ID`       | AuthKit application client ID              |
+   | `APP_TRACKING_WORKOS_API_KEY`         | WorkOS server API key for this environment |
+   | `APP_TRACKING_WORKOS_ORGANIZATION_ID` | The permitted application organization     |
+   | `APP_TRACKING_WORKOS_COOKIE_PASSWORD` | Private random session-encryption password |
+   | `APP_TRACKING_WORKOS_ISSUER`          | Exact trusted access-token issuer          |
 
-To close reporting, set its Actions variable to `0` and redeploy. Remove its
-private credentials when no longer needed. Version/telemetry routes remain
-independent. A rollback restores reporting only when both its verified artifact
-and the current configuration enable it; pre-reporting artifacts close it.
-Migrations remain additive. Do not reverse schema to roll back a bundle.
+5. Set Actions variable `APP_TRACKING_REPORTING_ENABLED=1` and deploy main.
+   Deployment validates authentication settings, applies additive migration
+   0007, checks the database login's authority/logging, grants only schema usage
+   and `admin_usage_v1(date,date,text,text)` execution, and writes encrypted
+   Bunny secrets. It derives `APP_TRACKING_REPORTING_ORIGIN` from the provisioned
+   Bunny base URL, not an incoming Host/forwarded header. Configuration failure
+   stops deployment. No WorkOS account, role, key or production login is created
+   by merging this code.
+6. The deployment verifier checks the public shell, unauthenticated API 401,
+   repeated cache bypass, and revision without private credentials. Then verify
+   an actual WorkOS sign-in, unauthorized-account denial, refresh, and logout
+   privately. Never publish real usage screenshots, tokens, account/resource
+   IDs, or provider support material as evidence. Local tests simulate the
+   provider and do not establish that WorkOS or Bunny's live cookie transport
+   is configured correctly.
+
+To close reporting, set its Actions variable to `0` and redeploy. Version and
+telemetry routes remain independent. Rolling back restores reporting only when
+both its verified artifact and current configuration enable it. Pre-reporting
+artifacts close it; migrations remain additive. Rotating the cookie password
+invalidates local sessions and pending login flows. Rotate WorkOS API keys
+through the provider and encrypted secret stores; never add a shared-key login
+fallback when WorkOS is unavailable.
+
+Provider references: [AuthKit sessions](https://workos.com/docs/authkit/sessions),
+[roles/permissions](https://workos.com/docs/authkit/roles-and-permissions),
+[session tokens](https://workos.com/docs/reference/authkit/session-tokens), and
+[session resilience](https://workos.com/docs/authkit/session-resilience). The
+implementation is verified against `@workos-inc/node` 12.0.0's worker entry;
+it does not depend on an unreleased framework adapter.
 
 ## Verification and query cost
 
 `pnpm check` covers contracts, authorization, response whitelisting, redacted
 failures, and the Bunny bundle. `node scripts/check-reporting-browser.ts` uses
 an isolated headless browser and loopback server with synthetic data: access,
-filters, injection-safe text, failure/retry, logout/reload, responsive layout,
+the real SDK, signed synthetic tokens, PKCE/callback, secure cookies, filters,
+injection-safe text, failure/retry, logout/reload, responsive layout,
 and automated accessibility checks. CI retains synthetic screenshots only.
 
 `pnpm test:storage` additionally runs reporting fixtures when

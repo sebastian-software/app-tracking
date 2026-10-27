@@ -2,8 +2,6 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { runInNewContext } from "node:vm";
 import { metricsDocument, NOW, path, request, versionFixture } from "../test/helpers.ts";
-import { adminTokenHash } from "../src/reporting/handler.ts";
-import { fixtureKey } from "../test/fixtures/reporting.ts";
 
 type Handler = (request: Request) => Promise<Response>;
 let handle: Handler | undefined;
@@ -25,6 +23,10 @@ runInNewContext(bundle, {
   URL,
   TextEncoder,
   TextDecoder,
+  btoa,
+  atob,
+  CryptoKey,
+  structuredClone,
   AbortController,
   AbortSignal,
   URLSearchParams,
@@ -90,8 +92,17 @@ environment.set(
   "APP_TRACKING_REPORTING_DATABASE_URL",
   "postgresql://fixture_reporter:fixture@fixture.pg.psdb.cloud/app_tracking",
 );
-environment.set("APP_TRACKING_ADMIN_TOKEN_HASHES", await adminTokenHash(fixtureKey));
+environment.set("APP_TRACKING_WORKOS_CLIENT_ID", "client_fixture");
+environment.set("APP_TRACKING_WORKOS_API_KEY", "sk_fixture_key_123");
+environment.set("APP_TRACKING_WORKOS_ORGANIZATION_ID", "org_fixture");
+environment.set("APP_TRACKING_WORKOS_COOKIE_PASSWORD", "1".repeat(64));
+environment.set("APP_TRACKING_WORKOS_ISSUER", "https://api.workos.com");
+environment.set("APP_TRACKING_REPORTING_ORIGIN", "https://example.com");
 assert.equal((await handle(request("/admin"))).status, 200);
+const login = await handle(request("/admin/login"));
+assert.equal(login.status, 303);
+assert.ok(login.headers.getSetCookie()[0]?.includes("HttpOnly"));
+assert.equal(new URL(login.headers.get("location")!).origin, "https://api.workos.com");
 assert.equal((await handle(request(reportingPath))).status, 401);
 assert.equal(
   databaseRequests,
@@ -99,12 +110,12 @@ assert.equal(
   "No unauthenticated reporting request may construct a database query",
 );
 const report = await handle(
-  request(reportingPath, { headers: { authorization: `Bearer ${fixtureKey}` } }),
+  request(reportingPath, { headers: { authorization: `Bearer at_admin_v1_${"a".repeat(64)}` } }),
 );
-assert.equal(report.status, 503);
+assert.equal(report.status, 401);
 assert.match(report.headers.get("cache-control")!, /no-store/);
 assert.ok(!(await report.text()).includes("outage"));
-assert.equal(databaseRequests, 2);
+assert.equal(databaseRequests, 1);
 assert.equal((await handle(request(path))).status, 200);
 environment.set("APP_TRACKING_REPORTING_ENABLED", "0");
 assert.equal((await handle(request(reportingPath))).status, 404);

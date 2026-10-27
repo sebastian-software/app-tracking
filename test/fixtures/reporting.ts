@@ -1,5 +1,48 @@
 import type { UsageQuery, UsageResult } from "../../src/reporting/contract.ts";
-export const fixtureKey = `at_admin_v1_${"a".repeat(64)}`;
+import { adminReply, privateHeaders } from "../../src/reporting/contract.ts";
+import type { ReportingAuth } from "../../src/reporting/auth.ts";
+// Interface fixture only. Actual WorkOS protocol/signature checks live in
+// reporting-auth.test.ts; this adapter never enters a deployment bundle.
+export function reportingFixtureAuth(): ReportingAuth {
+  return {
+    async route(request) {
+      const url = new URL(request.url);
+      if (url.pathname === "/admin/login")
+        return new Response(null, {
+          status: 303,
+          headers: {
+            ...privateHeaders,
+            Location: "/admin",
+            "Set-Cookie": "reporting-fixture=active; Path=/; HttpOnly; SameSite=Lax",
+          },
+        });
+      if (url.pathname === "/admin/logout") {
+        if (
+          request.method !== "POST" ||
+          request.headers.get("origin") !== url.origin ||
+          request.headers.get("x-app-tracking-action") !== "logout"
+        )
+          return adminReply({ error: "forbidden" }, 403);
+        return Response.json(
+          { location: url.origin + "/admin" },
+          {
+            headers: {
+              ...privateHeaders,
+              "Set-Cookie": "reporting-fixture=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
+            },
+          },
+        );
+      }
+      return undefined;
+    },
+    async check(request) {
+      return request.headers.get("cookie") === "reporting-fixture=active" &&
+        !request.headers.has("authorization")
+        ? { headers: new Headers() }
+        : { response: adminReply({ error: "unauthorized" }, 401) };
+    },
+  };
+}
 export function usageFixture(query: UsageQuery): UsageResult {
   const daily: UsageResult["daily"] = [];
   for (let time = Date.parse(query.from); time < Date.parse(query.until); time += 86400000) {

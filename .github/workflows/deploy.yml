@@ -74,7 +74,11 @@ jobs:
           MIGRATION_DATABASE_URL: ${{ secrets.APP_TRACKING_MIGRATION_DATABASE_URL }}
           MIGRATION_OWNER_ROLE: app_tracking_owner
           REPORTING_DATABASE_URL: ${{ secrets.APP_TRACKING_REPORTING_DATABASE_URL }}
-          ADMIN_TOKEN_HASHES: ${{ secrets.APP_TRACKING_ADMIN_TOKEN_HASHES }}
+          WORKOS_CLIENT_ID: ${{ secrets.APP_TRACKING_WORKOS_CLIENT_ID }}
+          WORKOS_API_KEY: ${{ secrets.APP_TRACKING_WORKOS_API_KEY }}
+          WORKOS_ORGANIZATION_ID: ${{ secrets.APP_TRACKING_WORKOS_ORGANIZATION_ID }}
+          WORKOS_COOKIE_PASSWORD: ${{ secrets.APP_TRACKING_WORKOS_COOKIE_PASSWORD }}
+          WORKOS_ISSUER: ${{ secrets.APP_TRACKING_WORKOS_ISSUER }}
         run: node scripts/configure-reporting.ts
       - name: Publish and verify
         if: inputs.release_run == ''

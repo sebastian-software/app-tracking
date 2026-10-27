@@ -4,9 +4,9 @@ export const adminHTML = `<!doctype html>
 <body><a class="skip" href="#main">Skip to content</a>
 <header class="masthead"><a class="brand" href="/admin"><span aria-hidden="true" class="mark">▥</span> app-tracking</a><span class="private">Maintainer view</span><button id="signout" hidden>Sign out</button></header>
 <main id="main"><section class="intro"><p class="eyebrow">CLI telemetry</p><h1>Tool usage</h1><p>Understand how consenting installations use your tools.</p></section>
-<section id="login" class="login" aria-labelledby="access-title"><h2 id="access-title">Maintainer access</h2><p>Use your read-only reporting key. CLI reporting keys do not grant access.</p>
-<form id="access" method="post" action="/admin"><label for="key">Maintainer access key</label><div class="key-row"><input id="key" type="password" name="password" autocomplete="current-password" required spellcheck="false"><button type="submit" class="primary">Open statistics</button></div></form>
-<p class="muted">Your key stays in this tab until you sign out. Reloading clears access.</p></section>
+<section id="login" class="login" aria-labelledby="access-title"><h2 id="access-title">Maintainer access</h2><p>Sign in with your maintainer account to view usage statistics.</p>
+<p><a id="signin" class="signin" href="/admin/login">Continue with WorkOS</a></p>
+<p class="muted">Only approved maintainers can access this view.</p></section>
 <section id="workspace" hidden aria-label="Usage statistics">
 <form id="filters" class="filters"><label>Tool<select id="tool"><option value="all">All tools</option><option value="palamedes">Palamedes</option><option value="dalo">Dalo</option></select></label>
 <label>Context<select id="mode"><option value="local">Local CLI</option><option value="ci">CI · explicit opt-in</option></select></label>
@@ -25,6 +25,7 @@ export const adminHTML = `<!doctype html>
 export const adminCSS = `
 :root{color-scheme:light;--ink:#182b39;--muted:#526674;--line:#d6e0e6;--accent:#075c59;--bg:#f4f7f8;--surface:#fff;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:15px;line-height:1.5}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink)}[hidden]{display:none!important}a{color:var(--accent)}button,input,select{font:inherit}button,input,select{border:1px solid #a4b6c0;border-radius:5px;background:white;color:var(--ink);min-height:42px;padding:8px 12px}button{cursor:pointer;font-weight:600}button:hover{background:#e7f0ef}button:disabled{cursor:wait;opacity:.65}button.primary{color:white;background:var(--accent);border-color:var(--accent)}button.primary:hover{background:#044743}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,.table-scroll:focus-visible{outline:3px solid #186df1;outline-offset:3px}input,select{max-width:100%;min-width:0}label{font-size:.85rem;font-weight:600;display:flex;flex-direction:column;gap:6px}.masthead{display:flex;align-items:center;gap:18px;min-height:76px;background:var(--surface);border-bottom:1px solid var(--line);padding:16px max(24px,calc((100vw - 1200px)/2))}.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font-weight:750;font-size:1.15rem;letter-spacing:-.035em}.mark{display:grid;place-items:center;color:white;background:var(--accent);border-radius:6px;width:30px;height:30px;font-size:22px}.private{font-size:.78rem;padding:4px 9px;background:#edf3f5;border-radius:4px;color:#405867}.masthead button{margin-left:auto}main{max-width:1248px;padding:38px 24px 24px;margin:auto}.intro{margin-bottom:28px}.eyebrow{text-transform:uppercase;letter-spacing:.13em;font-size:.72rem;font-weight:750;color:var(--accent);margin:0 0 7px}h1{font-size:clamp(2rem,4vw,2.8rem);line-height:1.15;letter-spacing:-.045em;margin:0 0 10px}h2,h3,p{margin-top:0}h2{font-size:1.2rem;letter-spacing:-.02em}h3{font-size:1rem;margin-bottom:0}.intro>p:last-child{color:var(--muted);margin:0}.muted{color:var(--muted);font-size:.84rem}.login{max-width:620px;background:var(--surface);border:1px solid var(--line);padding:28px;border-radius:8px}.login h2{margin-bottom:8px}.key-row{display:flex;gap:10px;margin:8px 0 14px}.key-row input{flex:1;width:200px}.login .muted{margin-bottom:0}.filters{display:flex;flex-wrap:wrap;align-items:end;gap:14px;padding:18px;background:var(--surface);border:1px solid var(--line);border-radius:8px;margin-bottom:28px}.filters label{flex:1;min-width:140px}.presets{display:flex;gap:6px;flex-basis:100%;padding-top:4px}.presets button{min-height:32px;font-size:.8rem;padding:4px 10px;background:#f8fafb}.report-heading{display:flex;justify-content:space-between;align-items:baseline;gap:16px}.report-heading h2{margin-bottom:14px}.report-heading p{margin-bottom:14px}.metrics{display:grid;grid-template-columns:repeat(4,1fr);margin:0 0 28px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:24px 0}.metrics>div{padding:0 24px;border-left:1px solid var(--line)}.metrics>div:first-child{border:0}.metrics span{font-size:.82rem;color:var(--muted);display:block;margin-bottom:5px}.metrics strong{display:block;font-variant-numeric:tabular-nums;font-size:clamp(1.55rem,3vw,2.25rem);letter-spacing:-.04em;line-height:1.2}.metrics>div:first-child strong{color:var(--accent)}.panel{border:1px solid var(--line);border-radius:8px;background:var(--surface);overflow:hidden}.panel-heading{padding:18px 22px;display:flex;justify-content:space-between;gap:12px;align-items:baseline}.trend{margin-bottom:24px}#chart{padding:0 22px 12px;min-height:235px}#chart svg{display:block;width:100%;height:220px;overflow:visible}.chart-axis{font:12px system-ui;fill:var(--muted)}.chart-grid{stroke:#e6ecef;stroke-width:1}.chart-line{stroke:var(--accent);stroke-width:2.5;fill:none}.tables{display:grid;grid-template-columns:1fr 1fr;gap:24px}.table-scroll{max-height:350px;overflow:auto}table{border-collapse:collapse;width:100%;font-size:.88rem}th{position:sticky;top:0;background:#f3f7f8;text-align:left;color:var(--muted);font-weight:600;font-size:.75rem}td,th{padding:12px 22px;border-bottom:1px solid #e4ebef}td{overflow-wrap:anywhere}td small{display:block;color:var(--muted);font-size:.73rem}.number{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.table-note{padding:12px 22px;margin:0}.measurement{margin-top:28px;border-top:1px solid var(--line);padding-top:22px;max-width:850px;color:var(--muted);font-size:.85rem}.measurement h3{color:var(--ink);margin-bottom:10px}.measurement p{margin-bottom:8px}.notice{background:#fff4db;color:#67450b;padding:12px 16px;border:1px solid #e2c98e;border-radius:5px;font-size:.86rem}.empty{text-align:center;padding:18px;color:var(--muted)}#status{margin:18px 0 8px;min-height:1.5em;color:var(--muted)}#status.error{color:#a02424}footer{max-width:1248px;margin:auto;padding:0 24px 28px;color:var(--muted);font-size:.75rem}.skip{position:absolute;left:16px;top:-100px;background:white;padding:10px;z-index:10}.skip:focus{top:10px}
+.signin{display:inline-flex;align-items:center;min-height:44px;padding:9px 15px;border-radius:5px;background:var(--accent);color:white;text-decoration:none;font-weight:600}.signin:hover{background:#044743}
 @media(max-width:760px){main{padding-top:28px}.metrics{grid-template-columns:1fr 1fr;gap:24px 0}.metrics>div:nth-child(3){border-left:0}.tables{grid-template-columns:1fr}.report-heading{display:block}.filters label{min-width:calc(50% - 14px)}.filters>.primary{width:100%}.key-row{flex-direction:column}.key-row input{width:100%}.private{margin-left:auto}.masthead{flex-wrap:wrap}.masthead button{margin-left:0}.panel-heading{padding:16px}.metrics>div{padding:0 18px}td,th{padding:12px 16px}}
 @media(prefers-reduced-motion:no-preference){button{transition:background-color .12s ease}}
 `;
@@ -32,12 +33,12 @@ export const adminCSS = `
 export const adminJS = String.raw`
 (() => {
   const $ = (id) => document.getElementById(id);
-  let token = '', latest, pending;
+  let latest, pending;
   const format = (value) => new Intl.NumberFormat('en-US').format(BigInt(value));
   const day = (date) => date.toISOString().slice(0,10);
   const addDay = (value, amount) => { const date = new Date(value + 'T00:00:00Z'); date.setUTCDate(date.getUTCDate() + amount); return day(date); };
   function range(days) { const today = day(new Date()); $('from').value = addDay(today, 1-days); $('through').value = today; }
-  function status(message, error = false) { $('status').textContent = message; $('status').classList.toggle('error', error); $('retry').hidden = !error || !token; }
+  function status(message, error = false) { $('status').textContent = message; $('status').classList.toggle('error', error); $('retry').hidden = !error; }
   function clear() {
     latest = undefined;
     for (const name of ['invocations','installations','projects','unknown']) $(name).textContent = '—';
@@ -45,7 +46,17 @@ export const adminJS = String.raw`
     $('snapshot').textContent = ''; $('command-count').textContent = ''; $('version-count').textContent = '';
     $('coverage').hidden = true; $('empty').hidden = true; $('truncated').hidden = true;
   }
-  function signout() { pending?.abort(); token = ''; $('key').value = ''; clear(); $('workspace').hidden = true; $('login').hidden = false; $('signout').hidden = true; status('Signed out.'); $('key').focus(); }
+  async function signout() {
+    pending?.abort(); clear(); $('workspace').hidden=true; $('login').hidden=false; $('signout').disabled=true; status('Signing out…');
+    try {
+      const response=await fetch('/admin/logout',{method:'POST',headers:{'X-App-Tracking-Action':'logout'},credentials:'same-origin',cache:'no-store'});
+      if(!response.ok)throw new Error('Sign-out failed');
+      const result=await response.json(),target=new URL(result.location);
+      if(target.origin!==location.origin && target.origin!=='https://api.workos.com')throw new Error('Invalid logout destination');
+      location.assign(target.href);
+    }catch { status('Could not sign out. Use Sign out to try again.',true); $('retry').hidden=true; }
+    finally { $('signout').disabled=false; }
+  }
   function rows(id, data, field) {
     $(id).replaceChildren();
     for (const item of data) {
@@ -80,6 +91,7 @@ export const adminJS = String.raw`
     for(const item of data) { const tr=document.createElement('tr'); for(const text of [item.day,format(item.invocations)]) {const td=document.createElement('td');td.textContent=text;tr.append(td);} body.append(tr); } table.append(body); details.append(summary,table); $('chart').append(details);
   }
   function render(result) {
+    $('workspace').hidden=false; $('login').hidden=true; $('signout').hidden=false;
     latest=result;
     $('invocations').textContent=format(result.totals.invocations);
     $('installations').textContent=format(result.totals.active_installations);
@@ -96,25 +108,29 @@ export const adminJS = String.raw`
     status('Loaded. Recent seven days are provisional; today may be partial.');
   }
   async function load() {
-    if(!token) return;
     pending?.abort(); const controller=new AbortController(); pending=controller;
     const params=new URLSearchParams({from:$('from').value,until:addDay($('through').value,1),tool:$('tool').value,mode:$('mode').value});
-    $('workspace').hidden=false; $('login').hidden=true; $('signout').hidden=false; clear(); status('Loading statistics…');
+    clear(); status('Loading statistics…');
     $('workspace').setAttribute('aria-busy','true');
     try {
-      const response=await fetch('/v1/admin/usage?'+params,{headers:{Authorization:'Bearer '+token},cache:'no-store',credentials:'omit',signal:controller.signal});
+      const response=await fetch('/v1/admin/usage?'+params,{cache:'no-store',credentials:'same-origin',signal:controller.signal});
       const result=await response.json();
       if(controller.signal.aborted) return;
-      if(response.status===401) { signout(); status('The reporting key was not accepted. Check your key and try again.',true); return; }
+      if(response.status===401 || response.status===403) {
+        $('workspace').hidden=true; $('login').hidden=false; $('signout').hidden=response.status===401;
+        const reason=new URLSearchParams(location.search).get('auth');
+        status(response.status===403 || reason==='denied'?'Your account does not have maintainer access. Contact your administrator.':reason==='failed'?'Sign-in could not be completed. Try again.':'Sign in to view usage statistics.');
+        return;
+      }
       if(!response.ok) throw new Error(response.status===422?'This period is outside the 90-day detail window. Choose a more recent period.':response.status===400?'Choose a valid date range of at most 90 days.':'Statistics are unavailable. No zero values have been substituted.');
-      render(result); $('key').value='';
+      render(result);
     } catch(error) { if(!controller.signal.aborted) status(error.message==='Failed to fetch'?'Statistics are unavailable. Try again.':error.message,true); }
     finally { if(pending===controller) $('workspace').removeAttribute('aria-busy'); }
   }
-  $('access').addEventListener('submit',(event)=>{event.preventDefault();token=$('key').value.trim();load();});
   $('filters').addEventListener('submit',(event)=>{event.preventDefault();load();});
   for(const button of document.querySelectorAll('[data-days]')) button.addEventListener('click',()=>{range(Number(button.dataset.days));load();});
   let resizeFrame; window.addEventListener('resize',()=>{cancelAnimationFrame(resizeFrame);resizeFrame=requestAnimationFrame(()=>{if(latest)chart(latest.daily);});});
-  $('signout').addEventListener('click',signout); $('retry').addEventListener('click',load); range(30);
+  $('signout').addEventListener('click',signout); $('retry').addEventListener('click',load); range(30); load();
+  window.addEventListener('pageshow',(event)=>{if(event.persisted){clear();$('workspace').hidden=true;load();}});
 })();
 `;

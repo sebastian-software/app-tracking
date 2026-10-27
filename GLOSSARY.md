@@ -26,6 +26,10 @@ _Avoid_: Tool, directory name, package name
 **Reporting project**:
 A project represented in accepted usage reports during a stated period.
 
+**Maintainer**:
+A person explicitly authorized to inspect private tool usage statistics.
+Maintainer access is distinct from an installation's permission to submit reports.
+
 **Invocation**:
 One execution of the tool's command entry point. A wrapper and the native
 binary it launches do not constitute two invocations.

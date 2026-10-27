@@ -17,6 +17,9 @@ importers:
       '@types/node':
         specifier: 24.19.2
         version: 24.19.2
+      '@workos-inc/node':
+        specifier: 12.0.0
+        version: 12.0.0
       ajv:
         specifier: 8.20.0
         version: 8.20.0
@@ -29,6 +32,9 @@ importers:
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
+      jose:
+        specifier: 6.2.13
+        version: 6.2.13
       oxfmt:
         specifier: 0.74.0
         version: 0.74.0
@@ -455,6 +461,10 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@workos-inc/node@12.0.0':
+    resolution: {integrity: sha512-ujB+xdaOHUrfHe5oMnNOrHV/g+AzZ+5VPCGayDLC4mHWTBHCZg6U5e9X8EDCmKSir8pSXAmJaJylTJNRZ+BSew==}
+    engines: {node: '>=22.11.0'}
+
   ajv-formats@3.0.1:
     resolution: {integrity: sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ==}
     peerDependencies:
@@ -489,6 +499,9 @@ packages:
   hono@4.13.13:
     resolution: {integrity: sha512-CQ46U0ZkAGmbT/4UxdzzGJpacP2IeKgY4a5/tOI9AABbpOMfK739wfDXmv1usCk+3RkKj1hQy4/fjhiwa2xlrA==}
     engines: {node: '>=16.9.0'}
+
+  jose@6.2.13:
+    resolution: {integrity: sha512-7TIg10ZE1x82YediN+lcrPNvGMKge9yFHQD+Qho/b8y2adfugU3AsvvHfxV0fzyFllT6l9xCjf4RWY9g/Z9PJQ==}
 
   json-schema-traverse@1.0.0:
     resolution: {integrity: sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug==}
@@ -747,6 +760,8 @@ snapshots:
   '@typescript/typescript-win32-x64@7.0.2':
     optional: true
 
+  '@workos-inc/node@12.0.0': {}
+
   ajv-formats@3.0.1(ajv@8.20.0):
     optionalDependencies:
       ajv: 8.20.0
@@ -797,6 +812,8 @@ snapshots:
     optional: true
 
   hono@4.13.13: {}
+
+  jose@6.2.13: {}
 
   json-schema-traverse@1.0.0: {}
 
