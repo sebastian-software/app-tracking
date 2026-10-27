@@ -61,6 +61,10 @@ production-enablement issues, not to this contract's acceptance.
 See [RFC 0002](../rfcs/0002-client-consent-and-measurement.md) for shared-client
 boundaries and the remaining repository-normalization proposal.
 
+The proposed [metric and consent assessment](0010-metrics-purposes-and-consent.md)
+separates functional service statistics, necessary protection, and additional
+CLI reporting. It does not change this accepted opt-in decision.
+
 ## Change history
 
 - 2026-10-23: Define per-tool/context identity, separately opted-in CI, finite
