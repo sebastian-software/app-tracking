@@ -146,9 +146,11 @@ processes maintainer identity/session data for this separate login purpose.
    issuer/configuration check.
 3. Create a **separate** app-specific PlanetScale PostgreSQL login. Do not reuse
    the ingestion, owner, migration, or maintenance login. It must have no role
-   memberships or broad privileges. Set `statement_timeout` to `2500ms` and
-   `lock_timeout` to `1500ms`; allow database connection. Keep the runtime's
-   effective query/parameter logging restrictions.
+   memberships or broad privileges. Deployment checks that isolation before the
+   app's existing database owner grants CONNECT on its own database. The login
+   sets its own `statement_timeout='2500ms'` and `lock_timeout='1500ms'` defaults;
+   no role-administration privilege or manual SQL bootstrap is needed. Keep the
+   runtime's effective query/parameter logging restrictions.
 4. Configure encrypted repository Actions secrets below. Generate the cookie
    password as 32 random bytes encoded in 64 lowercase hexadecimal characters;
    keep it in a private credential store, never a public file, chat, or log.

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { psql, quote as q } from "../../scripts/storage/psql.ts";
 import { migrate } from "../../scripts/storage/migrate.ts";
-import { grantReporting } from "../../scripts/storage/grant-reporting.ts";
+import { grantReporting, prepareReportingLogin } from "../../scripts/storage/grant-reporting.ts";
 import { grantRuntime } from "../../scripts/storage/grant-runtime.ts";
 import { identity, uuid7, hash } from "./fixture.ts";
 import type { UsageResult } from "../../src/reporting/contract.ts";
@@ -13,6 +13,9 @@ export async function reportingIntegration(
   role: string,
 ) {
   await migrate(admin);
+  assert.equal(await prepareReportingLogin(admin, reporter), role);
+  assert.equal(await prepareReportingLogin(admin, reporter), role); // Repeated deploys are safe.
+  await assert.rejects(prepareReportingLogin(admin, runtime)); // Ingestion authority is forbidden.
   await grantReporting(admin, role);
   const items = Array.from({ length: 5 }, identity);
   items[0]!.consentedAt = new Date(Date.now() - 8 * 86400000).toISOString();
