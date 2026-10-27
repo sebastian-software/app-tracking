@@ -39,7 +39,8 @@ export function validateWorkOSConfig(config: WorkOSConfig): void {
     issuer.password ||
     issuer.search ||
     issuer.hash ||
-    issuer.pathname !== "/" ||
+    (issuer.pathname !== "/" &&
+      !/^\/user_management\/client_[A-Za-z0-9]{3,128}$/.test(issuer.pathname)) ||
     !/^client_[A-Za-z0-9]{3,128}$/.test(config.clientId) ||
     !/^org_[A-Za-z0-9]{3,128}$/.test(config.organizationId) ||
     !/^sk_[A-Za-z0-9_-]{8,256}$/.test(config.apiKey) ||

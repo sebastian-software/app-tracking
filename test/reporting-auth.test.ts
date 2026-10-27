@@ -14,7 +14,7 @@ const config: WorkOSConfig = {
   apiKey: "sk_fixture_key_123",
   cookiePassword: "1".repeat(64),
   organizationId: "org_fixture",
-  issuer: "https://api.workos.com",
+  issuer: "https://api.workos.com/user_management/client_environment",
   origin: "https://stats.example.test",
 };
 const keys = await generateKeyPair("RS256"),
@@ -391,6 +391,9 @@ test("reporting auth configuration fails closed", () => {
     { origin: "http://other.example.test" },
     { cookiePassword: "short" },
     { issuer: "http://api.workos.com" },
+    { issuer: "https://api.workos.com/user_management/client_environment/" },
+    { issuer: "https://api.workos.com/unrelated" },
+    { issuer: "https://api.workos.com/user_management/client_environment?other=1" },
     { organizationId: "" },
     { clientId: "../other" },
   ])

@@ -143,10 +143,14 @@ processes maintainer identity/session data for this separate login purpose.
    sign-out URI. The server integration needs no browser CORS origin or WorkOS
    JavaScript in the dashboard. Set access tokens to five minutes and the
    maximum session to seven days, with a six-day inactivity timeout (WorkOS
-   requires inactivity to be shorter than the maximum). Record the exact issuer
-   from this environment; WorkOS documentation contains examples both with and without a trailing
-   slash, so do not normalize or guess it. Custom-domain changes require a new
-   issuer/configuration check.
+   requires inactivity to be shorter than the maximum). Read the exact `issuer`
+   from `https://api.workos.com/user_management/<application-client-id>/.well-known/openid-configuration`
+   and store it verbatim. This is the session-token issuer, usually containing
+   `/user_management/client_...`; it can identify the environment's client rather
+   than the selected application's client. The hosted AuthKit site's OAuth
+   discovery document describes a different token issuer. Do not use that value
+   or guess from a generic token example. Custom Authentication API domains
+   require checking the corresponding discovery document again.
 3. Create a **separate** app-specific PlanetScale PostgreSQL login. Do not reuse
    the ingestion, owner, migration, or maintenance login. It must have no role
    memberships or broad privileges. Deployment checks that isolation before the
