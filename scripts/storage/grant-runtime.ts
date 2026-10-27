@@ -10,6 +10,9 @@ export async function grantRuntime(url: string, role: string): Promise<void> {
       AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls
       AND rolconfig @> ARRAY['statement_timeout=2500ms', 'lock_timeout=1500ms'])
       OR EXISTS (SELECT FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname=${quote(role)})
+      OR EXISTS (SELECT FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+        WHERE n.nspname='app_tracking' AND p.proname='admin_usage_v1'
+        AND has_function_privilege(${quote(role)},p.oid,'EXECUTE'))
     THEN RAISE EXCEPTION 'runtime_role_must_be_unprivileged'; END IF;
     END $check$;
     GRANT USAGE ON SCHEMA app_tracking TO "${role}";

@@ -2,8 +2,10 @@
 
 Palamedes v2 is the first opt-in telemetry consumer. The public service uses one
 Bunny Edge Script and Pull Zone with a separate PlanetScale runtime credential.
-Version checks do not depend on the database or telemetry consent. Admin queries
-and public exports remain closed (#13/#14). Proof of work is deferred (#31).
+Version checks do not depend on the database or telemetry consent. Private
+reporting has its own [enablement and credential guide](reporting.md) and stays
+closed until configured; public exports remain closed (#14). Proof of work is
+deferred (#31).
 
 ## Activation and evidence
 
@@ -78,7 +80,8 @@ deletes its contributions, and never reads real reporting rows for publication.
 `Telemetry retention` remains hourly and reports only completion. No additional
 operational telemetry dataset is stored; GitHub's workflow history contains only
 synthetic checks, not the seven-day operational-counter dataset allowed by the
-contract. Actual usage queries and their authorization remain #13.
+contract. Actual usage queries use the separate [maintainer API](reporting.md),
+not these operational probes.
 
 Repository maintainers own the workflows, failure notifications, and recovery.
 Enable GitHub Actions notifications for these workflows in the maintainer's

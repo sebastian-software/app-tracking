@@ -36,6 +36,7 @@ jobs:
     timeout-minutes: 15
     env:
       TELEMETRY_ENABLED: ${{ vars.APP_TRACKING_TELEMETRY_ENABLED == '1' && '1' || '0' }}
+      REPORTING_ENABLED: ${{ vars.APP_TRACKING_REPORTING_ENABLED == '1' && '1' || '0' }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
@@ -66,6 +67,15 @@ jobs:
           RUNTIME_DATABASE_URL: ${{ secrets.APP_TRACKING_RUNTIME_DATABASE_URL }}
           MIGRATION_OWNER_ROLE: app_tracking_owner
         run: node scripts/configure-telemetry.ts
+      - name: Configure isolated maintainer reporting
+        if: inputs.release_run == ''
+        env:
+          BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
+          MIGRATION_DATABASE_URL: ${{ secrets.APP_TRACKING_MIGRATION_DATABASE_URL }}
+          MIGRATION_OWNER_ROLE: app_tracking_owner
+          REPORTING_DATABASE_URL: ${{ secrets.APP_TRACKING_REPORTING_DATABASE_URL }}
+          ADMIN_TOKEN_HASHES: ${{ secrets.APP_TRACKING_ADMIN_TOKEN_HASHES }}
+        run: node scripts/configure-reporting.ts
       - name: Publish and verify
         if: inputs.release_run == ''
         env:

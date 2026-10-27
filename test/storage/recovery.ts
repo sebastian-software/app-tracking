@@ -111,6 +111,12 @@ export async function recoveryIntegration(admin: string, runtime: string) {
       ],
       "SET ROLE app_tracking_owner;\n" + dump,
     );
+    // --no-privileges omits the original REVOKEs too. Restore the private
+    // function boundary before granting the narrowly scoped runtime login.
+    await psql(
+      restored.href,
+      "SET ROLE app_tracking_owner; REVOKE ALL ON ALL FUNCTIONS IN SCHEMA app_tracking FROM PUBLIC;",
+    );
     await grantRuntime(restored.href, await psql(runtime, "SELECT current_user"));
     assert.equal(
       await psql(

@@ -150,7 +150,10 @@ Initial private views cover invocations, active reporting installations, active
 reporting projects, command distribution, and version adoption. Bound date
 ranges and supported groupings; prohibit arbitrary SQL and free-form property
 queries. Maintainer authentication and authorization are required before the
-admin route is enabled. Reporting tokens grant no dashboard access.
+admin route is enabled. Reporting tokens grant no dashboard access. The
+implemented contract and separate enablement are in the
+[maintainer reporting guide](../reporting.md) and
+[ADR 0009](../adr/0009-private-maintainer-reporting.md).
 
 Responses identify the measured unit, inclusive/exclusive UTC boundaries,
 observation time, and coverage. A dependency failure is not a successful zero.
@@ -163,7 +166,7 @@ cross-query disclosure rules remain a production gate.
 - Runtime/HTTP-driver and transaction proof from [RFC 0003](0003-deployment-and-migration.md).
 - Concurrent duplicate/deletion races, bounded maintenance, and query plans.
 - Actual processor/legal and operational enablement evidence from the retention policy and issue #11.
-- Maintainer authentication and aggregate/public disclosure policy in #13/#14.
+- Historical summaries and disclosure review in [RFC 0004](0004-historical-usage-summaries.md) / #13; public disclosure policy in #14.
 
 Issue #5's wire, consent, identity-lifetime, retry, and retention choices are
 specified in the maintained contract. Provider/runtime readiness is not inferred

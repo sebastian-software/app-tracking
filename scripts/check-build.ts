@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { runInNewContext } from "node:vm";
 import { metricsDocument, NOW, path, request, versionFixture } from "../test/helpers.ts";
+import { adminTokenHash } from "../src/reporting/handler.ts";
+import { fixtureKey } from "../test/fixtures/reporting.ts";
 
 type Handler = (request: Request) => Promise<Response>;
 let handle: Handler | undefined;
@@ -79,6 +81,33 @@ assert.equal((await handle(request(path))).status, 200);
 assert.equal((await handle(request("/health"))).status, 200);
 environment.set("APP_TRACKING_TELEMETRY_ENABLED", "0");
 assert.equal((await handle(request(privatePath, { method: "DELETE" }))).status, 404);
+const reportingPath = "/v1/admin/usage?from=2026-10-01&until=2026-10-28";
+assert.equal((await handle(request("/admin"))).status, 404);
+environment.set("APP_TRACKING_REPORTING_ENABLED", "1");
+assert.equal((await handle(request(reportingPath))).status, 503);
+assert.equal((await handle(request("/health"))).status, 200);
+environment.set(
+  "APP_TRACKING_REPORTING_DATABASE_URL",
+  "postgresql://fixture_reporter:fixture@fixture.pg.psdb.cloud/app_tracking",
+);
+environment.set("APP_TRACKING_ADMIN_TOKEN_HASHES", await adminTokenHash(fixtureKey));
+assert.equal((await handle(request("/admin"))).status, 200);
+assert.equal((await handle(request(reportingPath))).status, 401);
+assert.equal(
+  databaseRequests,
+  1,
+  "No unauthenticated reporting request may construct a database query",
+);
+const report = await handle(
+  request(reportingPath, { headers: { authorization: `Bearer ${fixtureKey}` } }),
+);
+assert.equal(report.status, 503);
+assert.match(report.headers.get("cache-control")!, /no-store/);
+assert.ok(!(await report.text()).includes("outage"));
+assert.equal(databaseRequests, 2);
+assert.equal((await handle(request(path))).status, 200);
+environment.set("APP_TRACKING_REPORTING_ENABLED", "0");
+assert.equal((await handle(request(reportingPath))).status, 404);
 console.log(
   "Deployment bundle: SDK registration, version contract, and health passed (local runtime harness).",
 );

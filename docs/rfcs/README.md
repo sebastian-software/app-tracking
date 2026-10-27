@@ -1,15 +1,17 @@
 # Requests for Comments
 
 These RFCs describe the initial app-tracking design. They are Proposed and can
-change as contracts are tested. The implemented version-only behavior is owned
-by the [version API contract](../version-api.md) and
-[deployment runbook](../deployment.md). Telemetry remains unimplemented.
+change as contracts are tested. Implemented behavior is owned by the
+[version API](../version-api.md), [telemetry API](../telemetry-api.md),
+[private reporting contract](../reporting.md), and
+[deployment runbook](../deployment.md). Historical summaries remain proposed.
 
 | RFC                                            | Proposal                              |
 | ---------------------------------------------- | ------------------------------------- |
 | [0001](0001-service-api-and-data-model.md)     | Service, API, and data model          |
 | [0002](0002-client-consent-and-measurement.md) | Client, consent, and measurement      |
 | [0003](0003-deployment-and-migration.md)       | Deployment, migration, and validation |
+| [0004](0004-historical-usage-summaries.md)     | Historical usage summaries            |
 
 [Accepted ADRs](../adr/README.md) constrain these proposals. Exact route names,
 limits, identity scope, retention periods, runtime versions, and deployment

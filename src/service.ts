@@ -9,10 +9,19 @@ type Handler = (request: Request) => Promise<Response>;
 export function createService(
   telemetry: () => Handler | undefined,
   options: Partial<UpstreamOptions> = {},
+  reporting: () => Handler | undefined = () => undefined,
 ): Handler {
   const version = createHandler(options);
   return async (request) => {
     const path = new URL(request.url).pathname;
+    if (path === "/admin" || path.startsWith("/admin/") || path.startsWith("/v1/admin/")) {
+      try {
+        const handle = reporting();
+        return handle ? await handle(request) : failure("not_found");
+      } catch {
+        return failure("service_unavailable");
+      }
+    }
     if (path !== "/v1/usage-batches" && !/^\/v1\/installations\/[^/]+$/.test(path))
       return version(request);
     try {

@@ -87,6 +87,25 @@ test("deployment probe rejects a stale revision and uncached private-route viola
     return new Response(null, { status: 404, headers });
   };
   await verifyDeployment("https://example.com", revision, fake);
+  const reporting: typeof fetch = async (input, init) => {
+    const path = new URL(String(input)).pathname;
+    if (path === "/admin" || path === "/v1/admin/usage")
+      return new Response(null, {
+        status: path === "/admin" ? 200 : 401,
+        headers: { "X-App-Revision": revision, "Cache-Control": "private, no-store" },
+      });
+    return fake(input, init);
+  };
+  await verifyDeployment("https://example.com", revision, reporting, false, true);
+  const cachedReporting: typeof fetch = async (input, init) => {
+    const response = await reporting(input, init);
+    if (new URL(String(input)).pathname === "/v1/admin/usage")
+      response.headers.set("CDN-Cache", "HIT");
+    return response;
+  };
+  await assert.rejects(
+    verifyDeployment("https://example.com", revision, cachedReporting, false, true),
+  );
   await assert.rejects(
     verifyDeployment("https://example.com", "b".repeat(40), fake),
     /Unexpected deployed revision/,

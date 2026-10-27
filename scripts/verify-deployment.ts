@@ -7,6 +7,7 @@ export async function verifyDeployment(
   revision: string,
   fetcher: typeof fetch = fetch,
   telemetryEnabled = false,
+  reportingEnabled = false,
 ) {
   const url = new URL(base);
   assert.equal(url.protocol, "https:");
@@ -26,6 +27,15 @@ export async function verifyDeployment(
     );
     return response;
   };
+  for (const path of ["/admin", "/v1/admin/usage"]) {
+    for (let n = 0; n < 2; n++) {
+      const response = await get(path);
+      assert.equal(response.status, reportingEnabled ? (path === "/admin" ? 200 : 401) : 404);
+      assert.match(response.headers.get("cache-control") ?? "", /no-store/);
+      assert.notEqual(response.headers.get("cdn-cache")?.toUpperCase(), "HIT");
+      await response.body?.cancel();
+    }
+  }
   for (const entry of catalog) {
     const path = versionPath(entry);
     let hit = false;
@@ -76,7 +86,7 @@ export async function verifyDeployment(
       assert.notEqual(response.headers.get("cdn-cache")?.toUpperCase(), "HIT");
     }
   }
-  for (const path of ["/health", "/v1/admin/usage", "/v1/usage-batches"]) {
+  for (const path of ["/health", "/v1/usage-batches"]) {
     for (let n = 0; n < 2; n++) {
       const response = await get(path);
       assert.equal(
@@ -141,5 +151,11 @@ if (import.meta.main) {
   const revision = process.env.RELEASE_REVISION;
   if (!base || !revision) throw new Error("DEPLOYMENT_BASE and RELEASE_REVISION are required");
   await waitForRevision(base, revision);
-  await verifyDeployment(base, revision, fetch, process.env.TELEMETRY_ENABLED === "1");
+  await verifyDeployment(
+    base,
+    revision,
+    fetch,
+    process.env.TELEMETRY_ENABLED === "1",
+    process.env.REPORTING_ENABLED === "1",
+  );
 }
