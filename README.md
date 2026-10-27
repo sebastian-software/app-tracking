@@ -1,7 +1,5 @@
 # app-tracking
 
-Useful update notices. Optional usage reporting. Clear choices.
-
 app-tracking gives developer tools a shared service and Rust client for update
 checks and opt-in usage reporting. It helps maintainers understand which
 versions, command categories, and supported platforms are used, so they can

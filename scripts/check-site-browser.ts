@@ -8,6 +8,9 @@ const files = new Map([
   ["/app-tracking/", ["index.html", "text/html; charset=utf-8"]],
   ["/app-tracking/styles.css", ["styles.css", "text/css"]],
   ["/app-tracking/favicon.svg", ["favicon.svg", "image/svg+xml"]],
+  ["/app-tracking/assets/logo-software.svg", ["assets/logo-software.svg", "image/svg+xml"]],
+  ["/app-tracking/assets/logo-consulting.svg", ["assets/logo-consulting.svg", "image/svg+xml"]],
+  ["/app-tracking/assets/workspace.jpg", ["assets/workspace.jpg", "image/jpeg"]],
 ]);
 const server = createServer((request, response) => {
   void (async () => {
@@ -54,7 +57,9 @@ try {
   ] as const) {
     await page.setViewportSize({ width, height });
     await page.goto(`${origin}/app-tracking/`);
-    assert.equal(await page.locator("h1").innerText(), "Your tools.\nYour choice.");
+    await page
+      .getByRole("heading", { level: 1, name: "How usage reports help us improve our tools" })
+      .waitFor();
     assert.equal(await page.locator('script, iframe, [src^="http"]').count(), 0);
     assert.equal(await page.evaluate(() => localStorage.length + sessionStorage.length), 0);
     assert.deepEqual(await page.context().cookies(), []);
@@ -73,16 +78,28 @@ try {
     assert.deepEqual(missingAnchors, [], `${name}: broken section links`);
     await page.keyboard.press("Tab");
     assert.equal(await page.locator(":focus").innerText(), "Skip to content");
-    const question = page.getByText("Does visiting this page opt me in?", { exact: true });
-    await question.focus();
     await page.keyboard.press("Enter");
-    assert.equal(await question.locator("..").getAttribute("open"), "");
-    await page
-      .getByText("This page cannot change your tool’s settings", { exact: false })
-      .waitFor();
+    assert.equal(new URL(page.url()).hash, "#main");
+    const privacyLink = page
+      .getByRole("navigation", { name: "Main navigation" })
+      .getByRole("link", { name: "Privacy", exact: true });
+    await privacyLink.focus();
     await page.keyboard.press("Enter");
+    assert.equal(new URL(page.url()).hash, "#privacy");
+    assert.ok(
+      await page
+        .locator("img")
+        .evaluateAll((images) =>
+          images.every(
+            (image) =>
+              image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0,
+          ),
+        ),
+      `${name}: image failed to load`,
+    );
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: `dist/site-evidence/${name}.png`, fullPage: true });
+    await page.screenshot({ path: `dist/site-evidence/${name}-first-screen.png` });
 
     // Inject the local audit tool only in this test; the delivered site has no script.
     await page.evaluate(axe);
@@ -107,21 +124,34 @@ try {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(`${origin}/app-tracking/`);
-  await page.screenshot({ path: "dist/site-evidence/desktop-first-screen.png" });
+  await page.locator(".site-footer").screenshot({ path: "dist/site-evidence/footer.png" });
+  const lightColors = await page.evaluate(() => ({
+    background: getComputedStyle(document.body).backgroundColor,
+    text: getComputedStyle(document.body).color,
+  }));
+  await page.emulateMedia({ colorScheme: "dark" });
+  assert.deepEqual(
+    await page.evaluate(() => ({
+      background: getComputedStyle(document.body).backgroundColor,
+      text: getComputedStyle(document.body).color,
+    })),
+    lightColors,
+    "The page must keep its light colors when the OS requests dark mode",
+  );
+  assert.equal(lightColors.background, "rgb(255, 255, 255)");
   // The page must remain usable with JavaScript disabled.
   const noScript = await browser.newContext({ javaScriptEnabled: false });
   const staticPage = await noScript.newPage();
   await staticPage.goto(`${origin}/app-tracking/`);
-  await staticPage.getByText("Are update checks a usage report?", { exact: true }).click();
-  await staticPage
-    .getByText("No. Version checks use a separate public endpoint", { exact: false })
-    .waitFor();
+  await staticPage.getByRole("link", { name: "What a report contains" }).click();
+  assert.equal(new URL(staticPage.url()).hash, "#data");
+  await staticPage.getByRole("heading", { name: "What a report can contain" }).waitFor();
   await noScript.close();
   assert.deepEqual(externalRequests, []);
   assert.deepEqual(badResponses, []);
   assert.deepEqual(errors, []);
   console.log(
-    "Website verified: four viewports, keyboard FAQ, no-script fallback, local assets, no browser storage or external requests, and axe accessibility checks.",
+    "Website verified: four viewports, keyboard navigation, no-script fallback, light mode under a dark OS preference, local images, no browser storage or external requests, and axe accessibility checks.",
   );
 } finally {
   await browser?.close();

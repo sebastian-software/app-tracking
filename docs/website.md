@@ -16,9 +16,11 @@ node scripts/check-site-browser.ts
 
 Install Chromium first if needed with `pnpm exec playwright install chromium`.
 The check serves the exact static files under `/app-tracking/`, exercises four
-viewport sizes, checks keyboard access and FAQ behavior without JavaScript,
+viewport sizes, checks keyboard navigation and section links without JavaScript,
 audits accessibility with axe, and verifies that the page makes no external
-requests or writes to browser storage. Screenshots go to `dist/site-evidence/`.
+requests or writes to browser storage. It also verifies that the page stays in
+light mode under an OS dark-mode preference and that all local images load.
+Screenshots go to `dist/site-evidence/`.
 
 For an interactive local preview from the repository root:
 
@@ -71,16 +73,41 @@ Use US English and check claims against the [consent contract](telemetry-consent
 When these contracts change, review the page and its reviewed date together.
 Keep proposed metrics distinct from released behavior.
 
-The page uses local CSS, a local SVG icon, system fonts, and native HTML
-disclosures. It has no scripts, analytics, cookies, browser storage, forms, or
+The page uses local CSS, original local brand logos, a local photograph, system
+fonts, and semantic HTML. It has no scripts, analytics, cookies, browser storage, forms, or
 embedded third-party services. GitHub Pages processes visitor request metadata;
 the page links [GitHub's privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).
 Tool telemetry uses a separate service, with Bunny and PlanetScale as described
 in the v1 contracts. Do not conflate the two data flows or promise anonymous
 reports, zero network metadata, or EU-only processing.
 
-The supplied [Next.js telemetry page](https://nextjs.org/telemetry) informed the
-question-led explanation, and [OpenTelemetry](https://opentelemetry.io/) informed
-the visible route into source and specifications. No branding, assets, or
-anonymity claims were copied. The page's typography, illustration, and layout
-are local, original work.
+## Design and assets
+
+The page uses a restrained information-page layout: one introduction, a field
+table, and continuous text for controls, privacy, and documentation. It is light
+mode only. The Software palette supplies Midnight `#002731`, Teal `#005164`,
+and Frost `#e7f0f3`. The licensed corporate fonts are not redistributed; text
+uses system fonts. The real wordmarks are rendered from the original SVGs.
+
+The Software and Consulting logos are copied unchanged from the shared
+`sebastian-websites/packages/ui/src/assets` originals, and the favicon from
+`apps/brand/public/sebastian-software/icon-software-light.svg`. They link to
+the existing English Software and Consulting sites. Consulting is a registered
+trademark of Sebastian Software GmbH, rather than a separate operator of this
+reporting service.
+
+[`workspace.jpg`](../site/assets/workspace.jpg) is a decorative workspace image
+generated with the built-in Imagegen tool. It depicts no actual office or team
+member and carries no product or security claim. The production JPEG is resized
+and compressed from the generated original. Alt text is empty because the image
+adds atmosphere while the adjacent text carries the information.
+
+The Imagegen design study and exact generation prompts are retained locally in
+`dist/site-evidence/bank-design-concept.png`, `bank-design-prompt.txt`, and
+`workspace-image-prompt.txt`; they are not deployed. The study informed the
+restrained typography and document structure. The final design adds the user's
+requested photography, icons, brand artwork, and pale color areas without cards.
+
+The earlier [Next.js](https://nextjs.org/telemetry) and
+[OpenTelemetry](https://opentelemetry.io/) references informed disclosure and
+source-code navigation. No anonymity claim or third-party branding was adopted.
