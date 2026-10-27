@@ -186,7 +186,9 @@ export function createWorkOSAuth(config: WorkOSConfig): ReportingAuth {
         ].includes(error.code))
     )
       return adminReply({ error: "unauthorized" }, 401);
-    return unavailable();
+    const response = unavailable();
+    response.headers.set("X-App-Tracking-Reporting-Failure", "auth:" + callbackFailure(error));
+    return response;
   }
   return {
     async route(request) {
