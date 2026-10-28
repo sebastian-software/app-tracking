@@ -6,9 +6,14 @@ use std::time::Duration;
 
 pub const HISTORY_CONSENT_REVISION: &str = "monthly-history-v1";
 
+/// The same disclosure is used by terminal dialogs and host settings commands.
+pub const HISTORY_NOTICE: &str = "Sebastian Software GmbH uses monthly summaries to understand usage trends and plan product maintenance. Detailed reports remain limited to 90 days. With this separate permission, screened monthly counts and monthly installation/project totals may be retained for 24 months after the month ends. These are not counts of people or a guarantee of anonymity. Only reports from the UTC date after acknowledgement are eligible. This choice does not authorize public release or cross-tool profile linking. You can withdraw this permission separately in the tool's settings. Acknowledged withdrawal invalidates affected monthly summaries; offline changes remain pending. Declining does not limit the tool or update checks. Privacy and rights: https://sebastian-software.com/privacy#tool-usage-history (contact: info@sebastian-software.de).";
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct HistoryChoice {
+    #[serde(default)]
+    pub revision: String,
     pub enabled: bool,
     pub changed_at: u64,
     pub confirmed: bool,
@@ -40,6 +45,7 @@ impl Client {
         let mut timestamp = now()?;
         if let Some(choice) = &store.state.history {
             if choice.enabled == enabled
+                && (!enabled || choice.revision == HISTORY_CONSENT_REVISION)
                 && (choice.confirmed || timestamp.saturating_sub(choice.changed_at) < 7_776_000_000)
             {
                 return Ok(());
@@ -47,6 +53,7 @@ impl Client {
             timestamp = timestamp.max(choice.changed_at.saturating_add(1));
         }
         store.state.history = Some(HistoryChoice {
+            revision: HISTORY_CONSENT_REVISION.into(),
             enabled,
             changed_at: timestamp,
             confirmed: store.state.identity.is_none(),
@@ -78,7 +85,9 @@ impl Client {
             if !choice.enabled {
                 return Ok(PermissionOutcome::Declined);
             }
-            if choice.confirmed || now()?.saturating_sub(choice.changed_at) < 7_776_000_000 {
+            if choice.revision == HISTORY_CONSENT_REVISION
+                && (choice.confirmed || now()?.saturating_sub(choice.changed_at) < 7_776_000_000)
+            {
                 return Ok(PermissionOutcome::Granted);
             }
         }
@@ -92,9 +101,10 @@ impl Client {
             return Ok(PermissionOutcome::Unavailable);
         }
         let prompt = format!(
-            "\nOptional monthly summaries for {}\n\n{}\n\nDetailed reports remain limited to 90 days. Screened monthly counts and monthly installation/project totals may be retained for 24 months after the month ends. This is separate from ordinary usage-reporting consent. No public release is authorized by this choice alone.\n\nAllow monthly summaries? [y/N] ",
+            "\nOptional monthly summaries for {}\n\n{}\n\n{}\n\nAllow monthly summaries? [y/N] ",
             self.tool,
-            reason.trim()
+            reason.trim(),
+            HISTORY_NOTICE
         );
         let Some(enabled) = super::permission::ask(
             &mut std::io::stdin().lock(),
@@ -114,6 +124,7 @@ impl Client {
             return Ok(PermissionOutcome::Unavailable);
         }
         store.state.history = Some(HistoryChoice {
+            revision: HISTORY_CONSENT_REVISION.into(),
             enabled,
             changed_at: now()?.max(
                 store
@@ -140,7 +151,9 @@ impl Client {
             decision: super::OptInDecision::from(
                 store
                     .as_ref()
-                    .and_then(|s| s.state.history.as_ref().map(|h| h.enabled)),
+                    .and_then(|s| s.state.history.as_ref())
+                    .filter(|h| !h.enabled || h.revision == HISTORY_CONSENT_REVISION)
+                    .map(|h| h.enabled),
             ),
             pending: store
                 .as_ref()
@@ -200,6 +213,9 @@ impl Client {
         let Some(choice) = store.state.history.clone() else {
             return Ok(false);
         };
+        if choice.enabled && choice.revision != HISTORY_CONSENT_REVISION {
+            return Ok(false);
+        }
         if choice.confirmed {
             return Ok(true);
         }
@@ -248,6 +264,57 @@ impl Client {
 mod tests {
     use super::*;
     use crate::client::{Interaction, OptInDecision};
+    #[test]
+    fn missing_or_unknown_disclosure_revision_never_reuses_an_affirmative_choice() {
+        let root = tempfile::tempdir().unwrap();
+        let client = Client::registered("https://example.test", root.path(), "palamedes", "1.0.0")
+            .unwrap()
+            .with_interaction(super::super::Interaction::Never);
+        client.set_opt_in(true).unwrap();
+        client.set_history_opt_in(true).unwrap();
+        {
+            let mut store = Store::open(&client, false).unwrap().unwrap();
+            store.state.history.as_mut().unwrap().revision.clear();
+            store.state.history.as_mut().unwrap().confirmed = true;
+            store.save().unwrap();
+        }
+        assert!(matches!(
+            client.history_status().unwrap().decision,
+            OptInDecision::Undecided
+        ));
+        assert_eq!(
+            client.request_history_opt_in("Privacy settings.").unwrap(),
+            PermissionOutcome::Unavailable
+        );
+        assert!(
+            !client
+                .sync_history_with(|_, _, _| panic!("unknown scope must not reach transport"))
+                .unwrap()
+        );
+        client.set_history_opt_in(true).unwrap();
+        assert!(client.history_status().unwrap().pending);
+        assert!(
+            client
+                .sync_history_with(|_, _, body| Some(body.into()))
+                .unwrap()
+        );
+        {
+            let mut store = Store::open(&client, false).unwrap().unwrap();
+            store.state.history.as_mut().unwrap().revision = "future-scope".into();
+            store.save().unwrap();
+        }
+        client.set_history_opt_in(false).unwrap();
+        assert!(
+            client
+                .sync_history_with(|_, _, body| Some(body.into()))
+                .unwrap()
+        );
+        assert!(matches!(
+            client.history_status().unwrap().decision,
+            OptInDecision::Declined
+        ));
+    }
+
     #[test]
     fn old_grants_never_include_history_and_choices_need_exact_acknowledgements() {
         let root = tempfile::tempdir().unwrap();

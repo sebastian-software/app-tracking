@@ -15,7 +15,8 @@ unified Rust client exposes a separate library-owned
 grant ordinary reporting nor enable a server feature. No dialog runs in CI,
 nonterminal or `Interaction::Never` modes. A saved refusal is reused.
 
-Show the history explanation from the dialog, link the released privacy notice,
+Use the exported `HISTORY_NOTICE` in notice-only settings commands and the same
+explanation from the dialog; link the released privacy notice,
 and offer the same settings control for withdrawal. The history notice must
 explain that screened monthly counts and monthly installation/project totals
 can outlive detailed reports, with the 24-month limit. Screening is not a claim
@@ -120,3 +121,7 @@ login. This disables both switches in storage and clears restored summary
 values. Reapply known deletions through the normal flow, reconcile the recovery
 gap, then explicitly configure future coverage. Never restore expired source
 rows just to backfill history.
+
+The [additional-consent rollout](additional-consent-rollout.md) records the
+disclosure boundaries and release checks. Saved history choices carry their
+revision; missing/unknown affirmative revisions require a fresh explicit choice.

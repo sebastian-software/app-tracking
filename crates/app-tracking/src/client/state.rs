@@ -220,6 +220,7 @@ impl State {
         if let Some(history) = &mut self.history
             && history.enabled
         {
+            history.revision = super::history::HISTORY_CONSENT_REVISION.into();
             history.enabled = false;
             history.changed_at = super::now()?.max(history.changed_at.saturating_add(1));
             history.confirmed = false;
