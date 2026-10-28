@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.5.0](https://github.com/sebastian-software/app-tracking/compare/app-tracking-v0.4.0...app-tracking-v0.5.0) (2026-10-28)
+
+
+### Features
+
+* add separately permitted 24-month usage history ([#62](https://github.com/sebastian-software/app-tracking/issues/62)) ([030815c](https://github.com/sebastian-software/app-tracking/commit/030815c763218bf77e662b631eadc3824c334636))
+* add separately permitted cross-tool profile linking ([#64](https://github.com/sebastian-software/app-tracking/issues/64)) ([e2d1556](https://github.com/sebastian-software/app-tracking/commit/e2d1556006e8176983999e367304df07583cac3d))
+* publish reusable additional consent notices ([#65](https://github.com/sebastian-software/app-tracking/issues/65)) ([fc28104](https://github.com/sebastian-software/app-tracking/commit/fc281040eebba5325fd954aac8e99797f7f6b0e8))
+* require separate consent for public usage totals ([#66](https://github.com/sebastian-software/app-tracking/issues/66)) ([a9f3906](https://github.com/sebastian-software/app-tracking/commit/a9f390662010a1fc9413802f7cbae30ec723f479))
+
 ## [0.4.0](https://github.com/sebastian-software/app-tracking/compare/app-tracking-v0.3.0...app-tracking-v0.4.0) (2026-10-27)
 
 
