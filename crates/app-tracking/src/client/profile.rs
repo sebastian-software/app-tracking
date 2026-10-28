@@ -9,6 +9,10 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 pub const PROFILE_CONSENT_REVISION: &str = "profile-linking-v1";
+
+/// The same disclosure is used by terminal dialogs and host settings commands.
+pub const PROFILE_NOTICE: &str = "Sebastian Software GmbH uses optional profile linking to understand which of our tools are used together and plan product improvements. A random identifier in your private local profile can link future opt-in reports from participating tools, each requiring its own permission. It is not a verified person or physical machine; copied profile files represent the same profile. Tool credentials stay separate. Linking starts from the UTC date after acknowledgement, is local-use only, and does not grant longer retention or public release. Detailed usage remains limited to 90 days. You can unlink this tool or reset the shared profile for all tools. Reset removes links, not the tools' independent usage reports. Offline changes remain pending until acknowledged. Active profile metadata lasts while active links remain; inactive/reset metadata expires after 90 days, with physical cleanup within another 24 hours. Declining does not limit the tool or update checks. Privacy and rights: https://sebastian-software.com/privacy#tool-usage-profiles (contact: info@sebastian-software.de).";
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct ProfileChoice {
@@ -361,9 +365,10 @@ impl Client {
             return Ok(PermissionOutcome::Unavailable);
         }
         let prompt = format!(
-            "\nOptional cross-tool profile linking for {}\n\n{}\n\nA random identifier in your private local profile can link future opt-in reports from participating tools. It does not identify a verified person or physical machine. Tool credentials stay separate. Linking is not retroactive and does not grant longer usage retention. You can unlink this tool or reset the shared profile for all tools; this does not delete their independent usage reports. Profile metadata follows active links, with inactive/reset metadata retained for at most 90 days.\n\nAllow profile linking? [y/N] ",
+            "\nOptional cross-tool profile linking for {}\n\n{}\n\n{}\n\nAllow profile linking? [y/N] ",
             self.tool,
-            reason.trim()
+            reason.trim(),
+            PROFILE_NOTICE
         );
         let Some(enabled) = super::permission::ask(
             &mut std::io::stdin().lock(),

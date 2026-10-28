@@ -125,3 +125,7 @@ After provider recovery, disable the profile policy before reopening reporting,
 reconcile the recovery-point gap and known revocations, and require fresh
 explicit linking where necessary. The existing recovery boundary does not
 promise an independent deletion journal or imply that a reset edits backups.
+
+Hosts can show the exported `PROFILE_NOTICE` without opening a dialog or changing
+state. The [additional-consent rollout](additional-consent-rollout.md) records
+the disclosure boundaries and release checks.

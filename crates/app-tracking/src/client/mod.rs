@@ -15,9 +15,9 @@ mod system;
 mod worker;
 
 pub use download::{Cancellation, DownloadOptions, Resource, VerifiedDownload};
-pub use history::{HISTORY_CONSENT_REVISION, HistoryPermissionStatus};
+pub use history::{HISTORY_CONSENT_REVISION, HISTORY_NOTICE, HistoryPermissionStatus};
 pub use permission::{Interaction, OptInDecision, PermissionOutcome};
-pub use profile::{PROFILE_CONSENT_REVISION, ProfilePermissionStatus};
+pub use profile::{PROFILE_CONSENT_REVISION, PROFILE_NOTICE, ProfilePermissionStatus};
 pub use system::{LinuxInfo, SystemInfo};
 pub use worker::BACKGROUND_WORKER_ARGUMENT;
 
