@@ -92,7 +92,8 @@ as first-of-month UTC dates, at most 24 months, plus fixed `tool`, `stream`,
 suppressed, incomplete, expired and disabled periods independently.
 
 `GET /v1/public/usage` accepts no query parameters. It is 404 while disabled.
-When explicitly enabled, it exposes only fixed month/tool/stream/metric/mode
+When explicitly enabled with [separate publication consent](public-usage-consent.md),
+it independently screens the permitted public population and exposes only fixed month/tool/stream/metric/mode
 series and observation totals rounded down to multiples of ten. It exposes no
 unique counts, command/version/system breakdowns, installation or project IDs,
 credentials, or raw rows. Unavailable totals are null. Responses use `no-store`;

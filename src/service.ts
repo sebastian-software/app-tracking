@@ -31,6 +31,7 @@ export function createService(
       !path.startsWith("/v1/profile-links/") &&
       !path.startsWith("/v1/shared-profiles/") &&
       !path.startsWith("/v1/history-permissions/") &&
+      !path.startsWith("/v1/public-permissions/") &&
       path !== "/v1/usage-batches" &&
       !/^\/v1\/installations\/[^/]+$/.test(path) &&
       path !== "/v1/event-batches" &&

@@ -25,6 +25,7 @@ export async function grantRuntime(url: string, role: string): Promise<void> {
       app_tracking.accept_events_v1(text,text,text,text,bigint,text,text,text,jsonb),
       app_tracking.delete_events_v1(text,text,text),
       app_tracking.set_history_permission_v1(text,text,text,text,boolean,bigint),
+      app_tracking.set_public_permission_v1(text,text,text,text,boolean,bigint),
       app_tracking.set_profile_link_v1(text,text,text,boolean,bigint,text,text), app_tracking.reset_profile_v1(text,text) TO "${role}";`,
   );
 }

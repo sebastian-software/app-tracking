@@ -9,15 +9,21 @@ import { createEventHandler } from "./events.ts";
 // telemetry route while the explicit runtime switch is enabled.
 export function createTelemetryService(
   databaseUrl: string,
-  options: { historyEnabled?: boolean; profilesEnabled?: boolean } = {},
+  options: { historyEnabled?: boolean; profilesEnabled?: boolean; publicEnabled?: boolean } = {},
 ) {
   const storage = createStorage(databaseUrl);
   const legacy = createTelemetryHandler(storage);
   const events = createEventHandler(storage);
   const profiles = createProfileHandler(storage, options.profilesEnabled === true);
   const history = createHistoryPermissionHandler(storage, options.historyEnabled === true);
+  const publicPermission = createHistoryPermissionHandler(
+    { setHistoryPermission: storage.setPublicPermission.bind(storage) },
+    options.publicEnabled === true,
+    "public",
+  );
   return (request: Request) => {
     const path = new URL(request.url).pathname;
+    if (path.startsWith("/v1/public-permissions/")) return publicPermission(request);
     return path.startsWith("/v1/profile-links/") || path.startsWith("/v1/shared-profiles/")
       ? profiles(request)
       : path.startsWith("/v1/history-permissions/")

@@ -24,7 +24,7 @@ controller and purpose, data and retention, optional nature, withdrawal, pending
 offline changes, and the official privacy anchor. A host must also show its exact
 commands before accepting a choice. Environment flags, ordinary grants, shared
 files, CI authorization, installation hooks, and upgrades grant neither scope.
-History choices now store their disclosure revision. A missing or unknown revision
+History and publication choices store their disclosure revision. A missing or unknown revision
 never reuses an affirmative choice; refusal and withdrawal remain possible.
 
 ## Internal-use assessment
@@ -46,9 +46,9 @@ deletion removes that tool's reports. These are different controls.
 
 The feature gates reject new positive choices while off but allow withdrawals and
 resets. Enabling internal features does not authorize any consumer to enroll a
-person silently. Dalo and Ferriki adoption remains deferred. Public publication
-requires a concrete separate assessment of external knowledge, differencing,
-repeated releases, and downstream copies; screening alone does not clear it.
+person silently. Dalo and Ferriki adoption remains deferred. The [publication assessment](public-usage-consent.md) records external knowledge,
+differencing, repeated releases, and downstream-copy risks. Screening alone does
+not establish anonymity. Publication uses only separately permitted contributions.
 
 ## Release verification
 
@@ -66,8 +66,8 @@ repeated releases, and downstream copies; screening alone does not clear it.
    event to register it.
 5. Verify offline refusals and pending withdrawals, CI/DNT vetoes, exact
    acknowledgement, upgrade behavior, and unchanged command output/counting.
-6. Record the released evidence before enabling the internal gates. Keep
-   `APP_TRACKING_PUBLIC_USAGE_ENABLED=0`. History coverage begins at the next
+6. Record the released evidence before enabling the internal gates. Record a separate publication assessment before enabling its gate. History and
+   public coverage begin at the next
    full UTC month; no historical backfill or immediate month totals are implied.
 
 ## Primary sources checked

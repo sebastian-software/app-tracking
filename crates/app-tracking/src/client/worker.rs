@@ -201,6 +201,10 @@ impl Client {
                 profile.profile_id = None;
                 profile.confirmed = true;
             }
+            if let Some(public) = &mut store.state.public_usage {
+                public.enabled = false;
+                public.confirmed = true;
+            }
             if let Some(history) = &mut store.state.history {
                 history.enabled = false;
                 history.confirmed = true;

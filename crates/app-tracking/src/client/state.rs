@@ -63,6 +63,8 @@ pub(super) struct State {
     pub history: Option<super::history::HistoryChoice>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub profile: Option<super::profile::ProfileChoice>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub public_usage: Option<super::public_usage::PublicUsageChoice>,
     #[serde(default)]
     pub opt_in_scope: Option<String>,
     pub disabled: bool,
@@ -99,6 +101,18 @@ impl State {
                         || self.opt_in != Some(true)
                         || self.disabled
                         || self.deleting))
+        }) {
+            return Err(Error::State);
+        }
+        if self.public_usage.as_ref().is_some_and(|p| {
+            p.revision.len() > 64
+                || p.changed_at > 253402300799999
+                || (p.enabled
+                    && (self.identity.is_none()
+                        || self.opt_in != Some(true)
+                        || self.disabled
+                        || self.deleting
+                        || !self.history.as_ref().is_some_and(|h| h.enabled)))
         }) {
             return Err(Error::State);
         }
@@ -203,6 +217,7 @@ impl State {
             opt_in: None,
             history: None,
             profile: None,
+            public_usage: None,
             opt_in_scope: None,
             disabled: false,
             deleting: false,
@@ -216,7 +231,19 @@ impl State {
             dropped: 0,
         }
     }
+    pub fn withdraw_public_usage(&mut self) -> Result<(), Error> {
+        if let Some(choice) = &mut self.public_usage
+            && choice.enabled
+        {
+            choice.revision = super::PUBLIC_USAGE_CONSENT_REVISION.into();
+            choice.enabled = false;
+            choice.changed_at = super::now()?.max(choice.changed_at.saturating_add(1));
+            choice.confirmed = false;
+        }
+        Ok(())
+    }
     pub fn withdraw_history(&mut self) -> Result<(), Error> {
+        self.withdraw_public_usage()?;
         if let Some(history) = &mut self.history
             && history.enabled
         {

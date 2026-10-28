@@ -140,6 +140,59 @@ export async function historyIntegration(admin: string, runtime: string, reporte
     // The public gate is independent of private persistence.
     assert.equal((await publicUsage()).error, "not_found");
     await configureHistory(admin, true, true, "synthetic-history-review");
+    // An operator switch and old history grants cannot authorize publication.
+    assert.deepEqual(checkedPublicUsage(await publicUsage()).series, []);
+    await sql(
+      `UPDATE app_tracking.history_policy_v1 SET public_coverage_from=${q(month)} WHERE singleton`,
+    );
+    assert.equal(await finalize(), "finalized");
+    assert.equal(checkedPublicUsage(await publicUsage()).series[0]!.count, null);
+    const publicChoice = (id: string, enabled: boolean, at: number, suppliedToken = token) =>
+      psql(
+        runtime,
+        `SELECT app_tracking.set_public_permission_v1('ferriki','events',${q(id)},${q(suppliedToken)},${enabled},${at})`,
+      ).then(JSON.parse);
+    assert.equal(
+      (await publicChoice(ids[0]!, true, permissionAt, "b".repeat(64))).error,
+      "unauthorized",
+    );
+    for (const id of ids)
+      assert.equal((await publicChoice(id, true, permissionAt)).status, "updated");
+    assert.equal(
+      await sql(
+        "SELECT bool_and(eligible_from=CURRENT_DATE+1) FROM app_tracking.public_permissions_v1",
+      ),
+      "t",
+    );
+    // Backdated client choices never include earlier reports.
+    assert.equal(
+      JSON.parse(
+        await sql(
+          `SELECT app_tracking.public_candidate_v1(${q(month)},'ferriki','events','language.use','local')`,
+        ),
+      ).state,
+      "suppressed",
+    );
+    // Only disposable synthetic fixtures simulate pre-month acknowledgements.
+    await sql(
+      `UPDATE app_tracking.public_permissions_v1 SET eligible_from=${q(month)}; DELETE FROM app_tracking.public_periods_v1;`,
+    );
+    assert.equal(await finalize(), "finalized");
+    assert.equal(checkedPublicUsage(await publicUsage()).series[0]!.count, "200");
+    assert.deepEqual(JSON.parse(await sql("SELECT data FROM app_tracking.public_periods_v1")), {
+      count: "200",
+    });
+    assert.equal((await publicChoice(ids[0]!, false, permissionAt + 1)).status, "updated");
+    assert.equal(checkedPublicUsage(await publicUsage()).series[0]!.count, null);
+    assert.equal((await history()).months[0]!.data!.count, "200");
+    assert.equal((await publicChoice(ids[0]!, true, permissionAt)).error, "registration_conflict");
+    await runHistoryMaintenance(admin);
+    assert.equal(checkedPublicUsage(await publicUsage()).series[0]!.count, null); // 19 contributors
+    assert.equal((await publicChoice(ids[0]!, true, permissionAt + 2)).status, "updated");
+    await sql(
+      `UPDATE app_tracking.public_permissions_v1 SET eligible_from=${q(month)}; DELETE FROM app_tracking.public_periods_v1;`,
+    );
+    assert.equal(await finalize(), "finalized");
     let exported = checkedPublicUsage(await publicUsage());
     assert.equal(exported.series[0]!.count, "200");
     const serialized = JSON.stringify(exported);
@@ -160,6 +213,8 @@ export async function historyIntegration(admin: string, runtime: string, reporte
     ])
       await assert.rejects(psql(runtime, statement));
     await assert.rejects(psql(reporter, "SELECT * FROM app_tracking.history_periods_v1"));
+    await assert.rejects(psql(runtime, "SELECT * FROM app_tracking.public_periods_v1"));
+    await assert.rejects(psql(reporter, "SELECT * FROM app_tracking.public_permissions_v1"));
     await assert.rejects(psql(reporter, "SELECT app_tracking.maintain_history_v1()"));
     // A late-arrival window cannot be finalized, even with source rows available.
     assert.equal(
@@ -251,7 +306,7 @@ export async function historyIntegration(admin: string, runtime: string, reporte
     );
     // Expiry is read-time visible before physical cleanup.
     await sql(
-      "UPDATE app_tracking.history_periods_v1 SET expires_at=statement_timestamp()-interval '1 second'",
+      "UPDATE app_tracking.history_periods_v1 SET expires_at=statement_timestamp()-interval '1 second'; UPDATE app_tracking.public_periods_v1 SET expires_at=statement_timestamp()-interval '1 second'",
     );
     assert.equal(checkedPublicUsage(await publicUsage()).series.length, 0);
     await runHistoryMaintenance(admin, 300);
@@ -278,7 +333,7 @@ export async function historyIntegration(admin: string, runtime: string, reporte
     };
   } finally {
     await sql(
-      "UPDATE app_tracking.history_policy_v1 SET enabled=false,public_enabled=false,coverage_from=NULL,review_reference=NULL WHERE singleton; DELETE FROM app_tracking.history_periods_v1;",
+      "UPDATE app_tracking.history_policy_v1 SET enabled=false,public_enabled=false,coverage_from=NULL,review_reference=NULL,public_coverage_from=NULL WHERE singleton; DELETE FROM app_tracking.history_periods_v1; DELETE FROM app_tracking.public_periods_v1;",
     );
     await sql(
       `DELETE FROM app_tracking.event_batches_v1 WHERE installation_id IN (${ids.map(q).join(",")}); DELETE FROM app_tracking.event_installations_v1 WHERE installation_id IN (${ids.map(q).join(",")});`,
