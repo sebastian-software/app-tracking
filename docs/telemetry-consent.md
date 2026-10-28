@@ -226,3 +226,12 @@ The host preserves command stdout, JSON, stderr policy, and exit status. The
 client does not print telemetry success/failure notices on ordinary commands;
 status/preview expose them when requested. No telemetry failure can prevent a
 version check from using its independent public cache.
+
+## Additional monthly-history permission
+
+This ordinary usage notice does not grant longer retention. The separate
+[monthly-history contract](monthly-history.md) defines the additional library
+explanation, affirmative choice, acknowledgement, future-only eligibility, and
+withdrawal. History remains disabled pending released notices and its concrete
+review. Do not silently add this scope to existing installations or treat a
+client upgrade as consent.

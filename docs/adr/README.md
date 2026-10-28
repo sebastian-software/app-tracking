@@ -16,6 +16,8 @@ direction is decided, not that it is implemented or deployed.
 | [0009](0009-private-maintainer-reporting.md)             | Private maintainer reporting              | Accepted |
 | [0010](0010-metrics-purposes-and-consent.md)             | Metrics, purposes, and consent assessment | Proposed |
 
+| [0011](0011-monthly-history-retention.md) | Separately permitted monthly history | Accepted |
+
 Use sequential, zero-padded filenames. An ADR records context, the decision,
 and its consequences. The status vocabulary is Proposed, Accepted, Rejected,
 Deprecated, or Superseded.

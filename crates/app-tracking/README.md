@@ -47,6 +47,22 @@ grants before adopting this API. See the repository's
 [`docs/unified-client.md`](https://github.com/sebastian-software/app-tracking/blob/main/docs/unified-client.md)
 for settings, process policy, limits, cancellation, and rollout details.
 
+## Optional monthly history
+
+Ordinary usage grants do not include longer retention. The separate
+`request_history_opt_in(reason)` dialog explains screened monthly summaries
+retained for 24 months. `set_history_opt_in(bool)` saves a local choice,
+`history_status()` exposes pending acknowledgement, and
+`sync_history_permission()` sends it only when explicitly called from settings
+(with a five-second total network budget). Register ordinary reporting first;
+server eligibility starts on the UTC date after acknowledgement. Declining
+ordinary reporting also queues a history withdrawal. Synchronize that change
+from settings or complete authenticated deletion; offline changes stay pending.
+
+The server feature remains disabled until its disclosure/review gate is met.
+See [the history contract](https://github.com/sebastian-software/app-tracking/blob/main/docs/monthly-history.md)
+for consent, deletion, downgrade behavior and the unchanged 90-day detail limit.
+
 ## Update checks
 
 The synchronous update client uses a public version API with a separate cache.

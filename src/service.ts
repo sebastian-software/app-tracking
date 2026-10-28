@@ -14,7 +14,12 @@ export function createService(
   const version = createHandler(options);
   return async (request) => {
     const path = new URL(request.url).pathname;
-    if (path === "/admin" || path.startsWith("/admin/") || path.startsWith("/v1/admin/")) {
+    if (
+      path === "/v1/public/usage" ||
+      path === "/admin" ||
+      path.startsWith("/admin/") ||
+      path.startsWith("/v1/admin/")
+    ) {
       try {
         const handle = reporting();
         return handle ? await handle(request) : failure("not_found");
@@ -23,6 +28,7 @@ export function createService(
       }
     }
     if (
+      !path.startsWith("/v1/history-permissions/") &&
       path !== "/v1/usage-batches" &&
       !/^\/v1\/installations\/[^/]+$/.test(path) &&
       path !== "/v1/event-batches" &&

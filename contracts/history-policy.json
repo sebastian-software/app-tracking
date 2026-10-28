@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "revision": "monthly-history-v1",
+  "retention_months_after_month_end": 24,
+  "finalize_on_next_month_day": 8,
+  "minimum_installations": 20,
+  "minimum_known_projects": 20,
+  "maximum_contribution_percent": 10,
+  "maximum_cells_per_breakdown": 100,
+  "public_dimensions": ["month", "tool", "stream", "metric", "mode"],
+  "public_count_rounding": 10,
+  "default_enabled": false,
+  "default_public_enabled": false
+}

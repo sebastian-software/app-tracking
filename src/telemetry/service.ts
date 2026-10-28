@@ -1,3 +1,4 @@
+import { createHistoryPermissionHandler } from "./history.ts";
 import { createStorage } from "../storage/database.ts";
 import { createTelemetryHandler } from "./handler.ts";
 import { createEventHandler } from "./events.ts";
@@ -9,6 +10,13 @@ export function createTelemetryService(databaseUrl: string) {
   const storage = createStorage(databaseUrl);
   const legacy = createTelemetryHandler(storage);
   const events = createEventHandler(storage);
-  return (request: Request) =>
-    new URL(request.url).pathname.startsWith("/v1/event-") ? events(request) : legacy(request);
+  const history = createHistoryPermissionHandler(storage);
+  return (request: Request) => {
+    const path = new URL(request.url).pathname;
+    return path.startsWith("/v1/history-permissions/")
+      ? history(request)
+      : path.startsWith("/v1/event-")
+        ? events(request)
+        : legacy(request);
+  };
 }

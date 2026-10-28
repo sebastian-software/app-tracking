@@ -196,6 +196,10 @@ impl Client {
         if complete {
             store.state.identity = None;
             store.state.deleting = false;
+            if let Some(history) = &mut store.state.history {
+                history.enabled = false;
+                history.confirmed = true;
+            }
         }
         store.save()?;
         Ok(complete)

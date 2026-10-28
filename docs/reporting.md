@@ -289,3 +289,13 @@ Detailed reporting retains exactly the existing 90-day horizon. Historical
 monthly summaries are a separate [proposal](rfcs/0004-historical-usage-summaries.md)
 within #13; no historical series is persisted or silently recovered from
 backups by this implementation. Public exports remain #14.
+
+## Monthly history and public projection
+
+The additional [monthly-history contract](monthly-history.md) defines the
+WorkOS-protected `/v1/admin/history` view and separately gated fixed public
+projection. History is disabled by default, requires additional per-installation
+permission, and uses the selected 24-month horizon. The legacy/generic detail
+views retain their 90-day limit. The public projection is not the private API
+with authentication removed; its fixed schema excludes unique counts and
+breakdowns and accepts no filters.

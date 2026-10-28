@@ -1,3 +1,4 @@
+import { historyFixture } from "../test/fixtures/history.ts";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { readFile, mkdir } from "node:fs/promises";
@@ -12,6 +13,10 @@ let requests = 0;
 let handle: ReturnType<typeof createReportingHandler>;
 /* The handler is initialized after the ephemeral port is known. */
 const storage: () => ReportingStorage = () => ({
+  async history(query) {
+    requests++;
+    return historyFixture(query);
+  },
   async events(query) {
     requests++;
     return eventFixture(query);
@@ -178,6 +183,36 @@ try {
   await page.getByText("23,514", { exact: true }).waitFor();
   assert.equal(await page.getByLabel("Tool", { exact: true }).inputValue(), "all");
   assert.equal(await page.locator("#systems-panel").isVisible(), false);
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  await page.getByLabel("Report", { exact: true }).selectOption("history");
+  await page
+    .getByText("Monthly summaries loaded. Gaps and withheld groups are not zeroes.")
+    .waitFor();
+  assert.equal(await page.locator("#detail-report").isVisible(), false);
+  assert.equal(await page.locator("#from").getAttribute("type"), "month");
+  assert.ok((await page.locator("#months").innerText()).includes("Incomplete"));
+  assert.ok((await page.locator("#months").innerText()).includes("Withheld"));
+  assert.ok(
+    (await page.locator("#history-breakdowns").innerText()).includes("version_family: 2.0"),
+  );
+  await page.evaluate(axe);
+  const historyAudit = await page.evaluate(async () =>
+    (
+      window as unknown as {
+        axe: { run(options: unknown): Promise<{ violations: { id: string }[] }> };
+      }
+    ).axe.run({ runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } }),
+  );
+  assert.deepEqual(
+    historyAudit.violations.map((item) => item.id),
+    [],
+  );
+  await page.screenshot({ path: "dist/reporting-evidence/history-desktop.png", fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await page.screenshot({ path: "dist/reporting-evidence/history-mobile.png", fullPage: true });
+  await page.getByLabel("Report", { exact: true }).selectOption("legacy");
+  await page.getByText("23,514", { exact: true }).waitFor();
   await page.setViewportSize({ width: 1440, height: 1100 });
   await page.getByRole("button", { name: "7 days", exact: true }).click();
   await page

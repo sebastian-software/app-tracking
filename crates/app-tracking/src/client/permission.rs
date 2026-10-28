@@ -196,7 +196,7 @@ impl Client {
     }
 }
 
-fn ask(
+pub(super) fn ask(
     input: &mut impl BufRead,
     output: &mut impl Write,
     prompt: &str,

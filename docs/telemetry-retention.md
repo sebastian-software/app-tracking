@@ -104,9 +104,10 @@ cross-region rate guarantee in this contract. Authenticated upload limits are
 specified in the wire contract. Deletion must remain accessible during an upload
 quota failure. The [maintainer reporting contract](reporting.md) owns the
 separately authorized private aggregate endpoint. Exact small cells are private
-controller reporting, not anonymous/public exports. Historical summaries remain
-proposed in [RFC 0004](rfcs/0004-historical-usage-summaries.md); #14 owns public
-small-cell/cross-query disclosure decisions. The 90-day detail policy is unchanged.
+controller reporting, not anonymous/public exports. Separately permitted [monthly history](monthly-history.md) has a selected
+24-month horizon and default-disabled persistence/public switches; #14 owns
+public small-cell/cross-query disclosure decisions. Existing usage grants do not
+include this additional scope. The 90-day detail policy is unchanged.
 
 ## Primary evidence checked 2026-10-23
 
@@ -169,3 +170,14 @@ Published sources checked on 2026-10-26:
 [PlanetScale DPA](https://planetscale.com/legal/data-processing-addendum).
 Review material provider changes against the notice; do not use their internal
 records as an alternate reporting source.
+
+## Separately permitted monthly summaries
+
+The additive monthly-history implementation remains disabled pending its
+released disclosure and risk assessment. When activated, only separately
+permitted future observations can produce screened summaries retained for 24
+months after month end. Additional permission metadata follows the active
+reporting identity lifecycle. Withdrawal, deletion and expiry invalidate entire
+potentially affected months; no contribution map survives the 90-day source
+window. See the [full contract](monthly-history.md) for unavailable periods,
+physical cleanup and recovery. This does not extend ordinary usage consent.
