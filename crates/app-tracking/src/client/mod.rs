@@ -10,6 +10,7 @@ mod download;
 mod history;
 mod permission;
 mod profile;
+mod public_usage;
 mod state;
 mod system;
 mod worker;
@@ -18,6 +19,9 @@ pub use download::{Cancellation, DownloadOptions, Resource, VerifiedDownload};
 pub use history::{HISTORY_CONSENT_REVISION, HISTORY_NOTICE, HistoryPermissionStatus};
 pub use permission::{Interaction, OptInDecision, PermissionOutcome};
 pub use profile::{PROFILE_CONSENT_REVISION, PROFILE_NOTICE, ProfilePermissionStatus};
+pub use public_usage::{
+    PUBLIC_USAGE_CONSENT_REVISION, PUBLIC_USAGE_NOTICE, PublicUsagePermissionStatus,
+};
 pub use system::{LinuxInfo, SystemInfo};
 pub use worker::BACKGROUND_WORKER_ARGUMENT;
 

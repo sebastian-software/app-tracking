@@ -83,6 +83,7 @@ try {
   }
   for (const [Name, flag] of [
     ["APP_TRACKING_HISTORY_ENABLED", "HISTORY_ENABLED"],
+    ["APP_TRACKING_PUBLIC_USAGE_ENABLED", "PUBLIC_USAGE_ENABLED"],
     ["APP_TRACKING_PROFILES_ENABLED", "PROFILES_ENABLED"],
   ]) {
     await api("PUT", `/compute/script/${target.scriptId}/secrets`, {

@@ -52,6 +52,9 @@ impl Client {
             }
             timestamp = timestamp.max(choice.changed_at.saturating_add(1));
         }
+        if !enabled {
+            store.state.withdraw_public_usage()?;
+        }
         store.state.history = Some(HistoryChoice {
             revision: HISTORY_CONSENT_REVISION.into(),
             enabled,
@@ -122,6 +125,9 @@ impl Client {
             || (enabled && store.state.generation != generation)
         {
             return Ok(PermissionOutcome::Unavailable);
+        }
+        if !enabled {
+            store.state.withdraw_public_usage()?;
         }
         store.state.history = Some(HistoryChoice {
             revision: HISTORY_CONSENT_REVISION.into(),

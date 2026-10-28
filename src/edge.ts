@@ -15,6 +15,9 @@ const handle = createService(
     const url = env("APP_TRACKING_DATABASE_URL");
     if (!url) throw new Error("Telemetry runtime is not configured");
     return (telemetry ??= createTelemetryService(url, {
+      publicEnabled:
+        env("APP_TRACKING_REPORTING_ENABLED") === "1" &&
+        env("APP_TRACKING_PUBLIC_USAGE_ENABLED") === "1",
       historyEnabled:
         env("APP_TRACKING_REPORTING_ENABLED") === "1" &&
         env("APP_TRACKING_HISTORY_ENABLED") === "1",

@@ -160,3 +160,11 @@ Production telemetry enablement and consumer adoption are separate steps.
 The update integration guide and release procedure live in the
 [repository documentation](https://github.com/sebastian-software/app-tracking/blob/app-tracking-v0.3.0/docs/rust-client.md).
 Licensed under MIT OR Apache-2.0.
+
+Public monthly totals require a third independent choice, after ordinary and
+monthly-history permission. Show `PUBLIC_USAGE_NOTICE`, then use
+`set_public_usage_opt_in`, `public_usage_status`, and
+`sync_public_usage_permission` only from explicit settings. The terminal helper
+`request_public_usage_opt_in` uses the same disclosure. History withdrawal also
+queues publication withdrawal; synchronize both. See the
+[publication contract](https://github.com/sebastian-software/app-tracking/blob/main/docs/public-usage-consent.md).

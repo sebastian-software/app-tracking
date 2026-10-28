@@ -176,3 +176,45 @@ test("the runtime history switch blocks extended retention grants without blocki
   assert.equal((await send(false)).status, 200);
   assert.equal(calls, 1);
 });
+
+test("publication requires its own route, revision, runtime switch and exact acknowledgement", async () => {
+  let calls = 0;
+  const storage = {
+    async setHistoryPermission(
+      _tool: string,
+      _stream: string,
+      _id: string,
+      _hash: string,
+      enabled: boolean,
+      changed_at: number,
+    ) {
+      calls++;
+      return { result: { status: "updated", enabled, changed_at } };
+    },
+  };
+  const handler = createHistoryPermissionHandler(storage, true, "public");
+  const request = (revision = "public-usage-v1", enabled = true) =>
+    new Request("https://api.example/v1/public-permissions/events/" + "a".repeat(64), {
+      method: "PUT",
+      headers: {
+        "App-Tracking-Tool": "palamedes",
+        Authorization: "Bearer " + "b".repeat(64),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ schema_version: 1, revision, enabled, changed_at: 1 }),
+    });
+  assert.equal((await handler(request("monthly-history-v1"))).status, 400);
+  assert.equal(calls, 0);
+  const response = await handler(request());
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.deepEqual(await response.json(), {
+    schema_version: 1,
+    revision: "public-usage-v1",
+    enabled: true,
+    changed_at: 1,
+  });
+  const disabled = createHistoryPermissionHandler(storage, false, "public");
+  assert.equal((await disabled(request())).status, 404);
+  assert.equal((await disabled(request("public-usage-v1", false))).status, 200);
+});

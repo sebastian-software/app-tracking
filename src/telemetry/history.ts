@@ -11,10 +11,19 @@ export interface HistoryPermissionStorage {
     signal: AbortSignal,
   ): Promise<{ result: unknown }>;
 }
-export function createHistoryPermissionHandler(storage: HistoryPermissionStorage, enabled = true) {
+export function createHistoryPermissionHandler(
+  storage: HistoryPermissionStorage,
+  enabled = true,
+  kind: "history" | "public" = "history",
+) {
   return async (request: Request): Promise<Response> => {
     const url = new URL(request.url),
-      match = /^\/v1\/history-permissions\/(legacy|events)\/([^/]+)$/.exec(url.pathname);
+      match = (
+        kind === "history"
+          ? /^\/v1\/history-permissions\/(legacy|events)\/([^/]+)$/
+          : /^\/v1\/public-permissions\/(legacy|events)\/([^/]+)$/
+      ).exec(url.pathname),
+      revision = kind === "history" ? "monthly-history-v1" : "public-usage-v1";
     if (!match) return failure("not_found");
     if (request.method !== "PUT") return failure("method_not_allowed", { Allow: "PUT" });
     if (
@@ -52,7 +61,7 @@ export function createHistoryPermissionHandler(storage: HistoryPermissionStorage
         !record(body) ||
         Object.keys(body).sort().join() !== "changed_at,enabled,revision,schema_version" ||
         body.schema_version !== 1 ||
-        body.revision !== "monthly-history-v1" ||
+        body.revision !== revision ||
         typeof body.enabled !== "boolean" ||
         !Number.isSafeInteger(body.changed_at) ||
         Number(body.changed_at) < 0
@@ -95,7 +104,7 @@ export function createHistoryPermissionHandler(storage: HistoryPermissionStorage
         return failure("service_unavailable");
       return reply({
         schema_version: 1,
-        revision: "monthly-history-v1",
+        revision,
         changed_at: body.changed_at,
         enabled: body.enabled,
       });
