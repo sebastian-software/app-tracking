@@ -1,3 +1,4 @@
+import { configureHistory } from "./storage/history.ts";
 import { readFile } from "node:fs/promises";
 import { bunnyApi, required } from "./bunny.ts";
 import type { Target } from "./provision.ts";
@@ -26,6 +27,14 @@ try {
     };
     validateWorkOSConfig(config);
     await migrate(migration);
+    const historyEnabled = process.env.HISTORY_ENABLED === "1";
+    const publicEnabled = process.env.PUBLIC_USAGE_ENABLED === "1";
+    await configureHistory(
+      migration,
+      historyEnabled,
+      publicEnabled,
+      process.env.HISTORY_REVIEW_REFERENCE ?? "",
+    );
     await grantReporting(migration, await prepareReportingLogin(migration, url));
     await checkRuntime(url);
     if (

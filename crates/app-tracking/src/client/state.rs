@@ -59,6 +59,8 @@ pub(super) struct State {
     pub schema_version: u8,
     pub scope: String,
     pub opt_in: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub history: Option<super::history::HistoryChoice>,
     #[serde(default)]
     pub opt_in_scope: Option<String>,
     pub disabled: bool,
@@ -86,6 +88,16 @@ impl State {
                 || id.consented_at > 253402300799999
                 || id.last_accepted_at > 253402300799999)
         {
+            return Err(Error::State);
+        }
+        if self.history.as_ref().is_some_and(|h| {
+            h.changed_at > 253402300799999
+                || (h.enabled
+                    && (self.identity.is_none()
+                        || self.opt_in != Some(true)
+                        || self.disabled
+                        || self.deleting))
+        }) {
             return Err(Error::State);
         }
         if self.opt_in_scope.as_ref().is_some_and(|scope| !hex(scope)) {
@@ -173,6 +185,7 @@ impl State {
             schema_version: 1,
             scope,
             opt_in: None,
+            history: None,
             opt_in_scope: None,
             disabled: false,
             deleting: false,
@@ -185,6 +198,16 @@ impl State {
             failures: 0,
             dropped: 0,
         }
+    }
+    pub fn withdraw_history(&mut self) -> Result<(), Error> {
+        if let Some(history) = &mut self.history
+            && history.enabled
+        {
+            history.enabled = false;
+            history.changed_at = super::now()?.max(history.changed_at.saturating_add(1));
+            history.confirmed = false;
+        }
+        Ok(())
     }
     pub fn clear(&mut self) {
         self.open.clear();

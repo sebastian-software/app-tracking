@@ -83,6 +83,21 @@ export function createStorage(url: string) {
     }
   }
   return {
+    setHistoryPermission(
+      tool: string,
+      stream: string,
+      id: string,
+      tokenHash: string,
+      enabled: boolean,
+      changedAt: number,
+      signal: AbortSignal,
+    ) {
+      return query(
+        "SELECT app_tracking.set_history_permission_v1($1,$2,$3,$4,$5,$6) AS result",
+        [tool, stream, id, tokenHash, enabled, changedAt],
+        signal,
+      );
+    },
     submitEvents(batch: EventBatch, hash: string, tokenHash: string | null, signal: AbortSignal) {
       return query(
         "SELECT app_tracking.accept_events_v1($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb) AS result",

@@ -1,6 +1,6 @@
 # RFC 0004: Historical usage summaries
 
-- Status: Proposed; no historical persistence or retention change enabled
+- Status: Design selected in ADR 0011; implementation remains disabled pending disclosure review
 - Date: 2026-10-27
 - Related issue: #13
 
@@ -12,12 +12,12 @@ Preserve useful invocation, command, and version trends after the exact rolling
 it cannot reconstruct expired history. The existing policy stays effective
 until a replacement is implemented and its disclosure is reconciled.
 
-Proposed default for review: retain finalized monthly summaries for five years
-after the end of their occurrence month, with daily granularity available only
-inside the existing detail window. Five years is a product proposal, not a
-statutory deadline or an approved anonymity claim. The intended historical
-audience is maintainers; public release remains #14. We need an explicit choice
-of historical horizon and a disclosure-risk review before enabling persistence.
+The selected horizon is **24 months after occurrence month end**, replacing
+this RFC's original five-year proposal. [ADR 0011](../adr/0011-monthly-history-retention.md)
+and the [implemented contract](../monthly-history.md) define additional
+permission, screening, deletion, and default-disabled activation. The concrete
+disclosure/publication review remains open; no deployed default changes merely
+because the schema is available.
 
 ## Candidate output
 

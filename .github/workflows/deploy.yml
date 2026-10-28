@@ -67,6 +67,9 @@ jobs:
     timeout-minutes: 15
     env:
       TELEMETRY_ENABLED: ${{ vars.APP_TRACKING_TELEMETRY_ENABLED == '1' && '1' || '0' }}
+      HISTORY_ENABLED: ${{ vars.APP_TRACKING_HISTORY_ENABLED == '1' && '1' || '0' }}
+      PUBLIC_USAGE_ENABLED: ${{ vars.APP_TRACKING_PUBLIC_USAGE_ENABLED == '1' && '1' || '0' }}
+      HISTORY_REVIEW_REFERENCE: ${{ vars.APP_TRACKING_HISTORY_REVIEW_REFERENCE }}
       REPORTING_ENABLED: ${{ vars.APP_TRACKING_REPORTING_ENABLED == '1' && '1' || '0' }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09

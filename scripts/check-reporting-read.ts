@@ -1,4 +1,5 @@
 import { createReportingStorage, reportingFailureLabel } from "../src/reporting/storage.ts";
+import { checkedHistory, checkedPublicUsage } from "../src/reporting/history.ts";
 import { checkedEvents } from "../src/reporting/events.ts";
 import { checkedUsage, type UsageQuery } from "../src/reporting/contract.ts";
 
@@ -19,6 +20,39 @@ export async function checkReportingRead(url: string): Promise<void> {
     );
     stage = "events_contract";
     checkedEvents(events, eventsQuery);
+    const endMonth = until.slice(0, 7) + "-01";
+    const startMonth = new Date(
+      Date.UTC(Number(endMonth.slice(0, 4)), Number(endMonth.slice(5, 7)) - 2, 1),
+    )
+      .toISOString()
+      .slice(0, 10);
+    const historyQuery = {
+      from: startMonth,
+      until: endMonth,
+      tool: "all" as const,
+      mode: "local" as const,
+      stream: "legacy" as const,
+      metric: "cli.invocation" as const,
+    };
+    stage = "history_storage";
+    const history = await createReportingStorage(url).history!(
+      historyQuery,
+      AbortSignal.timeout(2800),
+    );
+    stage = "history_contract";
+    checkedHistory(history, historyQuery);
+    stage = "public_storage";
+    const projected = await createReportingStorage(url).publicUsage!(AbortSignal.timeout(2800));
+    stage = "public_contract";
+    if (
+      !(
+        typeof projected === "object" &&
+        projected !== null &&
+        "error" in projected &&
+        projected.error === "not_found"
+      )
+    )
+      checkedPublicUsage(projected);
   } catch (error) {
     console.error("Reporting read check failed: " + stage + ":" + reportingFailureLabel(error));
     throw new Error("Reporting read check failed");

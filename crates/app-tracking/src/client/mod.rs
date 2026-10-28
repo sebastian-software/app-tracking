@@ -7,12 +7,14 @@
 //! uses the event-batch contract, independently of the legacy CLI-only API.
 
 mod download;
+mod history;
 mod permission;
 mod state;
 mod system;
 mod worker;
 
 pub use download::{Cancellation, DownloadOptions, Resource, VerifiedDownload};
+pub use history::{HISTORY_CONSENT_REVISION, HistoryPermissionStatus};
 pub use permission::{Interaction, OptInDecision, PermissionOutcome};
 pub use system::{LinuxInfo, SystemInfo};
 pub use worker::BACKGROUND_WORKER_ARGUMENT;
@@ -130,6 +132,8 @@ pub enum Error {
     PreviousIdentity,
     #[error("background reporting worker unavailable")]
     Background,
+    #[error("additional permission requires an active usage-reporting grant")]
+    AdditionalPermission,
     #[error("permission dialog input or output unavailable")]
     Interaction,
     #[error("resource unavailable in offline mode")]
@@ -426,6 +430,7 @@ impl Client {
                 });
             }
         } else {
+            store.state.withdraw_history()?;
             store.state.retain(Collection::OptOut);
         }
         store.save()
@@ -437,6 +442,7 @@ impl Client {
         let mut store = Store::open(self, true)?.ok_or(Error::State)?;
         let _network = store.network_guard()?;
         store.state.opt_in = Some(false);
+        store.state.withdraw_history()?;
         store.state.disabled = true;
         store.state.clear();
         store.state.deleting = store.state.identity.is_some();
@@ -453,6 +459,7 @@ impl Client {
         store.state.generation = store.state.generation.saturating_add(1);
         store.state.job = None;
         if disabled {
+            store.state.withdraw_history()?;
             store.state.clear();
         }
         store.save()

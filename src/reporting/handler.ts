@@ -1,3 +1,4 @@
+import { historyQuery, checkedHistory, checkedPublicUsage } from "./history.ts";
 import { eventQuery, checkedEvents } from "./events.ts";
 import { adminReply, checkedUsage, privateHeaders, utcDay, usageQuery } from "./contract.ts";
 import type { ReportingStorage } from "./storage.ts";
@@ -8,6 +9,27 @@ import type { ReportingAuth } from "./auth.ts";
 export function createReportingHandler(storage: () => ReportingStorage, auth: ReportingAuth) {
   return async (request: Request): Promise<Response> => {
     const url = new URL(request.url);
+    if (url.pathname === "/v1/public/usage") {
+      const headers = {
+        "Cache-Control": "no-store",
+        "CDN-Cache-Control": "no-store",
+        "Surrogate-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer",
+      };
+      if (request.method !== "GET" || url.search)
+        return Response.json({ error: "invalid_request" }, { status: 400, headers });
+      try {
+        const result = await storage().publicUsage?.(
+          AbortSignal.any([request.signal, AbortSignal.timeout(2800)]),
+        );
+        if (result && "error" in result && result.error === "not_found")
+          return Response.json({ error: "not_found" }, { status: 404, headers });
+        return Response.json(checkedPublicUsage(result), { headers });
+      } catch {
+        return Response.json({ error: "service_unavailable" }, { status: 503, headers });
+      }
+    }
     const authResponse = await auth.route(request);
     if (authResponse) return authResponse;
     const assets = new Map([
@@ -19,8 +41,9 @@ export function createReportingHandler(storage: () => ReportingStorage, auth: Re
     const loginMessage = url.pathname === "/admin" && /^\?auth=(failed|denied)$/.test(url.search);
     if (asset && request.method === "GET" && (!url.search || loginMessage))
       return new Response(asset[0], { headers: { ...privateHeaders, "Content-Type": asset[1] } });
+    const isHistory = url.pathname === "/v1/admin/history";
     const isEvents = url.pathname === "/v1/admin/events";
-    if (!isEvents && url.pathname !== "/v1/admin/usage")
+    if (!isHistory && !isEvents && url.pathname !== "/v1/admin/usage")
       return adminReply({ error: "not_found" }, 404);
     if (request.method !== "GET") return adminReply({ error: "method_not_allowed" }, 405);
     if (request.headers.has("origin") && request.headers.get("origin") !== url.origin)
@@ -35,7 +58,11 @@ export function createReportingHandler(storage: () => ReportingStorage, auth: Re
     }
     let query;
     try {
-      query = isEvents ? eventQuery(url) : usageQuery(url);
+      query = isHistory
+        ? { kind: "history" as const, value: historyQuery(url) }
+        : isEvents
+          ? { kind: "events" as const, value: eventQuery(url) }
+          : { kind: "usage" as const, value: usageQuery(url) };
     } catch {
       return reply({ error: "invalid_request" }, 400);
     }
@@ -44,22 +71,31 @@ export function createReportingHandler(storage: () => ReportingStorage, auth: Re
       const signal = AbortSignal.any([request.signal, AbortSignal.timeout(2800)]);
       const database = storage();
       const result =
-        "metric" in query
-          ? await database.events?.(query, signal)
-          : await database.usage(query, signal);
+        query.kind === "history"
+          ? await database.history?.(query.value, signal)
+          : query.kind === "events"
+            ? await database.events?.(query.value, signal)
+            : await database.usage(query.value, signal);
       stage = "contract";
       if (!result || typeof result !== "object") throw new Error("Invalid reporting result");
       if ("error" in result) {
         if (
           result.error === "outside_retention" &&
-          result.retained_from &&
+          "retained_from" in result &&
+          typeof result.retained_from === "string" &&
           utcDay(result.retained_from)
         )
           return reply({ error: "outside_retention", retained_from: result.retained_from }, 422);
         if (result.error === "invalid_request") return reply({ error: "invalid_request" }, 400);
         throw new Error("Reporting operation failed");
       }
-      return reply("metric" in query ? checkedEvents(result, query) : checkedUsage(result, query));
+      return reply(
+        query.kind === "history"
+          ? checkedHistory(result, query.value)
+          : query.kind === "events"
+            ? checkedEvents(result, query.value)
+            : checkedUsage(result, query.value),
+      );
     } catch (error) {
       const response = reply({ error: "service_unavailable" }, 503);
       response.headers.set(
