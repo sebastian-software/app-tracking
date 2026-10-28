@@ -28,6 +28,8 @@ export function createService(
       }
     }
     if (
+      !path.startsWith("/v1/profile-links/") &&
+      !path.startsWith("/v1/shared-profiles/") &&
       !path.startsWith("/v1/history-permissions/") &&
       path !== "/v1/usage-batches" &&
       !/^\/v1\/installations\/[^/]+$/.test(path) &&

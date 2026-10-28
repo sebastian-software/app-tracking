@@ -196,6 +196,11 @@ impl Client {
         if complete {
             store.state.identity = None;
             store.state.deleting = false;
+            if let Some(profile) = &mut store.state.profile {
+                profile.enabled = false;
+                profile.profile_id = None;
+                profile.confirmed = true;
+            }
             if let Some(history) = &mut store.state.history {
                 history.enabled = false;
                 history.confirmed = true;

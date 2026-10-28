@@ -197,3 +197,11 @@ The [deployment runbook](deployment.md#published-unified-client-verification)
 defines service-first rollout, old-artifact rollback behavior, and the live
 consumer check against an exact crates.io release. Routine publication goes
 through [Release Please](releasing.md); no manual version bump or tag is needed.
+
+## Additional profile linking
+
+The optional [profile contract](profile-linking.md) adds a separate per-tool
+choice and a shared random local profile. Construction/ordinary recording never
+creates it. CI remains excluded. Tool unlinking, authenticated ordinary deletion,
+and shared-profile reset are different operations. Production enrollment remains
+disabled pending its notice/review, and existing usage grants do not include it.

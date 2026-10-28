@@ -11,7 +11,7 @@ export interface HistoryPermissionStorage {
     signal: AbortSignal,
   ): Promise<{ result: unknown }>;
 }
-export function createHistoryPermissionHandler(storage: HistoryPermissionStorage) {
+export function createHistoryPermissionHandler(storage: HistoryPermissionStorage, enabled = true) {
   return async (request: Request): Promise<Response> => {
     const url = new URL(request.url),
       match = /^\/v1\/history-permissions\/(legacy|events)\/([^/]+)$/.exec(url.pathname);
@@ -58,6 +58,7 @@ export function createHistoryPermissionHandler(storage: HistoryPermissionStorage
         Number(body.changed_at) < 0
       )
         return failure("invalid_request");
+      if (body.enabled && !enabled) return failure("not_found");
       const tokenHash = await sha256(
         stream === "legacy" ? `app-tracking-token-v1\n${id}\n${token}` : token,
       );

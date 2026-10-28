@@ -1,3 +1,4 @@
+import { profileIntegration } from "./profiles.ts";
 import { historyIntegration } from "./history.ts";
 import { eventReportingIntegration } from "./event-reporting.ts";
 import { storageIntegration } from "./integration.ts";
@@ -30,6 +31,7 @@ try {
         event_reporting: await eventReportingIntegration(admin, runtime, reporter),
       }),
     );
+    console.log(JSON.stringify({ profiles: await profileIntegration(admin, runtime, reporter) }));
     console.log(JSON.stringify({ history: await historyIntegration(admin, runtime, reporter) }));
     console.log(JSON.stringify({ reporting_plan: await reportingQueryPlan(admin) }));
   } else

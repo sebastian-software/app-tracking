@@ -235,3 +235,11 @@ explanation, affirmative choice, acknowledgement, future-only eligibility, and
 withdrawal. History remains disabled pending released notices and its concrete
 review. Do not silently add this scope to existing installations or treat a
 client upgrade as consent.
+
+## Additional profile-linking permission
+
+Ordinary reporting and monthly-history consent do not permit cross-tool profile
+linking. The [separate profile notice and controls](profile-linking.md) cover its
+future-only eligibility, local random state, tool-scoped unlinking, shared reset,
+and unchanged 90-day detail horizon. Keep enrollment disabled until its released
+notice and concrete assessment cover this scope.

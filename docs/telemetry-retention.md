@@ -181,3 +181,13 @@ reporting identity lifecycle. Withdrawal, deletion and expiry invalidate entire
 potentially affected months; no contribution map survives the 90-day source
 window. See the [full contract](monthly-history.md) for unavailable periods,
 physical cleanup and recovery. This does not extend ordinary usage consent.
+
+## Separately permitted shared profiles
+
+Optional [profile linking](profile-linking.md) remains disabled pending its
+released disclosure and assessment. Tool reporting IDs and their 90-day source
+policy remain independent. The additional random shared ID/token hash and
+monotonic linking choice follow active links; inactive/reset metadata expires
+after 90 days, with scheduled physical cleanup within another 24 hours. No
+profile identifier or overlap breakdown enters the public feed. A shared reset
+removes links, while ordinary usage deletion remains tool-scoped.

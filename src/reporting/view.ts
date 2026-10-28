@@ -8,11 +8,11 @@ export const adminHTML = `<!doctype html>
 <p><a id="signin" class="signin" href="/admin/login">Continue with WorkOS</a></p>
 <p class="muted">Only approved maintainers can access this view.</p></section>
 <section id="workspace" hidden aria-label="Usage statistics">
-<form id="filters" class="filters"><label>Report<select id="source" aria-label="Report"><option value="legacy">Legacy CLI invocations</option><option value="events">Generic events</option><option value="history">Monthly history</option></select></label>
+<form id="filters" class="filters"><label>Report<select id="source" aria-label="Report"><option value="legacy">Legacy CLI invocations</option><option value="events">Generic events</option><option value="history">Monthly history</option><option value="profiles">Cross-tool profiles</option></select></label>
 <label id="history-stream-filter" hidden>History stream<select id="history-stream" aria-label="History stream"><option value="legacy">Legacy CLI invocations</option><option value="events">Generic events</option></select></label>
 <label id="metric-filter" hidden>Metric<select id="metric" aria-label="Metric"><option value="cli.invocation">CLI invocations</option><option value="resource.download">Verified resource downloads</option><option value="language.use">Language-use observations</option></select></label>
-<label>Tool<select id="tool" aria-label="Tool"><option value="all">All tools</option><option value="palamedes">Palamedes</option><option value="dalo">Dalo</option><option id="ferriki-option" value="ferriki" hidden disabled>Ferriki</option></select></label>
-<label>Context<select id="mode"><option value="local">Local CLI</option><option value="ci">CI · explicit opt-in</option></select></label>
+<label id="tool-filter">Tool<select id="tool" aria-label="Tool"><option value="all">All tools</option><option value="palamedes">Palamedes</option><option value="dalo">Dalo</option><option id="ferriki-option" value="ferriki" hidden disabled>Ferriki</option></select></label>
+<label id="mode-filter">Context<select id="mode"><option value="local">Local CLI</option><option value="ci">CI · explicit opt-in</option></select></label>
 <label class="date-filter">From (UTC)<input id="from" type="date" required></label><label class="date-filter">Through (UTC)<input id="through" type="date" required></label><button class="primary" type="submit">Apply filters</button>
 <div id="day-presets" class="presets" aria-label="Quick date ranges"><button type="button" data-days="7">7 days</button><button type="button" data-days="30">30 days</button><button type="button" data-days="90">90 days</button></div><div id="month-presets" class="presets" aria-label="Quick month ranges" hidden><button type="button" data-months="12">12 months</button><button type="button" data-months="24">24 months</button></div></form>
 <div class="report-heading"><h2 id="period">Usage overview</h2><p id="snapshot" class="muted"></p></div>
@@ -23,6 +23,7 @@ export const adminHTML = `<!doctype html>
 <section class="panel" aria-labelledby="versions-title"><div class="panel-heading"><h3 id="versions-title">Version adoption</h3><span id="version-count" class="muted"></span></div><div class="table-scroll" tabindex="0" role="region" aria-label="Version adoption table"><table><thead><tr><th scope="col">Tool / version</th><th scope="col" class="number" data-count-heading>Invocations</th></tr></thead><tbody id="versions"></tbody></table></div><p id="truncated" class="muted table-note" hidden>Showing the top 100 versions. Totals include every version.</p></section></div>
 <section id="systems-panel" class="panel system-panel" aria-labelledby="systems-title" hidden><div class="panel-heading"><h3 id="systems-title">System context</h3><label>Breakdown<select id="system-dimension" aria-label="Breakdown"><option value="os">Operating system</option><option value="os_version">OS version</option><option value="arch">Executable architecture</option><option value="cpu_family">CPU family</option><option value="linux_distribution">Linux distribution</option><option value="linux_distribution_version">Linux distribution version</option><option value="linux_kernel_version">Linux kernel version</option></select></label></div><div class="table-scroll" tabindex="0" role="region" aria-label="System context table"><table><thead><tr><th scope="col">Category</th><th scope="col" class="number" data-count-heading>Observations</th></tr></thead><tbody id="systems"></tbody></table></div><p class="muted table-note">Counts describe observations in the selected metric, not distinct devices. Linux breakdowns cover Linux observations only. Unknown values remain visible.</p><p id="event-truncated" class="muted table-note" hidden>Some breakdowns exceed the limit of 100 rows per field. Totals include all observations.</p><p class="muted table-note">Host, runtime, and separate library versions are not collected by the current event contract. Software versions appear in Version adoption.</p></section>
 </div><section id="history-panel" hidden aria-labelledby="history-title"><h3 id="history-title">Monthly summaries</h3><p class="muted">A dash means unavailable data, not zero. Monthly unique counts cannot be summed into annual uniques. Summaries expire 24 months after the end of their occurrence month.</p><div class="panel"><div class="table-scroll" tabindex="0" role="region" aria-label="Monthly history table"><table><thead><tr><th scope="col">Month / tool</th><th scope="col">State</th><th scope="col" class="number">Observations</th><th scope="col" class="number">Monthly installations</th><th scope="col" class="number">Monthly projects</th></tr></thead><tbody id="months"></tbody></table></div></div><section class="panel system-panel" aria-labelledby="history-details-title"><div class="panel-heading"><h3 id="history-details-title">Monthly breakdowns</h3><label>Month details<select id="history-month" aria-label="Month details"></select></label></div><div class="table-scroll" tabindex="0" role="region" aria-label="Monthly breakdowns table"><table><thead><tr><th scope="col">Dimension / category</th><th scope="col" class="number">Observations</th></tr></thead><tbody id="history-breakdowns"></tbody></table></div><p id="history-suppressed" class="muted table-note"></p></section></section>
+<section id="profiles-panel" hidden aria-labelledby="profiles-title"><h3 id="profiles-title">Cross-tool overlap</h3><p id="profiles-total" class="muted"></p><div class="panel"><div class="table-scroll" tabindex="0" role="region" aria-label="Profile overlap table"><table><thead><tr><th scope="col">Tools observed in this period</th><th scope="col" class="number">Linked profiles</th></tr></thead><tbody id="profiles"></tbody></table></div></div><p class="muted table-note">Each profile appears once, with the tools that reported eligible activity anywhere in the selected period. These are consenting local profiles, not verified people or physical machines. Tool credentials remain separate. CI is excluded. Linking starts after its own server acknowledgement and never reconstructs earlier overlap.</p></section>
 <aside class="measurement"><h3>What these numbers mean</h3><p>These are metric-specific observations, installations, and repository projects from consenting tool users. Legacy CLI invocations and generic events are separate; they are never added together. Downloads, actual language use (including cache hits), and dependency grammar loads answer different questions. Language-use source categories distinguish explicit and dependency loads; the integrating tool defines the exact counting boundary. They are not counts of people or all users. Local and CI activity are measured separately.</p><p>Project identities are shared across clones and tools. Installation identities are scoped to a tool. Period-wide unique counts are calculated for the whole selected window; daily unique counts must not be added together.</p><p>Recent days can change as delayed batches arrive. Deletion and expiry remove contributions from subsequent queries. Detailed usage is retained for 90 days. Separately permitted, screened monthly summaries can be retained for 24 months. A deletion can invalidate a historical month when its source data can no longer be recomputed. No reports does not mean no users; these totals cannot establish adoption outside the reporting population.</p></aside>
 </section><p id="status" role="status" aria-live="polite"></p><button id="retry" hidden>Try again</button></main>
 <footer>app-tracking · Private reporting · All dates in UTC</footer></body></html>`;
@@ -47,8 +48,8 @@ export const adminJS = String.raw`
   function clear() {
     latest = undefined; historyResult = undefined;
     for (const name of ['invocations','installations','projects','unknown']) $(name).textContent = '—';
-    for (const name of ['chart','commands','versions','systems','months','history-breakdowns','history-month']) $(name).replaceChildren();
-    $('history-suppressed').textContent=''; $('snapshot').textContent = ''; $('command-count').textContent = ''; $('version-count').textContent = '';
+    for (const name of ['chart','commands','versions','systems','months','history-breakdowns','history-month','profiles']) $(name).replaceChildren();
+    $('profiles-total').textContent='';$('history-suppressed').textContent=''; $('snapshot').textContent = ''; $('command-count').textContent = ''; $('version-count').textContent = '';
     $('coverage').hidden = true; $('empty').hidden = true; $('truncated').hidden = true; $('event-truncated').hidden = true;
   }
   async function signout() {
@@ -93,7 +94,7 @@ export const adminJS = String.raw`
   }
   function renderHistory(result) {
     historyResult=result;latest=undefined;$('workspace').hidden=false;$('login').hidden=true;$('signout').hidden=false;
-    $('detail-report').hidden=true;$('history-panel').hidden=false;
+    $('detail-report').hidden=true;$('history-panel').hidden=false;$('profiles-panel').hidden=true;
     $('period').textContent=result.period.from.slice(0,7)+' — '+shiftMonth(result.period.until.slice(0,7),-1);
     $('snapshot').textContent='Snapshot '+new Date(result.period.snapshot_at).toLocaleString('en-GB',{timeZone:'UTC'})+' UTC';
     const names={finalized:'Finalized',suppressed:'Withheld',incomplete:'Incomplete',pending:'Pending',expired:'Expired',disabled:'Disabled'};
@@ -107,13 +108,24 @@ export const adminJS = String.raw`
     historyDetails();
     status(result.enabled?'Monthly summaries loaded. Gaps and withheld groups are not zeroes.':'Monthly history is not enabled. Detailed reporting remains available.');
   }
+  function renderProfiles(result) {
+    latest=undefined;historyResult=undefined;$('workspace').hidden=false;$('login').hidden=true;$('signout').hidden=false;
+    $('detail-report').hidden=true;$('history-panel').hidden=true;$('profiles-panel').hidden=false;
+    $('period').textContent=result.period.from+' — '+addDay(result.period.until,-1);
+    $('snapshot').textContent='Snapshot '+new Date(result.period.snapshot_at).toLocaleString('en-GB',{timeZone:'UTC'})+' UTC';
+    $('profiles-total').textContent=result.enabled?format(result.totals.profiles)+' linked profiles · '+format(result.totals.installations)+' tool installations · '+format(result.totals.projects)+' reporting repositories':'Profile linking is not enabled.';
+    for(const item of result.combinations){const tr=document.createElement('tr'),label=document.createElement('td'),number=document.createElement('td');label.textContent=item.tools.join(' + ');number.className='number';number.textContent=format(item.profiles);tr.append(label,number);$('profiles').append(tr);}
+    status(result.enabled?(result.combinations.length?'Overlap loaded for the complete selected period.':'No eligible linked reports are available for this period.'):'Profile linking is not enabled. Independent tool reporting remains available.');
+  }
   function sourceControls() {
+    const profiles=$('source').value==='profiles';
     const history=$('source').value==='history';
     const events=$('source').value==='events'||(history&&$('history-stream').value==='events');
     $('history-stream-filter').hidden=!history;$('day-presets').hidden=history;$('month-presets').hidden=!history;
     const type=history?'month':'date';
     if($('from').type!==type){$('from').type=type;$('through').type=type;if(history)monthRange();else range(30);}
-    $('detail-report').hidden=history;$('history-panel').hidden=!history;
+    $('detail-report').hidden=history||profiles;$('history-panel').hidden=!history;$('profiles-panel').hidden=!profiles;
+    $('tool-filter').hidden=profiles;$('mode-filter').hidden=profiles;
     $('metric-filter').hidden=!events; $('metric').disabled=!events;
     $('ferriki-option').hidden=!events; $('ferriki-option').disabled=!events;
     if(!events && $('tool').value==='ferriki') $('tool').value='all';
@@ -150,7 +162,7 @@ export const adminJS = String.raw`
     if(events) {
       result={...result,totals:{...result.totals,invocations:result.totals.count,unknown_project_invocations:result.totals.unknown_project_count},daily:result.daily.map(row=>({...row,invocations:row.count})),commands:result.dimensions.map(row=>({...row,command:row.dimension+': '+row.value,invocations:row.count})),versions:result.versions.map(row=>({...row,invocations:row.count}))};
     }
-    latest=result;historyResult=undefined;$('detail-report').hidden=false;$('history-panel').hidden=true;
+    latest=result;historyResult=undefined;$('detail-report').hidden=false;$('history-panel').hidden=true;$('profiles-panel').hidden=true;
     $('count-label').textContent=countName(); $('trend-title').textContent='Daily '+countName().toLowerCase();
     $('commands-title').textContent=events?'Event dimensions':'Command usage';
     $('dimension-label').textContent=events?'Tool / dimension':'Tool / command';
@@ -175,15 +187,17 @@ export const adminJS = String.raw`
   }
   async function load() {
     pending?.abort(); const controller=new AbortController(); pending=controller;
+    const profiles=$('source').value==='profiles';
     const history=$('source').value==='history';
     const events=$('source').value==='events'||(history&&$('history-stream').value==='events');
     const params=new URLSearchParams({from:$('from').value,until:history?shiftMonth($('through').value,1)+'-01':addDay($('through').value,1),tool:$('tool').value,mode:$('mode').value});
     if(events)params.set('metric',$('metric').value);
+    if(profiles){params.delete('tool');params.delete('mode');}
     if(history){params.set('from',$('from').value+'-01');params.set('until',shiftMonth($('through').value,1)+'-01');params.set('stream',$('history-stream').value);params.set('metric',events?$('metric').value:'cli.invocation');}
     clear(); status('Loading statistics…');
     $('workspace').setAttribute('aria-busy','true');
     try {
-      const response=await fetch((history?'/v1/admin/history?':events?'/v1/admin/events?':'/v1/admin/usage?')+params,{cache:'no-store',credentials:'same-origin',signal:controller.signal});
+      const response=await fetch((profiles?'/v1/admin/profiles?':history?'/v1/admin/history?':events?'/v1/admin/events?':'/v1/admin/usage?')+params,{cache:'no-store',credentials:'same-origin',signal:controller.signal});
       const result=await response.json();
       if(controller.signal.aborted) return;
       if(response.status===401 || response.status===403) {
@@ -193,7 +207,7 @@ export const adminJS = String.raw`
         return;
       }
       if(!response.ok) throw new Error(response.status===422?'This period is outside the 90-day detail window. Choose a more recent period.':response.status===400?(history?'Choose a valid range of at most 24 whole months.':'Choose a valid date range of at most 90 days.'):'Statistics are unavailable. No zero values have been substituted.');
-      if(history)renderHistory(result);else render(result);
+      if(profiles)renderProfiles(result);else if(history)renderHistory(result);else render(result);
     } catch(error) { if(!controller.signal.aborted) status(error.message==='Failed to fetch'?'Statistics are unavailable. Try again.':error.message,true); }
     finally { if(pending===controller) $('workspace').removeAttribute('aria-busy'); }
   }

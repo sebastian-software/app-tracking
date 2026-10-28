@@ -1,3 +1,4 @@
+import { profileQuery, checkedProfiles } from "./profiles.ts";
 import { historyQuery, checkedHistory, checkedPublicUsage } from "./history.ts";
 import { eventQuery, checkedEvents } from "./events.ts";
 import { adminReply, checkedUsage, privateHeaders, utcDay, usageQuery } from "./contract.ts";
@@ -41,9 +42,10 @@ export function createReportingHandler(storage: () => ReportingStorage, auth: Re
     const loginMessage = url.pathname === "/admin" && /^\?auth=(failed|denied)$/.test(url.search);
     if (asset && request.method === "GET" && (!url.search || loginMessage))
       return new Response(asset[0], { headers: { ...privateHeaders, "Content-Type": asset[1] } });
+    const isProfiles = url.pathname === "/v1/admin/profiles";
     const isHistory = url.pathname === "/v1/admin/history";
     const isEvents = url.pathname === "/v1/admin/events";
-    if (!isHistory && !isEvents && url.pathname !== "/v1/admin/usage")
+    if (!isProfiles && !isHistory && !isEvents && url.pathname !== "/v1/admin/usage")
       return adminReply({ error: "not_found" }, 404);
     if (request.method !== "GET") return adminReply({ error: "method_not_allowed" }, 405);
     if (request.headers.has("origin") && request.headers.get("origin") !== url.origin)
@@ -58,11 +60,13 @@ export function createReportingHandler(storage: () => ReportingStorage, auth: Re
     }
     let query;
     try {
-      query = isHistory
-        ? { kind: "history" as const, value: historyQuery(url) }
-        : isEvents
-          ? { kind: "events" as const, value: eventQuery(url) }
-          : { kind: "usage" as const, value: usageQuery(url) };
+      query = isProfiles
+        ? { kind: "profiles" as const, value: profileQuery(url) }
+        : isHistory
+          ? { kind: "history" as const, value: historyQuery(url) }
+          : isEvents
+            ? { kind: "events" as const, value: eventQuery(url) }
+            : { kind: "usage" as const, value: usageQuery(url) };
     } catch {
       return reply({ error: "invalid_request" }, 400);
     }
@@ -71,11 +75,13 @@ export function createReportingHandler(storage: () => ReportingStorage, auth: Re
       const signal = AbortSignal.any([request.signal, AbortSignal.timeout(2800)]);
       const database = storage();
       const result =
-        query.kind === "history"
-          ? await database.history?.(query.value, signal)
-          : query.kind === "events"
-            ? await database.events?.(query.value, signal)
-            : await database.usage(query.value, signal);
+        query.kind === "profiles"
+          ? await database.profiles?.(query.value, signal)
+          : query.kind === "history"
+            ? await database.history?.(query.value, signal)
+            : query.kind === "events"
+              ? await database.events?.(query.value, signal)
+              : await database.usage(query.value, signal);
       stage = "contract";
       if (!result || typeof result !== "object") throw new Error("Invalid reporting result");
       if ("error" in result) {
@@ -90,11 +96,13 @@ export function createReportingHandler(storage: () => ReportingStorage, auth: Re
         throw new Error("Reporting operation failed");
       }
       return reply(
-        query.kind === "history"
-          ? checkedHistory(result, query.value)
-          : query.kind === "events"
-            ? checkedEvents(result, query.value)
-            : checkedUsage(result, query.value),
+        query.kind === "profiles"
+          ? checkedProfiles(result, query.value)
+          : query.kind === "history"
+            ? checkedHistory(result, query.value)
+            : query.kind === "events"
+              ? checkedEvents(result, query.value)
+              : checkedUsage(result, query.value),
       );
     } catch (error) {
       const response = reply({ error: "service_unavailable" }, 503);

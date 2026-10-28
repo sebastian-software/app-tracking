@@ -299,3 +299,11 @@ permission, and uses the selected 24-month horizon. The legacy/generic detail
 views retain their 90-day limit. The public projection is not the private API
 with authentication removed; its fixed schema excludes unique counts and
 breakdowns and accepts no filters.
+
+## Optional cross-tool overlap
+
+The private `/v1/admin/profiles` view follows the separate
+[profile-linking contract](profile-linking.md). It counts mutually exclusive
+whole-period combinations of consenting local profiles. Profiles, tool
+installations, projects and people are different units. Linking remains disabled
+by default; no existing reporting identity is linked by deployment.

@@ -83,6 +83,29 @@ export function createStorage(url: string) {
     }
   }
   return {
+    setProfileLink(
+      tool: string,
+      id: string,
+      tokenHash: string,
+      enabled: boolean,
+      changedAt: number,
+      profileId: string | null,
+      profileTokenHash: string | null,
+      signal: AbortSignal,
+    ) {
+      return query(
+        "SELECT app_tracking.set_profile_link_v1($1,$2,$3,$4,$5,$6,$7) AS result",
+        [tool, id, tokenHash, enabled, changedAt, profileId, profileTokenHash],
+        signal,
+      );
+    },
+    resetProfile(id: string, tokenHash: string, signal: AbortSignal) {
+      return query(
+        "SELECT app_tracking.reset_profile_v1($1,$2) AS result",
+        [id, tokenHash],
+        signal,
+      );
+    },
     setHistoryPermission(
       tool: string,
       stream: string,
