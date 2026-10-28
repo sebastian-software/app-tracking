@@ -14,7 +14,14 @@ const handle = createService(
     if (env("APP_TRACKING_TELEMETRY_ENABLED") !== "1") return undefined;
     const url = env("APP_TRACKING_DATABASE_URL");
     if (!url) throw new Error("Telemetry runtime is not configured");
-    return (telemetry ??= createTelemetryService(url));
+    return (telemetry ??= createTelemetryService(url, {
+      historyEnabled:
+        env("APP_TRACKING_REPORTING_ENABLED") === "1" &&
+        env("APP_TRACKING_HISTORY_ENABLED") === "1",
+      profilesEnabled:
+        env("APP_TRACKING_REPORTING_ENABLED") === "1" &&
+        env("APP_TRACKING_PROFILES_ENABLED") === "1",
+    }));
   },
   {},
   () => {

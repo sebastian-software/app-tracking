@@ -1,3 +1,4 @@
+import { profileFixture } from "../test/fixtures/profiles.ts";
 import { historyFixture } from "../test/fixtures/history.ts";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
@@ -13,6 +14,10 @@ let requests = 0;
 let handle: ReturnType<typeof createReportingHandler>;
 /* The handler is initialized after the ephemeral port is known. */
 const storage: () => ReportingStorage = () => ({
+  async profiles(query) {
+    requests++;
+    return profileFixture(query);
+  },
   async history(query) {
     requests++;
     return historyFixture(query);
@@ -211,6 +216,29 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await page.screenshot({ path: "dist/reporting-evidence/history-mobile.png", fullPage: true });
+  await page.getByLabel("Report", { exact: true }).selectOption("profiles");
+  await page
+    .getByText("Overlap loaded for the complete selected period.", { exact: true })
+    .waitFor();
+  assert.equal(await page.locator("#tool-filter").isVisible(), false);
+  assert.equal(await page.locator("#mode-filter").isVisible(), false);
+  assert.ok((await page.locator("#profiles").innerText()).includes("dalo + palamedes"));
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await page.evaluate(axe);
+  const profileAudit = await page.evaluate(async () =>
+    (
+      window as unknown as {
+        axe: { run(options: unknown): Promise<{ violations: { id: string }[] }> };
+      }
+    ).axe.run({ runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } }),
+  );
+  assert.deepEqual(
+    profileAudit.violations.map((item) => item.id),
+    [],
+  );
+  await page.screenshot({ path: "dist/reporting-evidence/profiles-mobile.png", fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  await page.screenshot({ path: "dist/reporting-evidence/profiles-desktop.png", fullPage: true });
   await page.getByLabel("Report", { exact: true }).selectOption("legacy");
   await page.getByText("23,514", { exact: true }).waitFor();
   await page.setViewportSize({ width: 1440, height: 1100 });

@@ -1,3 +1,4 @@
+import type { ProfileQuery, ProfileResult } from "./profiles.ts";
 import type { HistoryQuery, HistoryResult, PublicUsageResult } from "./history.ts";
 import { neon } from "@neondatabase/serverless";
 // Import the shared driver configuration without constructing ingestion storage.
@@ -6,6 +7,10 @@ import type { UsageQuery, UsageResult } from "./contract.ts";
 import type { EventQuery, EventResult } from "./events.ts";
 
 export interface ReportingStorage {
+  profiles?(
+    query: ProfileQuery,
+    signal: AbortSignal,
+  ): Promise<ProfileResult | { error: string; retained_from?: string }>;
   history?(query: HistoryQuery, signal: AbortSignal): Promise<HistoryResult | { error: string }>;
   publicUsage?(signal: AbortSignal): Promise<PublicUsageResult | { error: string }>;
   events?(
@@ -121,6 +126,12 @@ export function createReportingStorage(url: string): ReportingStorage {
     }
   }
   return {
+    profiles: (query, signal) =>
+      aggregate(
+        "SELECT app_tracking.admin_profiles_v1($1::date,$2::date) AS result",
+        [query.from, query.until],
+        signal,
+      ),
     history: (query, signal) =>
       aggregate(
         "SELECT app_tracking.admin_history_v1($1::date,$2::date,$3,$4,$5,$6) AS result",

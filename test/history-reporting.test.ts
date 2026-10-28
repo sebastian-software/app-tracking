@@ -142,3 +142,37 @@ test("historical-retention permission requires its own bounded authenticated req
   assert.equal((await handler(request(body, { Cookie: "ambient-session" }))).status, 400);
   assert.equal(calls, 1);
 });
+
+test("the runtime history switch blocks extended retention grants without blocking withdrawal", async () => {
+  let calls = 0;
+  const handler = createHistoryPermissionHandler(
+    {
+      async setHistoryPermission(_tool, _stream, _id, _hash, enabled, changed_at) {
+        calls++;
+        return { result: { status: "updated", enabled, changed_at } };
+      },
+    },
+    false,
+  );
+  const send = (enabled: boolean) =>
+    handler(
+      new Request("https://api.example/v1/history-permissions/events/" + "a".repeat(64), {
+        method: "PUT",
+        headers: {
+          "App-Tracking-Tool": "dalo",
+          Authorization: "Bearer " + "b".repeat(64),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          schema_version: 1,
+          revision: "monthly-history-v1",
+          enabled,
+          changed_at: Date.now(),
+        }),
+      }),
+    );
+  assert.equal((await send(true)).status, 404);
+  assert.equal(calls, 0);
+  assert.equal((await send(false)).status, 200);
+  assert.equal(calls, 1);
+});

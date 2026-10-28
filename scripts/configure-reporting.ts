@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { bunnyApi, required } from "./bunny.ts";
 import type { Target } from "./provision.ts";
 import { migrate } from "./storage/migrate.ts";
-import { psql } from "./storage/psql.ts";
+import { psql, quote } from "./storage/psql.ts";
 import { grantReporting, prepareReportingLogin } from "./storage/grant-reporting.ts";
 import { checkRuntime } from "./storage/check-runtime.ts";
 import { validateWorkOSConfig } from "../src/reporting/auth.ts";
@@ -35,6 +35,19 @@ try {
       publicEnabled,
       process.env.HISTORY_REVIEW_REFERENCE ?? "",
     );
+    const profilesEnabled = process.env.PROFILES_ENABLED === "1";
+    const profileReview = process.env.PROFILES_REVIEW_REFERENCE ?? "";
+    if (
+      profilesEnabled &&
+      (!profileReview.trim() ||
+        profileReview.length > 256 ||
+        /[\u0000-\u001f\u007f]/.test(profileReview))
+    )
+      throw new Error("Profile linking requires its reviewed disclosure reference");
+    await psql(
+      migration,
+      `SELECT app_tracking.configure_profiles_v1(${profilesEnabled},${quote(profileReview)})`,
+    );
     await grantReporting(migration, await prepareReportingLogin(migration, url));
     await checkRuntime(url);
     if (
@@ -61,6 +74,21 @@ try {
     };
     for (const [Name, Secret] of Object.entries(authSecrets))
       await api("PUT", `/compute/script/${target.scriptId}/secrets`, { Name, Secret });
+  }
+  if (enabled === "0" && process.env.MIGRATION_DATABASE_URL) {
+    const migration = process.env.MIGRATION_DATABASE_URL;
+    await migrate(migration);
+    await configureHistory(migration, false, false, "");
+    await psql(migration, "SELECT app_tracking.configure_profiles_v1(false,'')");
+  }
+  for (const [Name, flag] of [
+    ["APP_TRACKING_HISTORY_ENABLED", "HISTORY_ENABLED"],
+    ["APP_TRACKING_PROFILES_ENABLED", "PROFILES_ENABLED"],
+  ]) {
+    await api("PUT", `/compute/script/${target.scriptId}/secrets`, {
+      Name,
+      Secret: enabled === "1" && process.env[flag!] === "1" ? "1" : "0",
+    });
   }
   await api("PUT", `/compute/script/${target.scriptId}/secrets`, {
     Name: "APP_TRACKING_REPORTING_ENABLED",

@@ -18,6 +18,8 @@ direction is decided, not that it is implemented or deployed.
 
 | [0011](0011-monthly-history-retention.md) | Separately permitted monthly history | Accepted |
 
+| [0012](0012-optional-profile-linking.md) | Optional shared local profiles | Accepted |
+
 Use sequential, zero-padded filenames. An ADR records context, the decision,
 and its consequences. The status vocabulary is Proposed, Accepted, Rejected,
 Deprecated, or Superseded.

@@ -1,3 +1,4 @@
+import { checkedProfiles } from "../src/reporting/profiles.ts";
 import { createReportingStorage, reportingFailureLabel } from "../src/reporting/storage.ts";
 import { checkedHistory, checkedPublicUsage } from "../src/reporting/history.ts";
 import { checkedEvents } from "../src/reporting/events.ts";
@@ -34,6 +35,14 @@ export async function checkReportingRead(url: string): Promise<void> {
       stream: "legacy" as const,
       metric: "cli.invocation" as const,
     };
+    stage = "profiles_storage";
+    const profilesQuery = { from, until };
+    const profiles = await createReportingStorage(url).profiles!(
+      profilesQuery,
+      AbortSignal.timeout(2800),
+    );
+    stage = "profiles_contract";
+    checkedProfiles(profiles, profilesQuery);
     stage = "history_storage";
     const history = await createReportingStorage(url).history!(
       historyQuery,

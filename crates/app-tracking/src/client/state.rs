@@ -61,6 +61,8 @@ pub(super) struct State {
     pub opt_in: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub history: Option<super::history::HistoryChoice>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile: Option<super::profile::ProfileChoice>,
     #[serde(default)]
     pub opt_in_scope: Option<String>,
     pub disabled: bool,
@@ -97,6 +99,20 @@ impl State {
                         || self.opt_in != Some(true)
                         || self.disabled
                         || self.deleting))
+        }) {
+            return Err(Error::State);
+        }
+        if self.profile.as_ref().is_some_and(|choice| {
+            choice.revision.is_empty()
+                || choice.revision.len() > 64
+                || choice.changed_at > 253402300799999
+                || (choice.enabled
+                    && (self.identity.is_none()
+                        || self.opt_in != Some(true)
+                        || self.disabled
+                        || self.deleting
+                        || choice.profile_id.as_ref().is_none_or(|id| !hex(id))))
+                || (!choice.enabled && choice.profile_id.is_some())
         }) {
             return Err(Error::State);
         }
@@ -186,6 +202,7 @@ impl State {
             scope,
             opt_in: None,
             history: None,
+            profile: None,
             opt_in_scope: None,
             disabled: false,
             deleting: false,
@@ -206,6 +223,18 @@ impl State {
             history.enabled = false;
             history.changed_at = super::now()?.max(history.changed_at.saturating_add(1));
             history.confirmed = false;
+        }
+        Ok(())
+    }
+    pub fn withdraw_profile(&mut self) -> Result<(), Error> {
+        if let Some(choice) = &mut self.profile
+            && choice.enabled
+        {
+            choice.revision = super::profile::PROFILE_CONSENT_REVISION.into();
+            choice.enabled = false;
+            choice.profile_id = None;
+            choice.confirmed = false;
+            choice.changed_at = super::now()?.max(choice.changed_at.saturating_add(1));
         }
         Ok(())
     }
@@ -298,7 +327,7 @@ impl Drop for Guard {
     }
 }
 
-fn private_file(path: &Path, create: bool) -> Result<File, Error> {
+pub(super) fn private_file(path: &Path, create: bool) -> Result<File, Error> {
     let metadata = fs::symlink_metadata(path).ok();
     if metadata
         .as_ref()
@@ -327,7 +356,7 @@ fn private_file(path: &Path, create: bool) -> Result<File, Error> {
     options.open(path).map_err(|_| Error::State)
 }
 
-fn lock(path: &Path) -> Result<Guard, Error> {
+pub(super) fn lock(path: &Path) -> Result<Guard, Error> {
     let file = private_file(path, true)?;
     match file.try_lock() {
         Ok(()) => Ok(Guard(file)),

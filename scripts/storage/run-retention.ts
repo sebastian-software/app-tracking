@@ -1,3 +1,4 @@
+import { psql } from "./psql.ts";
 import { runHistoryMaintenance } from "./history.ts";
 import { runMaintenance } from "./maintenance.ts";
 try {
@@ -11,6 +12,21 @@ try {
   }
   // History failure never extends the detail-data retention deadline.
   await runMaintenance(url);
+  if (
+    (await psql(
+      url,
+      "SELECT to_regprocedure('app_tracking.maintain_profiles_v1()') IS NOT NULL",
+    )) === "t"
+  ) {
+    let complete = false;
+    for (let page = 0; page < 100; page++) {
+      if ((await psql(url, "SELECT app_tracking.maintain_profiles_v1()")) === "f") {
+        complete = true;
+        break;
+      }
+    }
+    if (!complete) throw new Error("Profile maintenance budget exhausted");
+  }
   if (historyFailed) throw new Error("History maintenance failed");
   // This repository's Actions logs are public. Actual cleanup counts are private.
   console.log(JSON.stringify({ complete: true }));

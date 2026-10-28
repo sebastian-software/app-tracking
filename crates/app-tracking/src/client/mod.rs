@@ -9,6 +9,7 @@
 mod download;
 mod history;
 mod permission;
+mod profile;
 mod state;
 mod system;
 mod worker;
@@ -16,6 +17,7 @@ mod worker;
 pub use download::{Cancellation, DownloadOptions, Resource, VerifiedDownload};
 pub use history::{HISTORY_CONSENT_REVISION, HistoryPermissionStatus};
 pub use permission::{Interaction, OptInDecision, PermissionOutcome};
+pub use profile::{PROFILE_CONSENT_REVISION, ProfilePermissionStatus};
 pub use system::{LinuxInfo, SystemInfo};
 pub use worker::BACKGROUND_WORKER_ARGUMENT;
 
@@ -184,6 +186,7 @@ pub struct Client {
     system: OnceLock<SystemInfo>,
     project: OnceLock<Option<crate::project::ProjectIdentity>>,
     project_source: Mutex<Option<ProjectSource>>,
+    profile_root: Option<PathBuf>,
 }
 
 impl std::fmt::Debug for Client {
@@ -333,6 +336,7 @@ impl Client {
             system: OnceLock::new(),
             project: OnceLock::new(),
             project_source: Mutex::new(None),
+            profile_root: None,
         })
     }
 
@@ -431,6 +435,7 @@ impl Client {
             }
         } else {
             store.state.withdraw_history()?;
+            store.state.withdraw_profile()?;
             store.state.retain(Collection::OptOut);
         }
         store.save()
@@ -443,6 +448,7 @@ impl Client {
         let _network = store.network_guard()?;
         store.state.opt_in = Some(false);
         store.state.withdraw_history()?;
+        store.state.withdraw_profile()?;
         store.state.disabled = true;
         store.state.clear();
         store.state.deleting = store.state.identity.is_some();
@@ -460,6 +466,7 @@ impl Client {
         store.state.job = None;
         if disabled {
             store.state.withdraw_history()?;
+            store.state.withdraw_profile()?;
             store.state.clear();
         }
         store.save()

@@ -11,7 +11,7 @@ export async function grantRuntime(url: string, role: string): Promise<void> {
       AND rolconfig @> ARRAY['statement_timeout=2500ms', 'lock_timeout=1500ms'])
       OR EXISTS (SELECT FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member WHERE r.rolname=${quote(role)})
       OR EXISTS (SELECT FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-        WHERE n.nspname='app_tracking' AND p.proname IN ('admin_usage_v1','admin_events_v1','admin_history_v1','public_usage_v1')
+        WHERE n.nspname='app_tracking' AND p.proname IN ('admin_usage_v1','admin_events_v1','admin_history_v1','public_usage_v1','admin_profiles_v1')
         AND has_function_privilege(${quote(role)},p.oid,'EXECUTE'))
     THEN RAISE EXCEPTION 'runtime_role_must_be_unprivileged'; END IF;
     END $check$;
@@ -24,7 +24,8 @@ export async function grantRuntime(url: string, role: string): Promise<void> {
       app_tracking.delete_installation_v1(text,uuid,text),
       app_tracking.accept_events_v1(text,text,text,text,bigint,text,text,text,jsonb),
       app_tracking.delete_events_v1(text,text,text),
-      app_tracking.set_history_permission_v1(text,text,text,text,boolean,bigint) TO "${role}";`,
+      app_tracking.set_history_permission_v1(text,text,text,text,boolean,bigint),
+      app_tracking.set_profile_link_v1(text,text,text,boolean,bigint,text,text), app_tracking.reset_profile_v1(text,text) TO "${role}";`,
   );
 }
 if (import.meta.main) {

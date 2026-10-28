@@ -63,6 +63,22 @@ The server feature remains disabled until its disclosure/review gate is met.
 See [the history contract](https://github.com/sebastian-software/app-tracking/blob/main/docs/monthly-history.md)
 for consent, deletion, downgrade behavior and the unchanged 90-day detail limit.
 
+## Optional cross-tool profiles
+
+`with_shared_profile(private_user_root)` selects a shared location without I/O.
+`request_profile_linking(reason)` asks separately; `set_profile_linking(bool)`
+saves an explicit choice; `profile_status()` exposes pending state. Synchronize
+with `sync_profile_linking()` only from settings, after ordinary registration.
+CI is excluded, and existing usage grants never imply linking. Each tool keeps
+its own reporting credential.
+
+`request_profile_reset()` and `sync_profile_reset()` revoke all profile links
+before rotating its random local ID. They do not delete independent tool reports.
+Unlinking one tool or completing its normal deletion leaves other tools intact.
+The server feature remains disabled pending its released disclosure/review.
+See [the profile contract](https://github.com/sebastian-software/app-tracking/blob/main/docs/profile-linking.md)
+for state permissions, copied/missing files, reset, and the 90-day lifecycle.
+
 ## Update checks
 
 The synchronous update client uses a public version API with a separate cache.

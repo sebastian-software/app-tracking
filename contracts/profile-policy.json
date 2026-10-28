@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "revision": "profile-linking-v1",
+  "default_enabled": false,
+  "contexts": ["local"],
+  "eligible_from": "UTC date after server acknowledgement",
+  "maximum_links_per_profile": 32,
+  "inactive_metadata_days": 90,
+  "ordinary_report_ids_unchanged": true,
+  "public_profile_export": false
+}
