@@ -187,10 +187,10 @@ installed. Short-lived hosts must wire the worker entry for delivery to work.
 
 Apply [migration 0008](../db/migrations/0008-generic-events.sql) and the updated
 runtime function grants before adopting the new endpoint. New generic counters
-are separate from legacy invocation statistics. Existing dashboard queries are
-unchanged; the private reporting view is `app_tracking.reporting_events_v1`.
-New reporting UI, Node support, cross-tool device identity, and Ferriki consumer
-adoption remain under [issue #48](https://github.com/sebastian-software/app-tracking/issues/48).
+are separate from legacy invocation statistics. The private dashboard keeps these separate from legacy invocations and reads
+fixed metric, version, language/resource, and system aggregates through migration
+0009; its source view is `app_tracking.reporting_events_v1`.
+Node support, cross-tool device identity, and Ferriki consumer adoption remain under [issue #48](https://github.com/sebastian-software/app-tracking/issues/48).
 This client implementation does not claim those integrations are complete.
 
 The [deployment runbook](deployment.md#published-unified-client-verification)

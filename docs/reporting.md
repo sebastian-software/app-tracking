@@ -52,6 +52,48 @@ versions. Version adoption measures invocation share, not installed copies.
 Unknown-project percentage divides unknown invocations by total invocations;
 the view shows no percentage when there are no invocations.
 
+## Generic-event reporting
+
+Select **Generic events** in the same private view, or query
+`/v1/admin/events?from=2026-10-01&until=2026-10-28&tool=ferriki&mode=local&metric=language.use`.
+The same WorkOS permission, private cache policy, 1–90-date range, and separate
+aggregate-only database login apply. This endpoint also accepts `ferriki` as a
+tool. It never adds generic events to legacy invocation counts.
+
+Choose exactly one registered metric: `cli.invocation`, `resource.download`, or
+`language.use`. Counts are respectively reported invocations, completed verified
+transfers, or language-use observations under the integrating tool's counting
+boundary. Language-use `source=explicit` and `source=dependency` are distinct
+categories; a cache hit can still lead to actual use. A download request or
+retry is not evidence of a completed transfer or language use.
+
+The result uses `totals.count`, `daily[].count`, `versions`, `dimensions`, and
+`systems`. Period-wide installation/project uniques follow the legacy identity
+rules, with generic installations scoped separately from legacy UUID profiles.
+Only consented generic reports participate. There is no registered production
+baseline metric and no new collection or retention scope in this view.
+
+Fixed dimension fields are command, resource kind, language, and source. System
+breakdowns cover OS family/version, executable architecture, CPU family, and
+Linux distribution/version/kernel. Missing values remain `unknown`; Linux-only
+fields describe Linux observations. Each breakdown counts observations in the
+selected metric, not distinct physical devices. Totals must not be summed
+across different breakdown fields. Host/runtime/separate library versions are
+not present in the current wire contract and are labeled as not collected.
+
+Versions return at most 100 rows. Dimension and system breakdowns return the
+top 100 rows per field with stable ordering and explicit truncation flags;
+totals include omitted rows. `admin_events_v1` derives all output from one
+statement snapshot through the existing active/nonexpired event view. Committed
+withdrawal/deletion affects the next snapshot, including while physical cleanup
+is pending. No report identifiers or raw rows leave this boundary.
+
+Migration 0009 adds this read function. The reporter receives only its explicit
+execute grant in addition to the existing legacy aggregate function. Runtime
+credentials cannot execute either aggregate; reporter credentials cannot read
+event tables or invoke ingestion/deletion. Deployment probes both aggregate
+contracts without logging returned statistics.
+
 ## Coverage, changes, and failures
 
 Only active, unexpired reporting installations and unexpired usage participate.
@@ -187,8 +229,9 @@ processes maintainer identity/session data for this separate login purpose.
 
 5. Set Actions variable `APP_TRACKING_REPORTING_ENABLED=1` and deploy main.
    Deployment validates authentication settings, applies additive migration
-   0007, checks the database login's authority/logging, grants only schema usage
-   and `admin_usage_v1(date,date,text,text)` execution, and writes encrypted
+   0007 and 0009, checks the database login's authority/logging, grants only schema
+   usage and the fixed `admin_usage_v1` / `admin_events_v1` aggregate functions,
+   and writes encrypted
    Bunny secrets. It derives `APP_TRACKING_REPORTING_ORIGIN` from the provisioned
    Bunny base URL, not an incoming Host/forwarded header. Configuration failure
    stops deployment. No WorkOS account, role, key or production login is created

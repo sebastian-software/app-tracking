@@ -2,8 +2,13 @@ import { neon } from "@neondatabase/serverless";
 // Import the shared driver configuration without constructing ingestion storage.
 import "../storage/database.ts";
 import type { UsageQuery, UsageResult } from "./contract.ts";
+import type { EventQuery, EventResult } from "./events.ts";
 
 export interface ReportingStorage {
+  events?(
+    query: EventQuery,
+    signal: AbortSignal,
+  ): Promise<EventResult | { error: string; retained_from?: string }>;
   usage(
     query: UsageQuery,
     signal: AbortSignal,
@@ -84,38 +89,46 @@ export function createReportingStorage(url: string): ReportingStorage {
   parsed.protocol = "postgresql:";
   parsed.search = "";
   const sql = neon(parsed.href);
+  async function aggregate(queryText: string, params: string[], signal: AbortSignal) {
+    const trace: { subrequests: number; responseStatus?: number } = { subrequests: 0 };
+    try {
+      const result = await sql.query(queryText, params, {
+        fetchOptions: { signal, redirect: "error", cache: "no-store", appTrackingTrace: trace },
+      });
+      return result[0]?.result;
+    } catch (error) {
+      const code = reportingFailureLabel(error);
+      const source =
+        error && typeof error === "object" && "sourceError" in error ? error.sourceError : error;
+      const name =
+        source && typeof source === "object" && "name" in source ? source.name : undefined;
+      const label =
+        code !== "unavailable"
+          ? code
+          : trace.responseStatus && trace.responseStatus >= 400
+            ? "http_" + trace.responseStatus
+            : name === "TimeoutError"
+              ? "timeout"
+              : name === "AbortError"
+                ? "aborted"
+                : name === "TypeError"
+                  ? "network"
+                  : "unavailable";
+      throw new ReportingStorageError(failureLabels.includes(label) ? label : "unavailable");
+    }
+  }
   return {
-    async usage(query, signal) {
-      const trace: { subrequests: number; responseStatus?: number } = { subrequests: 0 };
-      try {
-        const result = await sql.query(
-          "SELECT app_tracking.admin_usage_v1($1::date,$2::date,$3,$4) AS result",
-          [query.from, query.until, query.tool, query.mode],
-          {
-            fetchOptions: { signal, redirect: "error", cache: "no-store", appTrackingTrace: trace },
-          },
-        );
-        return result[0]?.result;
-      } catch (error) {
-        const code = reportingFailureLabel(error);
-        const source =
-          error && typeof error === "object" && "sourceError" in error ? error.sourceError : error;
-        const name =
-          source && typeof source === "object" && "name" in source ? source.name : undefined;
-        const label =
-          code !== "unavailable"
-            ? code
-            : trace.responseStatus && trace.responseStatus >= 400
-              ? "http_" + trace.responseStatus
-              : name === "TimeoutError"
-                ? "timeout"
-                : name === "AbortError"
-                  ? "aborted"
-                  : name === "TypeError"
-                    ? "network"
-                    : "unavailable";
-        throw new ReportingStorageError(failureLabels.includes(label) ? label : "unavailable");
-      }
-    },
+    usage: (query, signal) =>
+      aggregate(
+        "SELECT app_tracking.admin_usage_v1($1::date,$2::date,$3,$4) AS result",
+        [query.from, query.until, query.tool, query.mode],
+        signal,
+      ),
+    events: (query, signal) =>
+      aggregate(
+        "SELECT app_tracking.admin_events_v1($1::date,$2::date,$3,$4,$5) AS result",
+        [query.from, query.until, query.tool, query.mode, query.metric],
+        signal,
+      ),
   };
 }

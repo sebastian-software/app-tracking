@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import { readFile, mkdir } from "node:fs/promises";
 import { chromium } from "playwright";
 import { createReportingHandler } from "../src/reporting/handler.ts";
+import { eventFixture } from "../test/fixtures/events.ts";
 import { usageFixture } from "../test/fixtures/reporting.ts";
 import { workosBrowserFixture } from "../test/fixtures/workos-browser.ts";
 import type { ReportingStorage } from "../src/reporting/storage.ts";
@@ -11,6 +12,10 @@ let requests = 0;
 let handle: ReturnType<typeof createReportingHandler>;
 /* The handler is initialized after the ephemeral port is known. */
 const storage: () => ReportingStorage = () => ({
+  async events(query) {
+    requests++;
+    return eventFixture(query);
+  },
   async usage(query) {
     requests++;
     return usageFixture(query);
@@ -129,6 +134,51 @@ try {
   );
   await mkdir("dist/reporting-evidence", { recursive: true });
   await page.screenshot({ path: "dist/reporting-evidence/desktop.png", fullPage: true });
+  await page.getByLabel("Report", { exact: true }).selectOption("events");
+  await page.getByLabel("Metric", { exact: true }).selectOption("language.use");
+  await page.getByText("source: dependency", { exact: false }).waitFor();
+  await page.getByLabel("Tool", { exact: true }).selectOption("ferriki");
+  await page.getByRole("button", { name: "Apply filters" }).click();
+  await page.getByText("source: explicit", { exact: false }).waitFor();
+  assert.equal(await page.locator("#count-label").innerText(), "Language-use observations");
+  await page.getByLabel("Breakdown", { exact: true }).selectOption("cpu_family");
+  assert.equal(await page.locator("#systems td").first().innerText(), "unknown");
+  await page.evaluate(axe);
+  const eventAudit = await page.evaluate(async () => {
+    return (
+      window as unknown as {
+        axe: { run(options: unknown): Promise<{ violations: { id: string }[] }> };
+      }
+    ).axe.run({ runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa"] } });
+  });
+  assert.deepEqual(
+    eventAudit.violations.map((item) => item.id),
+    [],
+  );
+  await page.screenshot({ path: "dist/reporting-evidence/events-desktop.png", fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+  await page.screenshot({ path: "dist/reporting-evidence/events-mobile.png", fullPage: true });
+  await page.route("**/v1/admin/events?**", (route) =>
+    route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "service_unavailable" }),
+    }),
+  );
+  await page.getByRole("button", { name: "Apply filters" }).click();
+  await page
+    .getByText("Statistics are unavailable. No zero values have been substituted.")
+    .waitFor();
+  assert.equal(await page.locator("#systems").innerText(), "");
+  await page.unroute("**/v1/admin/events?**");
+  await page.getByRole("button", { name: "Try again" }).click();
+  await page.getByText("source: explicit", { exact: false }).waitFor();
+  await page.getByLabel("Report", { exact: true }).selectOption("legacy");
+  await page.getByText("23,514", { exact: true }).waitFor();
+  assert.equal(await page.getByLabel("Tool", { exact: true }).inputValue(), "all");
+  assert.equal(await page.locator("#systems-panel").isVisible(), false);
+  await page.setViewportSize({ width: 1440, height: 1100 });
   await page.getByRole("button", { name: "7 days", exact: true }).click();
   await page
     .getByText("Loaded. Recent seven days are provisional; today may be partial.")

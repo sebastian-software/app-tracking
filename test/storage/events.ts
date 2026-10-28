@@ -71,7 +71,8 @@ export async function eventIntegration(admin: string, runtime: string) {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify(b),
     });
-  let checks = 0;
+  let checks = 0,
+    phase = "baseline";
   try {
     // A synthetic opt-out definition proves the route without enabling a new
     // production baseline metric as a side effect of this implementation.
@@ -116,6 +117,7 @@ export async function eventIntegration(admin: string, runtime: string) {
       "0",
     );
     checks += 4;
+    phase = "catalog";
     const catalog = JSON.parse(await readFile("contracts/event-catalog.json", "utf8"));
     for (const [tool, metrics] of Object.entries(catalog.tools)) {
       assert.deepEqual(
@@ -126,6 +128,7 @@ export async function eventIntegration(admin: string, runtime: string) {
       );
       checks++;
     }
+    phase = "ingestion";
     const replies = await Promise.all([handle(request(value)), handle(request(value))]);
     assert.deepEqual(
       replies.map((r) => r.status),
@@ -193,6 +196,7 @@ export async function eventIntegration(admin: string, runtime: string) {
       { error: "invalid_request" },
     );
     checks++;
+    phase = "grant_lifecycle";
     // Active profiles keep their grant; only new stale grants and inactive
     // profiles expire. Failed registration must not leave an identity behind.
     const oldGrant = Date.now() - 91 * 86400000;
@@ -227,6 +231,7 @@ export async function eventIntegration(admin: string, runtime: string) {
       `UPDATE app_tracking.event_installations_v1 SET last_activity_at=clock_timestamp() WHERE installation_id=${q(id)}`,
     );
     checks += 4;
+    phase = "deletion";
     const deletion = new Request(`https://fixture.example/v1/event-installations/${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}`, "App-Tracking-Tool": "ferriki" },
@@ -240,6 +245,7 @@ export async function eventIntegration(admin: string, runtime: string) {
     );
     assert.equal((await handle(request(value))).status, 410);
     checks += 3;
+    phase = "rust_consumer";
     // A real Rust executable downloads over HTTP and its short-lived worker
     // sends a batch through this handler into the unprivileged SQL boundary.
     const directory = await mkdtemp(join(tmpdir(), "app-tracking-events-"));
@@ -326,6 +332,9 @@ export async function eventIntegration(admin: string, runtime: string) {
       await rm(directory, { recursive: true, force: true });
     }
     return { checks, status: "passed" };
+  } catch {
+    console.error(JSON.stringify({ event_test_phase: phase, completed_checks: checks }));
+    throw new Error("Event integration failed; no SQL, credential, or payload details were logged");
   } finally {
     await sql(
       "DELETE FROM app_tracking.event_batches_v1 WHERE tool_id='test-events'; DELETE FROM app_tracking.event_quotas_v1 WHERE tool_id='test-events'; DELETE FROM app_tracking.event_catalog_v1 WHERE tool_id='test-events';",

@@ -1,3 +1,4 @@
+import { eventQuery, checkedEvents } from "./events.ts";
 import { adminReply, checkedUsage, privateHeaders, utcDay, usageQuery } from "./contract.ts";
 import type { ReportingStorage } from "./storage.ts";
 import { reportingFailureLabel } from "./storage.ts";
@@ -18,7 +19,9 @@ export function createReportingHandler(storage: () => ReportingStorage, auth: Re
     const loginMessage = url.pathname === "/admin" && /^\?auth=(failed|denied)$/.test(url.search);
     if (asset && request.method === "GET" && (!url.search || loginMessage))
       return new Response(asset[0], { headers: { ...privateHeaders, "Content-Type": asset[1] } });
-    if (url.pathname !== "/v1/admin/usage") return adminReply({ error: "not_found" }, 404);
+    const isEvents = url.pathname === "/v1/admin/events";
+    if (!isEvents && url.pathname !== "/v1/admin/usage")
+      return adminReply({ error: "not_found" }, 404);
     if (request.method !== "GET") return adminReply({ error: "method_not_allowed" }, 405);
     if (request.headers.has("origin") && request.headers.get("origin") !== url.origin)
       return adminReply({ error: "forbidden" }, 403);
@@ -32,14 +35,18 @@ export function createReportingHandler(storage: () => ReportingStorage, auth: Re
     }
     let query;
     try {
-      query = usageQuery(url);
+      query = isEvents ? eventQuery(url) : usageQuery(url);
     } catch {
       return reply({ error: "invalid_request" }, 400);
     }
     let stage = "storage";
     try {
       const signal = AbortSignal.any([request.signal, AbortSignal.timeout(2800)]);
-      const result = await storage().usage(query, signal);
+      const database = storage();
+      const result =
+        "metric" in query
+          ? await database.events?.(query, signal)
+          : await database.usage(query, signal);
       stage = "contract";
       if (!result || typeof result !== "object") throw new Error("Invalid reporting result");
       if ("error" in result) {
@@ -52,7 +59,7 @@ export function createReportingHandler(storage: () => ReportingStorage, auth: Re
         if (result.error === "invalid_request") return reply({ error: "invalid_request" }, 400);
         throw new Error("Reporting operation failed");
       }
-      return reply(checkedUsage(result, query));
+      return reply("metric" in query ? checkedEvents(result, query) : checkedUsage(result, query));
     } catch (error) {
       const response = reply({ error: "service_unavailable" }, 503);
       response.headers.set(

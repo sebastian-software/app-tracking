@@ -1,3 +1,4 @@
+import { eventReportingIntegration } from "./event-reporting.ts";
 import { storageIntegration } from "./integration.ts";
 import { ingestionIntegration } from "./ingestion.ts";
 import { recoveryIntegration } from "./recovery.ts";
@@ -21,6 +22,11 @@ try {
     console.log(
       JSON.stringify({
         reporting: await reportingIntegration(admin, runtime, reporter, reportingRole),
+      }),
+    );
+    console.log(
+      JSON.stringify({
+        event_reporting: await eventReportingIntegration(admin, runtime, reporter),
       }),
     );
     console.log(JSON.stringify({ reporting_plan: await reportingQueryPlan(admin) }));

@@ -31,7 +31,7 @@ try {
     if (
       (await psql(
         url,
-        "SELECT has_function_privilege(current_user,'app_tracking.admin_usage_v1(date,date,text,text)','EXECUTE') AND NOT has_table_privilege(current_user,'app_tracking.usage_counts','SELECT') AND NOT has_table_privilege(current_user,'app_tracking.reporting_installations','SELECT') AND NOT has_function_privilege(current_user,'app_tracking.register_installation_v1(text,uuid,text,text,timestamptz,text)','EXECUTE')",
+        "SELECT has_function_privilege(current_user,'app_tracking.admin_usage_v1(date,date,text,text)','EXECUTE') AND has_function_privilege(current_user,'app_tracking.admin_events_v1(date,date,text,text,text)','EXECUTE') AND NOT has_table_privilege(current_user,'app_tracking.event_counts_v1','SELECT') AND NOT has_table_privilege(current_user,'app_tracking.usage_counts','SELECT') AND NOT has_table_privilege(current_user,'app_tracking.reporting_installations','SELECT') AND NOT has_function_privilege(current_user,'app_tracking.register_installation_v1(text,uuid,text,text,timestamptz,text)','EXECUTE')",
       )) !== "t"
     )
       throw new Error("Reporting authority is not isolated");
