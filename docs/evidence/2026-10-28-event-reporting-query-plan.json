@@ -1,0 +1,13 @@
+{
+  "engine": "PostgreSQL 18.6",
+  "synthetic_rows": 10000,
+  "synthetic_installations": 100,
+  "narrow_period_days": 7,
+  "full_period_days": 90,
+  "narrow_execution_ms": 1.358,
+  "full_execution_ms": 41.721,
+  "event_synthetic_rows": 6400,
+  "event_full_execution_ms": 72.732,
+  "indexes": ["usage_reporting"],
+  "production_latency_claim": false
+}

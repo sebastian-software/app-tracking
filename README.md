@@ -109,8 +109,9 @@ installations and repositories, not people or everyone who uses a tool.
 The [unified client](docs/unified-client.md) adds one `record` API, verified
 resource downloads, shared system collectors, and a persisted permission flow.
 Its [generic event batches](docs/event-batches.md) are stored separately from
-legacy invocation counts; existing charts do not include them. Node support,
-consumer rollout, and the new reporting interface remain follow-up work under
+legacy invocation counts. The private dashboard has a separate metric-specific
+event view with version, language/resource, and system breakdowns. Node support
+and consumer rollout remain follow-up work under
 [issue #48](https://github.com/sebastian-software/app-tracking/issues/48).
 
 [ADR 0010](docs/adr/0010-metrics-purposes-and-consent.md) retains proposed

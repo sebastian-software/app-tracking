@@ -1,4 +1,5 @@
 import { createReportingStorage, reportingFailureLabel } from "../src/reporting/storage.ts";
+import { checkedEvents } from "../src/reporting/events.ts";
 import { checkedUsage, type UsageQuery } from "../src/reporting/contract.ts";
 
 export async function checkReportingRead(url: string): Promise<void> {
@@ -10,6 +11,14 @@ export async function checkReportingRead(url: string): Promise<void> {
     const result = await createReportingStorage(url).usage(query, AbortSignal.timeout(2800));
     stage = "contract";
     checkedUsage(result, query);
+    stage = "events_storage";
+    const eventsQuery = { ...query, metric: "cli.invocation" as const };
+    const events = await createReportingStorage(url).events!(
+      eventsQuery,
+      AbortSignal.timeout(2800),
+    );
+    stage = "events_contract";
+    checkedEvents(events, eventsQuery);
   } catch (error) {
     console.error("Reporting read check failed: " + stage + ":" + reportingFailureLabel(error));
     throw new Error("Reporting read check failed");

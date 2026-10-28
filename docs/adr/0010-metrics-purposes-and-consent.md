@@ -347,9 +347,10 @@ choices. The wire schema remains version 1; there is no automatic new grant or
 consumer activation through importing the crate.
 
 The new receiver and additive migration keep generic counters separate from
-legacy invocation counts. The existing dashboard still measures the legacy
-CLI stream. Node support, cross-tool profile linking, Ferriki adoption, and the
-new reporting interface remain follow-up work in #48. The
+legacy invocation counts. The private dashboard now offers a separate
+metric-specific event view for versions, resource/language categories, and system
+context. Node support, cross-tool profile linking, and Ferriki adoption remain
+follow-up work in #48. The
 [event contract](../event-batches.md) owns executable-field semantics and rollout
 requirements. This implementation does not close that broader issue.
 
