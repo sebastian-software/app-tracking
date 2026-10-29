@@ -1,0 +1,36 @@
+{
+  "name": "@sebastian-software/app-tracking",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Consent-gated usage reporting and verified downloads for Node.js",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sebastian-software/app-tracking.git",
+    "directory": "packages/node-client"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE-MIT",
+    "LICENSE-APACHE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "type": "module",
+  "main": "dist/index.cjs",
+  "types": "dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "node ../../scripts/build-node-client.ts",
+    "test": "node --test test/*.test.cjs"
+  },
+  "engines": {
+    "node": ">=24.22.0 <25"
+  }
+}
