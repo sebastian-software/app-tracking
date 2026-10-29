@@ -35,6 +35,10 @@ PR updates. All authored Markdown remains subject to formatting checks.
    then publishes a single JavaScript archive with npm Trusted Publishing and
    provenance. No platform packages or native binaries are published.
 4. Each job verifies its published archive against the registry checksum.
+   npm can accept an upload before its processing makes the version readable.
+   The npm verification step allows a five-minute processing window, checking
+   every ten seconds while the version returns `404`. Registry errors and
+   mismatched archives still fail immediately; this wait never republishes.
 
 GitHub release creation, crates.io publication, and npm publication are separate
 operations. A failed publish leaves a failed workflow and a GitHub release;
