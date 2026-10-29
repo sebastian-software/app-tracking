@@ -38,6 +38,23 @@ export async function runMaintenance(
   }
   if (!eventsComplete)
     throw new Error("Event maintenance budget exhausted; committed progress is resumable");
+  const servicesPresent = await psql(
+    url,
+    "SELECT to_regprocedure('app_tracking.maintain_service_requests_v1(integer)') IS NOT NULL",
+  );
+  let servicesComplete = servicesPresent !== "t";
+  for (let page = 0; page < maxPages && !servicesComplete; page++) {
+    const removed = Number(
+      await psql(
+        url,
+        "BEGIN; SET LOCAL statement_timeout='2500ms'; SELECT app_tracking.maintain_service_requests_v1(1000); COMMIT;",
+      ),
+    );
+    if (!Number.isInteger(removed) || removed < 0 || removed > 1000)
+      throw new Error("Invalid service statistics maintenance result");
+    servicesComplete = removed === 0;
+  }
+  if (!servicesComplete) throw new Error("Service statistics maintenance budget exhausted");
   const totals = {
     pages: 0,
     usage_deleted: 0,

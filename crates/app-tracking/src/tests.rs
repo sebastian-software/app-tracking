@@ -62,6 +62,24 @@ fn server(
 }
 
 #[test]
+fn service_statistics_opt_out_preserves_update_delivery() {
+    let (base, request, join) = server(200, fixture().to_string(), "", Duration::ZERO);
+    let dir = tempfile::tempdir().unwrap();
+    assert!(
+        client(&base, dir.path(), "1.0.0")
+            .with_service_metrics(false)
+            .check_at(Mode::Enabled, now())
+            .unwrap()
+            .is_some()
+    );
+    let request = request.recv().unwrap().to_lowercase();
+    assert!(request.contains("dnt: 1\r\n"));
+    assert!(!request.contains("authorization:"));
+    assert!(!request.contains("cookie:"));
+    join.join().unwrap();
+}
+
+#[test]
 fn semver_precedence_is_local_and_build_metadata_does_not_create_updates() {
     for (installed, expected) in [
         ("1.2.2", true),

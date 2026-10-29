@@ -1,5 +1,6 @@
 import { neon, neonConfig } from "@neondatabase/serverless";
 import type { EventBatch } from "../telemetry/events.ts";
+import type { VersionObservation } from "../service-metrics.ts";
 
 // PlanetScale's documented HTTP endpoint; no WebSocket/TCP dependency at the edge.
 neonConfig.fetchEndpoint = (host) => `https://${host}/sql`;
@@ -83,6 +84,13 @@ export function createStorage(url: string) {
     }
   }
   return {
+    countVersionRequest(observation: VersionObservation, signal: AbortSignal) {
+      return query(
+        "SELECT app_tracking.count_version_request_v1($1,$2,$3,$4) AS result",
+        [observation.tool, observation.distribution, observation.channel, observation.status],
+        signal,
+      );
+    },
     setProfileLink(
       tool: string,
       id: string,

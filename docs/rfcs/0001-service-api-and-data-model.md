@@ -44,8 +44,10 @@ with a minimum release age of one hour to reduce downstream publication races.
 The host selects installation-aware upgrade instructions. No per-registry
 readiness guarantee or fallback lookup is part of this contract.
 
-Version-only requests use the public snapshot without querying private usage
-analytics or PlanetScale. The snapshot also contains other public statistics;
+Version resolution uses the public snapshot without querying private usage
+analytics or PlanetScale. Optional [service statistics](../service-statistics.md)
+can increment a shared counter asynchronously; that write is independent of
+release resolution and cannot block its response. The snapshot also contains other public statistics;
 a slow cold collection or unavailable snapshot can make a check advisory and
 unavailable. Do not bypass that failure by introducing a duplicate release feed.
 Preserve `generatedAt` as `checked_at` rather than renewing an old snapshot's

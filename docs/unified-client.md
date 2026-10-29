@@ -26,7 +26,7 @@ if args.get(1).map(String::as_str) == Some(BACKGROUND_WORKER_ARGUMENT) {
 }
 
 // Explicitly request permission at a suitable interactive point:
-let permission = client.request_opt_in("Help prioritize Palamedes commands and platform support.")?;
+let permission = client.request_opt_in_reminder("Help prioritize Palamedes commands and platform support.")?;
 
 // At the designated observation boundary:
 let _ = client.record("cli.invocation", || BTreeMap::from([
@@ -69,6 +69,40 @@ a fresh explicit permission request and discards unsent opt-in observations;
 it does not silently expand a saved grant.
 This local check does not introduce another wire protocol version.
 
+### Optional 14-day reminders
+
+Use `request_opt_in_reminder(message)` at the same suitable interactive boundary
+to offer a deferred choice again. The SDK opens with "Is the tool working well
+for you?" and explains how optional statistics help prioritize improvements.
+This is an invitation, not a satisfaction survey; no satisfaction answer is
+collected or converted into consent. The usual metric/system/project disclosure
+remains visible before the reporting choice.
+
+The choices are `yes` (explicit grant), `later` (default; grants no new permission),
+and `never` (saved refusal). `no` also means never. Grants, existing refusals,
+and withdrawals are not asked again. Global disable, pending deletion, CI,
+workers, nonterminal stdin/stderr, and `Interaction::Never` prevent a new dialog.
+The interval is 14 elapsed days per tool/service/profile from the last claimed
+prompt. A later host call can display a due reminder; no timer wakes the tool.
+Clock rollback defers the reminder until the interval has genuinely passed.
+
+The helper saves only prompt timing in private local settings before displaying
+the question. This also throttles EOF, terminal errors, crashes, and concurrent
+invocations. It creates no reporting ID, project hash, usage row, queue, or
+network request. Locks are released before input; a concurrent refusal still
+wins over an affirmative answer. `Unavailable` includes cooldown and deferral.
+The original `request_opt_in` remains the one-time yes/no API, with no timing
+state before an answer. Old settings load without the optional timing field;
+older SDKs that reject unknown fields fail closed after that field is written.
+
+This interval applies to a still-open or deliberately deferred choice, rather
+than automatically expiring an explicit refusal. Supervisory guidance warns
+against repeatedly requesting a different answer after rejection; see the
+[CNIL FAQ, question 21](https://www.cnil.fr/fr/cookies-et-autres-traceurs/regles/cookies/FAQ).
+Fourteen days is a product reminder interval, not a legally approved renewal
+period. The separate history, profile-linking, and publication permissions
+retain their existing one-time behavior.
+
 - `set_opt_in(false)` saves baseline mode and discards unsent opt-in rows and
   batches. Metrics declared `opt_in` are skipped without evaluating their
   closures. Existing remote history is retained until deletion or expiry.
@@ -85,6 +119,11 @@ This local check does not introduce another wire protocol version.
   state, pending deletion, queue size, and dropped count. `preview()` returns
   local rows and immutable batch payloads, without credentials.
 
+Functional version requests have a separate server-side statistics path;
+[service statistics](service-statistics.md) need no local usage grant. Configure
+`UpdateClient::with_service_metrics(false)` for a host-wide analytics opt-out.
+No separate CLI analytics request is enabled by those server statistics.
+
 The host passes process restrictions with `with_policy(telemetry::Policy)`.
 `DO_NOT_TRACK`, host disable, invalid/off telemetry settings, and ineligible CI
 contexts suppress collection. The host still maps its environment/flags,
@@ -99,6 +138,20 @@ not cause a recurring permission request. Renewing an expired identity requires
 completing deletion before a new explicit grant.
 Controls can return `Busy` while a bounded request owns the network lock. A
 caller should report/retry that settings action rather than claim success.
+
+### Explicit CI authorization
+
+`request_opt_in` never opens a CI dialog. A deliberately configured operator
+choice can instead call `set_opt_in(true)` for an isolated CI-run root, after
+mapping `ci: true`, `ci_revision: Some("telemetry-v1".into())`, and
+`isolated_ci_state: true` through `with_policy`. These fields are supplied by
+the host; setting an environment variable alone does not configure this client.
+Do not call `set_opt_in(true)` merely because CI was detected. A workflow/CI
+setting may express authorization for that job; a cloned project file must not
+silently grant consent on every developer's workstation. The SDK trusts this
+host mapping and cannot verify who authorized it. Never reuse a personal root
+or a shared cross-run cache. Functional service statistics apply independently
+without this CI usage grant.
 
 ## Metrics and system context
 

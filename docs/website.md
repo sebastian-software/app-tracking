@@ -41,6 +41,14 @@ or [retention policy](telemetry-retention.md) changes, review both website
 translations and the relevant privacy notices. Service activation remains
 subject to the [operations runbook](operations.md).
 
+The new functional service-statistics path has an independent deployment
+switch. Before enabling it, update the canonical site's privacy explanation
+and the controller notice with its purpose, request fields, opt-out, 24-month
+aggregate retention, and origin-only coverage. Its source is maintained in the
+website monorepo, outside this repository; the compatibility page needs no new
+analytics or consent controls. Do not describe all statistics as opt-in once
+that separate service path is enabled.
+
 ## Compatibility with existing links
 
 The old <https://sebastian-software.github.io/app-tracking/> address remains a

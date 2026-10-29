@@ -171,6 +171,16 @@ accounts or sessions into the telemetry database and sends no usage counts,
 repository hashes, or reporting-installation identities to WorkOS. WorkOS
 processes maintainer identity/session data for this separate login purpose.
 
+## Aggregate functional-service demand
+
+`GET /v1/admin/service-requests` exposes the independent, consent-free service
+series through the same authenticated session. The [service contract](service-statistics.md)
+owns query fields, 24-month retention, origin-only coverage, and deployment.
+It reports existing version requests by day and route/response category, with
+no installation, project, or local/CI attribution. It is an API for reporting
+clients; the current dashboard continues to display its separate opt-in usage
+series. Never add these request counts to CLI or event counts.
+
 ## Enable on the existing Bunny service
 
 1. In the WorkOS operator team, configure the AuthKit application/environment

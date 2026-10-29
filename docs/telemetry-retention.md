@@ -7,6 +7,12 @@ constants live in [policy JSON](../contracts/telemetry-v1-policy.json), with
 
 ## Data lifetime
 
+The independent [functional service counters](service-statistics.md) retain
+only aggregate day/route/response counts for 24 calendar months. They contain
+no reporting identity, receive no client usage batch, and do not enter the
+separately permitted monthly-history or publication features. Their read-time
+expiry and bounded cleanup are implemented in migration 0013.
+
 | Data                                | Visibility, expiry, and physical cleanup                                                                                                                                                                                                                            |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Attributable usage                  | A row for day D expires at UTC start(D) + 90 days. Queries exclude it immediately; scheduled physical cleanup runs within 24 h                                                                                                                                      |

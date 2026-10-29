@@ -67,6 +67,7 @@ jobs:
     timeout-minutes: 15
     env:
       TELEMETRY_ENABLED: ${{ vars.APP_TRACKING_TELEMETRY_ENABLED == '1' && '1' || '0' }}
+      SERVICE_METRICS_ENABLED: ${{ vars.APP_TRACKING_SERVICE_METRICS_ENABLED == '1' && '1' || '0' }}
       PROFILES_ENABLED: ${{ vars.APP_TRACKING_PROFILES_ENABLED == '1' && '1' || '0' }}
       PROFILES_REVIEW_REFERENCE: ${{ vars.APP_TRACKING_PROFILES_REVIEW_REFERENCE }}
       HISTORY_ENABLED: ${{ vars.APP_TRACKING_HISTORY_ENABLED == '1' && '1' || '0' }}

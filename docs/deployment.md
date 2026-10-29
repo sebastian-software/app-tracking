@@ -1,5 +1,11 @@
 # Bunny deployment
 
+Functional service statistics use the independent repository switch
+`APP_TRACKING_SERVICE_METRICS_ENABLED`. The [service-statistics contract](service-statistics.md)
+owns its source, opt-out, disclosure, migration, grants, rollback, and coverage.
+Existing deployments remain off until that switch is set; no end-user opt-in
+is required for the selected server-only design.
+
 Changes to main deploy directly to one Bunny Edge Script and its linked Pull
 Zone. The `Deploy app-tracking` workflow runs `pnpm check`, configures the
 service, publishes the bundle, purges the CDN, and verifies the live API. Pull

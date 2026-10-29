@@ -1,15 +1,17 @@
 # ADR 0010: Metrics, purposes, and consent assessment
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-27
-- Last updated: 2026-10-27
-- Evidence reviewed: 2026-10-27
+- Last updated: 2026-10-29
+- Evidence reviewed: 2026-10-29
 
 ## Context
 
-I want useful adoption, feature, environment, and service statistics across the
-tools, with a clear opt-out wherever collection can be justified without
-consent. A local CLI invocation, an internal tool invocation, a catalog loaded
+I want the greatest useful understanding of adoption, features, environments,
+and service demand, with the widest supportable measurement without prior
+consent. I accept defensible legal gray areas; I do not accept clearly unlawful
+collection. Uncertainty is a risk to assess, not an automatic opt-in rule.
+A local CLI invocation, an internal tool invocation, a catalog loaded
 from disk, and a download from an operated service are different observations.
 They need different definitions and assessments.
 
@@ -20,16 +22,17 @@ clearance. They depend on the actual purpose, implementation, and jurisdiction.
 French audience-measurement guidance is useful comparative evidence, not a
 German exemption ([E8](#e8-french-audience-measurement-exemption)).
 
-The current [ADR 0004](0004-independent-updates-and-opt-in-telemetry.md) and
-[consent contract](../telemetry-consent.md) require affirmative consent for CLI
-usage reporting. This proposal does not enable baseline analytics, add wire
-fields, introduce another telemetry revision, or change a deployed default.
+The [consent contract](../telemetry-consent.md) still governs attributable CLI
+reporting. The selected no-consent service path is implemented separately;
+its [contract](../service-statistics.md) owns its scope and deployment switch.
+This decision does not claim that all local counters require consent or switch
+existing rich events to baseline collection.
 
-## Proposed decision
+## Decision
 
 Classify each observation by its source and purpose before choosing a control:
 
-1. **Service statistics:** aggregate observations from otherwise lawful,
+1. **Service statistics:** maximize aggregate observations from otherwise lawful,
    functional version and download requests. Offer a documented opt-out from
    optional analytics. Assess the legal basis for the processing that precedes
    aggregation, including transient IP processing.
@@ -40,6 +43,20 @@ Classify each observation by its source and purpose before choosing a control:
 3. **Product usage reporting:** retain explicit opt-in for attributable local
    command, component, catalog, and environment observations. Investigate the
    narrowly defined identifier-free invocation counter separately.
+
+For each candidate, identify the information gained, concrete acquisition path,
+strongest argument for no-consent collection, contrary evidence, and remaining
+risk. Prefer a useful narrower default-on design over placing the whole
+observation behind consent. No universal rule makes OS names, counters, or CI
+intrinsically consent-dependent: source, purpose, and implementation decide the
+assessment. An unresolved question is not a court finding that collection is
+prohibited. Risk acceptance does not create an exception to an applicable law.
+
+The selected implementation records S01 and version-response categories from
+S05 directly on the server, with immediate aggregation and an effective opt-out.
+S02-S04 remain opportunities at the actual resource-serving system; an extra
+client download report is a different observation. S06 needs its own IP-purpose
+assessment. No visitor estimate or device collector is added to this path.
 
 An opt-out is a control, not a legal basis. Access to information on a device
 and subsequent personal-data processing need separate assessments
@@ -54,8 +71,8 @@ itself remove the device-access question
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | No-opt-in candidate | A defensible design based on functional service requests and limited processing. Document the purpose, applicable basis, transparency, processors, and minimization before enabling it. |
 | Conditional         | A possible exception or lawful basis depends on facts still to establish, such as actual necessity, effective protection, or the balancing assessment.                                  |
-| Unresolved          | A concrete question for focused legal assessment. Do not treat the row as approved for default-on collection.                                                                           |
-| Opt-in              | The proposed product design requires an informed affirmative grant before additional local reporting. This is not a universal statutory whitelist or blacklist of field names.          |
+| Unresolved          | A gray-area candidate needing an explicit assessment of competing arguments and accepted risk before activation; this classification is not a prohibition.                              |
+| Opt-in              | The selected current design requires an informed affirmative grant before additional local reporting. This is not a universal statutory whitelist or blacklist of field names.          |
 | Excluded            | Not part of the proposed collection scope; consent alone does not establish necessity or justify unlimited collection.                                                                  |
 
 The field names and bucket examples below describe candidate semantics. The
@@ -66,32 +83,32 @@ fields; these tables are not an alternative schema.
 
 ### Functional online requests
 
-| ID / metric                       | Exact observation and constraints                                                                                                                                                             | Classification                                             | Evidence                                                                         |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| S01 Version requests              | Server UTC day, reviewed tool ID, distribution label, release channel, and request count. No installed version, device query, or persistent visitor ID. Include CDN hits in coverage.         | No-opt-in candidate                                        | [E3](#e3-german-supervisory-guidance), [E4](#e4-server-side-measurement-example) |
-| S02 Syntax downloads              | Requested public syntax ID, artifact version, format, request count, and bytes transferred. Aggregate existing requests; omit arbitrary URLs, query strings, credentials, and client history. | No-opt-in candidate                                        | [E2](#e2-gdpr), [E4](#e4-server-side-measurement-example)                        |
-| S03 Download platform             | OS/architecture category from the requested artifact variant, such as `macos-aarch64`. Measures artifact selection, not detected hardware or the running OS version.                          | No-opt-in candidate                                        | [E4](#e4-server-side-measurement-example)                                        |
-| S04 Remote catalog/index requests | Reviewed public catalog/package ID, version, format, and server request count. No private catalog names or user-supplied catalog URL labels.                                                  | No-opt-in candidate                                        | [E3](#e3-german-supervisory-guidance), [E4](#e4-server-side-measurement-example) |
-| S05 Service quality               | Aggregated status categories, response-time distributions, cache hits/misses, and bytes. Measure at the serving system; do not attach a client identifier or instrument local work.           | No-opt-in candidate                                        | [E2](#e2-gdpr), [E4](#e4-server-side-measurement-example)                        |
-| S06 Country distribution          | Derive country from an already available request IP and immediately increment a country counter. No raw IP, city, coordinates, or geography-based visitor identity in the statistics.         | Conditional: separately assess purpose and proportionality | [E2](#e2-gdpr), [E4](#e4-server-side-measurement-example)                        |
+| ID / metric                       | Exact observation and constraints                                                                                                                                                                                    | Classification                                             | Evidence                                                                         |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| S01 Version requests              | Server UTC day, reviewed tool ID, distribution label, release channel, and request count. No installed version, device query, or persistent visitor ID. Implemented as origin-only counts; CDN coverage is separate. | No-opt-in candidate                                        | [E3](#e3-german-supervisory-guidance), [E4](#e4-server-side-measurement-example) |
+| S02 Syntax downloads              | Requested public syntax ID, artifact version, format, request count, and bytes transferred. Aggregate existing requests; omit arbitrary URLs, query strings, credentials, and client history.                        | No-opt-in candidate                                        | [E2](#e2-gdpr), [E4](#e4-server-side-measurement-example)                        |
+| S03 Download platform             | OS/architecture category from the requested artifact variant, such as `macos-aarch64`. Measures artifact selection, not detected hardware or the running OS version.                                                 | No-opt-in candidate                                        | [E4](#e4-server-side-measurement-example)                                        |
+| S04 Remote catalog/index requests | Reviewed public catalog/package ID, version, format, and server request count. No private catalog names or user-supplied catalog URL labels.                                                                         | No-opt-in candidate                                        | [E3](#e3-german-supervisory-guidance), [E4](#e4-server-side-measurement-example) |
+| S05 Service quality               | Aggregated status categories, response-time distributions, cache hits/misses, and bytes. Measure at the serving system; do not attach a client identifier or instrument local work.                                  | No-opt-in candidate                                        | [E2](#e2-gdpr), [E4](#e4-server-side-measurement-example)                        |
+| S06 Country distribution          | Derive country from an already available request IP and immediately increment a country counter. No raw IP, city, coordinates, or geography-based visitor identity in the statistics.                                | Conditional: separately assess purpose and proportionality | [E2](#e2-gdpr), [E4](#e4-server-side-measurement-example)                        |
 
 ### Local usage and environment
 
-| ID / metric                               | Exact observation and constraints                                                                                                                                                                                                                                         | Classification                              | Evidence                                                                                                                                |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| U01 Minimal invocation counter            | A separate CLI request containing only reviewed product/command categories and tool version; no installation/project ID, device fields, persistent usage queue, or cross-request linkage. A distinct proposal, not a claim that the existing batch client is exempt.      | Unresolved                                  | [E3](#e3-german-supervisory-guidance), [E5](#e5-technical-scope-of-device-access)                                                       |
-| U02 Attributable command usage            | UTC day, host tool/version, allowlisted command category, count, and reporting installation ID; optionally project identity. One native entry-point invocation, no argv or paths.                                                                                         | Opt-in                                      | [E1](#e1-terminal-access-law), [E5](#e5-technical-scope-of-device-access), [ADR 0004](0004-independent-updates-and-opt-in-telemetry.md) |
-| U03 Component tool usage                  | A separate count of an explicitly dispatched component or plugin under a host such as Palamedes. Only reviewed public component/operation IDs; custom namespaces become `other`. Never send executable paths or arbitrary manifest/command names.                         | Opt-in                                      | [E1](#e1-terminal-access-law), [E5](#e5-technical-scope-of-device-access)                                                               |
-| U04 Local catalog loads                   | Count successful catalog resource loads, summarized by command and reviewed format (`po`, `fcl`, `other`). Record neither message content nor catalog names, paths, tenant names, or their hashes. Distinguish process loads from logical resources and remote downloads. | Opt-in                                      | [E1](#e1-terminal-access-law), [E5](#e5-technical-scope-of-device-access)                                                               |
-| U05 Installed-version adoption            | Tool version from U02; report invocation-weighted and installation-weighted distributions separately. A downloaded version is not evidence of an active installed version.                                                                                                | Opt-in; inclusion in U01 remains unresolved | [E1](#e1-terminal-access-law), [E5](#e5-technical-scope-of-device-access)                                                               |
-| U06 Active installations                  | Distinct random reporting IDs per tool/profile/context over the complete requested period. No OS machine ID or hardware-derived fingerprint. Installation counts are not people or physical-machine counts.                                                               | Opt-in                                      | [E1](#e1-terminal-access-law), [ADR 0004](0004-independent-updates-and-opt-in-telemetry.md)                                             |
-| U07 Active repositories                   | SHA256 of the normalized repository URL, with normalization version; same repository across clones/tools, distinct fork origins separate. Never send the URL. Known URLs can be matched, so the hash is pseudonymous, not guaranteed anonymous.                           | Opt-in                                      | [E1](#e1-terminal-access-law), [ADR 0005](0005-repository-derived-project-identity.md), [project contract](../project-identity.md)      |
-| U08 OS family and executable architecture | Bounded OS category and executable architecture, such as `macos` and `aarch64`. Under emulation, executable architecture may differ from physical CPU architecture. Collected locally for reporting, unlike S03.                                                          | Opt-in                                      | [E1](#e1-terminal-access-law), [E5](#e5-technical-scope-of-device-access)                                                               |
-| U09 OS version                            | Normalized numeric macOS product version, Linux kernel release, or Windows kernel/build version. No hostname or custom build suffix; use `unknown` when unavailable.                                                                                                      | Opt-in                                      | [E1](#e1-terminal-access-law), [E5](#e5-technical-scope-of-device-access)                                                               |
-| U10 CPU family                            | Reviewed categories such as `apple_m1`, `apple_m4`, `intel`, `amd`, `other`, `unknown`. Apple generation and x86 vendor are different resolutions; do not claim an Intel/AMD generation from a vendor label.                                                              | Opt-in                                      | [E1](#e1-terminal-access-law), [E5](#e5-technical-scope-of-device-access)                                                               |
-| U11 Capacity                              | Optional future buckets: logical cores `<=4/<=8/<=16/>16`; RAM `<=8/<=16/<=32/<=64/>64 GiB`, plus `unknown`. No exact hardware inventory. Not part of the current wire contract.                                                                                          | Opt-in                                      | [E1](#e1-terminal-access-law), [E2](#e2-gdpr)                                                                                           |
-| U12 Execution context                     | Coarse local/CI and, if separately adopted, container categories. Never transmit runner/job names, provider account IDs, or environment contents. CI needs its own explicit authorized scope.                                                                             | Opt-in                                      | [E1](#e1-terminal-access-law), [E6](#e6-consent-design), [consent contract](../telemetry-consent.md)                                    |
-| U13 Local performance/results             | Duration buckets, success/error counts, and reviewed diagnostic codes. No free-form error text, stack traces, logs, source, or dumps. Distinct from S05 server observations.                                                                                              | Opt-in                                      | [E1](#e1-terminal-access-law), [E5](#e5-technical-scope-of-device-access)                                                               |
+| ID / metric                               | Exact observation and constraints                                                                                                                                                                                                                                                   | Classification                              | Evidence                                                                                                                                |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| U01 Minimal invocation counter            | A separate CLI request containing only reviewed product/command categories and tool version; no installation/project ID, device fields, persistent usage queue, or cross-request linkage. A distinct proposal, not a claim that the existing batch client is exempt.                | Unresolved                                  | [E3](#e3-german-supervisory-guidance), [E5](#e5-technical-scope-of-device-access)                                                       |
+| U02 Attributable command usage            | UTC day, host tool/version, allowlisted command category, count, and reporting installation ID; optionally project identity. One native entry-point invocation, no argv or paths.                                                                                                   | Opt-in                                      | [E1](#e1-terminal-access-law), [E5](#e5-technical-scope-of-device-access), [ADR 0004](0004-independent-updates-and-opt-in-telemetry.md) |
+| U03 Component tool usage                  | A separate count of an explicitly dispatched component or plugin under a host such as Palamedes. Only reviewed public component/operation IDs; custom namespaces become `other`. Never send executable paths or arbitrary manifest/command names.                                   | Opt-in                                      | [E1](#e1-terminal-access-law), [E5](#e5-technical-scope-of-device-access)                                                               |
+| U04 Local catalog loads                   | Count successful catalog resource loads, summarized by command and reviewed format (`po`, `fcl`, `other`). Record neither message content nor catalog names, paths, tenant names, or their hashes. Distinguish process loads from logical resources and remote downloads.           | Opt-in                                      | [E1](#e1-terminal-access-law), [E5](#e5-technical-scope-of-device-access)                                                               |
+| U05 Installed-version adoption            | Tool version from U02; report invocation-weighted and installation-weighted distributions separately. A downloaded version is not evidence of an active installed version.                                                                                                          | Opt-in; inclusion in U01 remains unresolved | [E1](#e1-terminal-access-law), [E5](#e5-technical-scope-of-device-access)                                                               |
+| U06 Active installations                  | Distinct random reporting IDs per tool/profile/context over the complete requested period. No OS machine ID or hardware-derived fingerprint. Installation counts are not people or physical-machine counts.                                                                         | Opt-in                                      | [E1](#e1-terminal-access-law), [ADR 0004](0004-independent-updates-and-opt-in-telemetry.md)                                             |
+| U07 Active repositories                   | SHA256 of the normalized repository URL, with normalization version; same repository across clones/tools, distinct fork origins separate. Never send the URL. Known URLs can be matched, so the hash is pseudonymous, not guaranteed anonymous.                                     | Opt-in                                      | [E1](#e1-terminal-access-law), [ADR 0005](0005-repository-derived-project-identity.md), [project contract](../project-identity.md)      |
+| U08 OS family and executable architecture | Bounded OS category and executable architecture, such as `macos` and `aarch64`. Under emulation, executable architecture may differ from physical CPU architecture. Collected locally for reporting, unlike S03.                                                                    | Opt-in                                      | [E1](#e1-terminal-access-law), [E5](#e5-technical-scope-of-device-access)                                                               |
+| U09 OS version                            | Normalized numeric macOS product version, Linux kernel release, or Windows kernel/build version. No hostname or custom build suffix; use `unknown` when unavailable.                                                                                                                | Opt-in                                      | [E1](#e1-terminal-access-law), [E5](#e5-technical-scope-of-device-access)                                                               |
+| U10 CPU family                            | Reviewed categories such as `apple_m1`, `apple_m4`, `intel`, `amd`, `other`, `unknown`. Apple generation and x86 vendor are different resolutions; do not claim an Intel/AMD generation from a vendor label.                                                                        | Opt-in                                      | [E1](#e1-terminal-access-law), [E5](#e5-technical-scope-of-device-access)                                                               |
+| U11 Capacity                              | Optional future buckets: logical cores `<=4/<=8/<=16/>16`; RAM `<=8/<=16/<=32/<=64/>64 GiB`, plus `unknown`. No exact hardware inventory. Not part of the current wire contract.                                                                                                    | Opt-in                                      | [E1](#e1-terminal-access-law), [E2](#e2-gdpr)                                                                                           |
+| U12 Execution context                     | Coarse local/CI and, if separately adopted, container categories. Never transmit runner/job names, provider account IDs, or environment contents. Attributable CI reporting needs an explicit operator grant; functional service statistics apply equally to local and CI requests. | Opt-in                                      | [E1](#e1-terminal-access-law), [E6](#e6-consent-design), [consent contract](../telemetry-consent.md)                                    |
+| U13 Local performance/results             | Duration buckets, success/error counts, and reviewed diagnostic codes. No free-form error text, stack traces, logs, source, or dumps. Distinct from S05 server observations.                                                                                                        | Opt-in                                      | [E1](#e1-terminal-access-law), [E5](#e5-technical-scope-of-device-access)                                                               |
 
 ### Protection and identifiers
 
@@ -149,13 +166,33 @@ consumer release contains every proposed metric. The current
 [telemetry policy](../../contracts/telemetry-v1-policy.json) owns command
 allowlists; [reporting](../reporting.md) owns implemented measures.
 
+## No-consent candidates and accepted uncertainty
+
+| Candidate                                    | Argument for collection without consent                                                                                                             | Contrary evidence and selected outcome                                                                                                                                                                                                                                                                                                                                 |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Functional version requests (S01/S05)        | Route labels already select the requested service; immediate server aggregation adds no client probe or identifier.                                 | Connection processing still needs transparency and a GDPR basis where personal data is involved. Select this narrowly scoped default-on design once its operational switch is enabled; implement opt-out and document incomplete origin coverage.                                                                                                                      |
+| Resource and artifact demand (S02-S04)       | The serving system already needs the public resource/variant to fulfill the request.                                                                | Observe at the actual serving system. A client-side report after a download or cache hit adds a separate acquisition path. Keep those current rich reports opt-in.                                                                                                                                                                                                     |
+| Country-only request totals (S06)            | An already available request IP could be immediately reduced to a country bucket without individual history.                                        | Geolocation adds an analytics purpose and requires processor/source and balancing assessment. No country collection is implemented here; this is a viable candidate, not a categorical ban.                                                                                                                                                                            |
+| Identifier-free CLI counter (U01)            | A public command category and compiled version, no persistent identity, queue, device probe, or cross-request linkage, substantially reduce impact. | EDPB paragraphs 32-39 include distributed SDK instructions, generated information, and RAM; DSK paragraphs 89-90 make purpose decisive and do not grant a simple-counter exemption. No demonstrated necessary service function supports the extra analytics request in the current design. Keep it unresolved rather than claim permission or a universal prohibition. |
+| Ephemeral CI-only counter                    | Organizational execution may reduce personal-data exposure and a short-lived scope avoids developer profiles.                                       | Legal persons and rented/provided equipment remain protected (EDPB paragraphs 18-19). CI detection alone supplies neither an exception nor an operator decision. The service path needs no CI grant; rich CI observations retain their separate explicit grant.                                                                                                        |
+| Broad device/project and cross-tool profiles | More detail would improve adoption and compatibility analysis.                                                                                      | New device queries, guessable repository hashes, and persistent linkage materially change the intervention. Current detailed definitions stay opt-in; a hash, missing refusal, or generic security label does not justify switching them on.                                                                                                                           |
+
+The objective accepts defensible ambiguity without requiring a court ruling or
+zero-risk certificate for each field. The selected service implementation is a
+positive no-consent decision. Unimplemented candidates need their concrete
+acquisition path and rationale, not an unsupported change from `opt_in` to
+`opt_out` in the catalog. No nonconsenting population is inferred from the
+consenting subset. Request counts cannot establish unique users or users'
+individual behavior.
+
 ## Host and infrastructure responsibilities
 
 The host product owns what an observation means and where it occurs.
 app-tracking owns the reusable collection and delivery machinery. Product
 definitions should be data consumed by that machinery, so adding a reviewed
 Palamedes metric does not require Palamedes-specific branches in the SDK or
-service. This boundary is a proposed extension, not the current generic API.
+service. The unified client implements this boundary; consumer adoption remains
+separate from its availability in the SDK.
 
 | Owner                  | Responsibilities                                                                                                                                                                                                                                                                                               |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -206,14 +243,22 @@ noninteractive modes. A separate `set_opt_in(bool)` supports explicit settings
 changes. Ordinary operations neither prompt nor repeat a mode argument or
 maintain their own preference file.
 
+`request_opt_in_reminder(message)` can revisit an open or deliberately deferred
+choice after 14 days, using a friendly satisfaction-oriented introduction and
+explicit allow/later/never choices. It preserves refusals and withdrawals and
+saves only local prompt timing before display. This timing preference is not a
+usage observation or consent grant. The separate permission scopes are never
+silently bundled into this invitation.
+
 The product catalog still assigns each metric to an `opt_out` or `opt_in`
 collection route. The client evaluates that assignment against its saved
 choice and process policy. `set_opt_in(false)` selects baseline behavior and
 removes unsent opt-in observations. `set_opt_in(true)` also permits registered
 opt-in observations. A separate `set_disabled(true)` stops both routes.
 
-Both routes use shared context collection, aggregation, and background
-delivery. Offline mode suppresses network activity while permitted local
+Opt-in routes use shared context collection; baseline definitions omit system
+and project collectors. Both use aggregation and background delivery.
+Offline mode suppresses network activity while permitted local
 counting can continue. Declined opt-in observations are skipped before their
 data closure or system collector runs. They never fall back to a baseline
 counter. Baseline batches carry neither an installation ID nor its credential.
@@ -487,6 +532,13 @@ It does not approve cross-tool repository linkage or establish a German
 exemption for a Rust CLI.
 
 ## Change history
+
+- 2026-10-29: Accept maximum useful measurement without unnecessary consent as
+  the product direction, including defensible legal uncertainty. Recheck DSK,
+  LfDI BW, EDPB, and GDPR sources; separate actual design decisions from legal
+  prohibitions. Select aggregate functional version statistics, document the
+  arguments and limits of narrower CLI/CI candidates, preserve current rich
+  grants, and constrain baseline event definitions to omit device collectors.
 
 - 2026-10-27: Record the proposed metric matrix, separate Palamedes command,
   component, and catalog use cases, and link each assessment to primary

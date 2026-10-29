@@ -73,6 +73,7 @@ pub(crate) fn fetch(
     tool: &Tool,
     state: &State,
     now: u64,
+    service_metrics: bool,
 ) -> Result<(Release, Option<String>), Error> {
     let agent: ureq::Agent = ureq::Agent::config_builder()
         .timeout_global(Some(NETWORK_BUDGET))
@@ -83,6 +84,9 @@ pub(crate) fn fetch(
         .build()
         .into();
     let mut request = agent.get(resource).header("Accept", "application/json");
+    if !service_metrics {
+        request = request.header("DNT", "1");
+    }
     let cached = state
         .release
         .as_ref()

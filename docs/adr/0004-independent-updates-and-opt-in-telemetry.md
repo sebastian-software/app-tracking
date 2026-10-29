@@ -2,23 +2,25 @@
 
 - Status: Accepted
 - Date: 2026-10-22
-- Last updated: 2026-10-27
+- Last updated: 2026-10-29
 
 ## Context
 
 Update checks answer which release is available. Usage measurement answers how
 often consenting installations invoke a tool and which features they use.
-Counting update requests as usage couples consent, request frequency, and
-availability, and cannot establish distinct installations across days.
+Aggregate update-service demand and local tool usage are different measures.
+Request frequency cannot establish distinct installations across days.
 
 ## Decision
 
 I am keeping update checks and usage reporting independently configurable.
 Version information is available without telemetry consent or reporting
-identifiers. An update check must not become a substitute usage event when
-telemetry is declined.
+identifiers. Functional version requests may contribute to the separate
+[service statistics](../service-statistics.md) without prior usage consent.
+Keep their service-statistics opt-out independent of update availability; never
+label these requests as CLI invocations, unique users, or installations.
 
-Telemetry requires explicit opt-in before usage counters, reporting identity,
+Current attributable local telemetry requires explicit opt-in before usage counters, reporting identity,
 or project identity are collected for this purpose. Consent covers documented
 fields and purposes. Existing opt-out-based reporting does not establish
 consent to the new protocol.
@@ -30,6 +32,14 @@ grants are reused. Noninteractive/CI/worker contexts never open a new dialog,
 and an interrupted request does not create a decision. Hosts can change an
 explicit saved choice through `set_opt_in(bool)` without owning another
 preference store. See the [unified client guide](../unified-client.md).
+
+Hosts may use `request_opt_in_reminder(message)` to offer an open/deferred
+choice again after 14 days. The invitation can ask whether the tool is working
+well, followed by the full reporting disclosure and allow/later/never choices.
+A blank answer defers, never grants. Explicit refusals and withdrawals remain
+effective without reminders. Store only local timing before display to avoid
+repeated prompts after interruption or concurrent invocations; create no
+reporting identity or usage observations until an affirmative grant.
 
 The client summarizes usage locally and sends bounded batches. Withdrawal
 stops collection and upload, clears pending reports, and provides a way to
@@ -69,11 +79,20 @@ production-enablement issues, not to this contract's acceptance.
 See [RFC 0002](../rfcs/0002-client-consent-and-measurement.md) for shared-client
 boundaries and the remaining repository-normalization proposal.
 
-The proposed [metric and consent assessment](0010-metrics-purposes-and-consent.md)
-separates functional service statistics, necessary protection, and additional
-CLI reporting. It does not change this accepted opt-in decision.
+The accepted [metric assessment](0010-metrics-purposes-and-consent.md) pursues
+maximum useful measurement without unnecessary consent and accepts defensible
+legal uncertainty. Its separate service path leaves the current rich local
+reporting contract intact; narrower CLI counters have their own assessment.
 
 ## Change history
+
+- 2026-10-29: Add an optional 14-day reminder for deferred/open choices with a
+  satisfaction-oriented invitation, explicit allow/later/never choices, local
+  prompt throttling, and permanent respect for refusals and withdrawals.
+
+- 2026-10-29: Permit separately controlled aggregate functional-service statistics
+  without prior usage consent; distinguish service demand from local usage and
+  retain opt-in for the current attributable observations.
 
 - 2026-10-23: Define per-tool/context identity, separately opted-in CI, finite
   replay protection, explicit renewal/reset, and the maintained v1 contracts.
