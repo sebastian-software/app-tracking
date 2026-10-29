@@ -124,8 +124,10 @@ The [unified client](docs/unified-client.md) adds one `record` API, verified
 resource downloads, shared system collectors, and a persisted permission flow.
 Its [generic event batches](docs/event-batches.md) are stored separately from
 legacy invocation counts. The private dashboard has a separate metric-specific
-event view with version, language/resource, and system breakdowns. Node support
-and consumer rollout remain follow-up work under
+event view with version, language/resource, and system breakdowns. The
+[Node client](packages/node-client/README.md) provides a platform-independent
+TypeScript package with local installed-package tests; npm publication and
+consumer rollout remain follow-up work under
 [issue #48](https://github.com/sebastian-software/app-tracking/issues/48).
 
 [ADR 0010](docs/adr/0010-metrics-purposes-and-consent.md) retains proposed
@@ -174,6 +176,10 @@ point, supplies the reason and privacy/settings link, maps process restrictions,
 and exposes control commands. Construction, `record`, and `download` do not
 prompt automatically; a changed metric scope needs a fresh permission request.
 Legacy consent is not imported into the new client.
+
+For a Node.js tool, use the [Node client guide](packages/node-client/README.md).
+Its pure JavaScript bundles need no native addons. Node and Rust use separate
+state and permission namespaces; grants and credentials are never copied.
 
 The [update integration guide](docs/rust-client.md) and
 [legacy telemetry guide](docs/rust-telemetry-client.md) remain available for
