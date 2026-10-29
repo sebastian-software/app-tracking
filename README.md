@@ -181,6 +181,9 @@ For a Node.js tool, use the [Node client guide](packages/node-client/README.md).
 Its pure JavaScript bundles need no native addons. Node and Rust use separate
 state and permission namespaces; grants and credentials are never copied.
 
+Changes to shared client behavior must cover both implementations. Follow the
+[client parity rules and known gaps](docs/client-parity.md) when contributing.
+
 The [update integration guide](docs/rust-client.md) and
 [legacy telemetry guide](docs/rust-telemetry-client.md) remain available for
 existing APIs. Adopt generic reporting only after its service migration and
