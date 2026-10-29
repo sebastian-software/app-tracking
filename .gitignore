@@ -9,3 +9,8 @@ rollback/
 .bunny/
 
 /target/
+/packages/node-client/LICENSE-MIT
+/packages/node-client/LICENSE-APACHE
+/packages/node-client/*.tgz
+/packages/node-client/THIRD_PARTY_NOTICES.md
+/packages/node-client/dist/
