@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { appendFileSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { setTimeout as delay } from "node:timers/promises";
 import { releaseVersion } from "./check-crate-release.ts";
 
 const packageName = "@sebastian-software/app-tracking";
@@ -56,6 +57,35 @@ export async function publicationRequired(
   return false;
 }
 
+export async function waitForPublication(
+  version: string,
+  integrity: string,
+  {
+    request = fetch,
+    wait = delay,
+    now = () => performance.now(),
+  }: {
+    request?: typeof fetch;
+    wait?: (milliseconds: number) => Promise<void>;
+    now?: () => number;
+  } = {},
+): Promise<void> {
+  const deadline = now() + 5 * 60_000;
+  do {
+    if (!(await publicationRequired(version, integrity, request))) return;
+    const remaining = deadline - now();
+    if (remaining <= 0) break;
+    const milliseconds = Math.min(10_000, remaining);
+    console.log(
+      `npm is still processing ${packageName} ${version}; checking again in ${milliseconds / 1000}s`,
+    );
+    await wait(milliseconds);
+  } while (now() < deadline);
+  throw new Error(
+    `${packageName} ${version} is still unavailable after waiting for npm publication`,
+  );
+}
+
 async function main(): Promise<void> {
   const version = productVersion(
     process.env.TAG_NAME ?? "",
@@ -66,10 +96,9 @@ async function main(): Promise<void> {
   const archive = process.argv[2];
   if (!archive || archive.startsWith("--")) throw new Error("Pass the packed npm archive path");
   const integrity = `sha512-${createHash("sha512").update(readFileSync(archive)).digest("base64")}`;
-  const required = await publicationRequired(version, integrity);
-  if (required && process.argv.includes("--require-published")) {
-    throw new Error("The release package is not available in the registry");
-  }
+  let required = false;
+  if (process.argv.includes("--require-published")) await waitForPublication(version, integrity);
+  else required = await publicationRequired(version, integrity);
   if (process.env.GITHUB_OUTPUT)
     appendFileSync(process.env.GITHUB_OUTPUT, `publish_required=${required}\n`);
   console.log(
