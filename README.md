@@ -130,11 +130,11 @@ TypeScript package with local installed-package tests; npm publication and
 consumer rollout remain follow-up work under
 [issue #48](https://github.com/sebastian-software/app-tracking/issues/48).
 
-[ADR 0010](docs/adr/0010-metrics-purposes-and-consent.md) retains proposed
-assessments for broader metrics and service statistics alongside the implemented
-client work. The generic protocol supports an opt-out route, but the current
-shipped catalog contains no production baseline metrics. Neither that mechanism nor the
-proposal enables default-on reporting. Durable historical summaries and public
+[ADR 0010](docs/adr/0010-metrics-purposes-and-consent.md) records the implemented
+service-statistics path and assessments for broader metrics. The generic
+protocol supports an opt-out route, but the current shipped catalog contains no
+production baseline metrics. Neither that mechanism nor the assessment enables
+default-on client reporting. Durable historical summaries and public
 usage exports remain proposed in
 [RFC 0004](docs/rfcs/0004-historical-usage-summaries.md).
 
