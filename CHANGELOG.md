@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.0](https://github.com/sebastian-software/app-tracking/compare/app-tracking-v0.5.0...app-tracking-v0.6.0) (2026-10-29)
+
+
+### Features
+
+* add a pure TypeScript Node.js client ([90cf48d](https://github.com/sebastian-software/app-tracking/commit/90cf48de887d6ca1f455227cc91d43950fa7631f))
+* add aggregate service statistics and consent reminders ([#69](https://github.com/sebastian-software/app-tracking/issues/69)) ([4eb69df](https://github.com/sebastian-software/app-tracking/commit/4eb69dfccd06b1b2151581f08b5d0ea020a6dcb2))
+
+
+### Bug Fixes
+
+* version and release Rust and Node clients together ([b403244](https://github.com/sebastian-software/app-tracking/commit/b40324467c40803633ebf4941b3e475b620f6464))
+
 ## [0.5.0](https://github.com/sebastian-software/app-tracking/compare/app-tracking-v0.4.0...app-tracking-v0.5.0) (2026-10-28)
 
 
