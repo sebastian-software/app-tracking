@@ -5,10 +5,10 @@ The package contains ESM, CommonJS, TypeScript declarations, and its background
 worker. It uses Node.js built-ins and bundled JavaScript; consumers need no
 Rust toolchain, native addon, platform package, or installation script.
 
-This package is currently private and unpublished. It implements the shared
-Node-client portion of [issue #53](https://github.com/sebastian-software/app-tracking/issues/53).
-Ferriki adoption, npm release automation, and separately registered runtime/host
-version fields still need their own delivery evidence. The Rust SDK's additional
+This package shares its version and release tag with the Rust client. It
+implements the shared Node-client portion of [issue #53](https://github.com/sebastian-software/app-tracking/issues/53).
+Ferriki adoption and separately registered runtime/host version fields still
+need their own delivery evidence. The Rust SDK's additional
 history, public-usage, and cross-tool profile permissions are not enabled by this
 client. This package currently targets the repository's Node.js 24 runtime.
 
@@ -27,8 +27,11 @@ fixtures use loopback servers and synthetic identities. The three-platform
 Node-client workflow runs the same command without installing Rust.
 
 `pnpm build:node-client` builds only the package. To create a local tarball, run
-`npm pack --ignore-scripts` in `packages/node-client` after building. Do not
-publish a tarball until the remaining release and consumer acceptance is ready.
+`npm pack --ignore-scripts` in `packages/node-client` after building. Product
+releases are published by the repository Release workflow from the same tag as
+the Rust crate; see [the release guide](https://github.com/sebastian-software/app-tracking/blob/main/docs/releasing.md).
+The `bootstrap` dist-tag is only a placeholder for initial npm publisher setup
+and contains no client implementation.
 
 ## Integrate a tool
 

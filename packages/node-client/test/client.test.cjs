@@ -36,7 +36,7 @@ before(async () => {
   await fs.mkdir(installed, { recursive: true });
   execFileSync("tar", [
     "-xzf",
-    join(fixture, packed[0].filename),
+    join(fixture, Object.values(packed)[0].filename),
     "--strip-components=1",
     "-C",
     installed,

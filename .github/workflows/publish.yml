@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       recover_tag:
-        description: Existing public release tag to resume after a failed crate publish
+        description: Existing public release tag to resume after a failed registry publish
         required: false
         type: string
 
@@ -27,8 +27,8 @@ jobs:
       issues: write
       pull-requests: write
     outputs:
-      release_created: ${{ steps.release.outputs['crates/app-tracking--release_created'] || steps.recovery.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs['crates/app-tracking--tag_name'] || steps.recovery.outputs.tag_name }}
+      release_created: ${{ steps.release.outputs.releases_created || steps.recovery.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name || steps.recovery.outputs.tag_name }}
     steps:
       - name: Maintain release PR and create GitHub release
         if: github.event_name == 'push' || inputs.recover_tag == ''
@@ -108,3 +108,77 @@ jobs:
         run: cargo +${{ steps.rust.outputs.version }} publish --locked -p app-tracking
       - name: Verify the registry checksum
         run: node ../automation/scripts/check-crate-release.ts --require-published
+
+  publish-npm:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
+    defaults:
+      run:
+        working-directory: release
+    steps:
+      - name: Check out the release automation
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          path: automation
+          persist-credentials: false
+      - name: Check out the release tag
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+          path: release
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: release/.node-version
+          package-manager-cache: false
+          registry-url: https://registry.npmjs.org
+      - name: Check whether the tag includes a public Node package
+        id: node-package
+        run: |
+          node --input-type=module <<'JS'
+          import { existsSync, readFileSync, appendFileSync } from 'node:fs';
+          const file = 'packages/node-client/package.json';
+          const eligible = existsSync(file) && JSON.parse(readFileSync(file, 'utf8')).private !== true;
+          appendFileSync(process.env.GITHUB_OUTPUT, `eligible=${eligible}\n`);
+          if (!eligible) console.log('This legacy release predates the public Node package.');
+          JS
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        if: steps.node-package.outputs.eligible == 'true'
+        with:
+          package_json_file: release/package.json
+          run_install: false
+          cache: true
+          cache_dependency_path: release/pnpm-lock.yaml
+      - name: Install release build dependencies
+        if: steps.node-package.outputs.eligible == 'true'
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Install the pinned npm CLI for Trusted Publishing
+        if: steps.node-package.outputs.eligible == 'true'
+        run: npm install --global npm@11.19.1 --ignore-scripts --no-audit --no-fund
+      - name: Build and test the npm artifact
+        if: steps.node-package.outputs.eligible == 'true'
+        run: pnpm test:node-client
+      - name: Pack the npm release
+        if: steps.node-package.outputs.eligible == 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/npm-release"
+          npm pack ./packages/node-client --ignore-scripts --pack-destination "$RUNNER_TEMP/npm-release"
+          version="$(node -p "JSON.parse(require('node:fs').readFileSync('packages/node-client/package.json', 'utf8')).version")"
+          echo "NPM_ARCHIVE=$RUNNER_TEMP/npm-release/sebastian-software-app-tracking-$version.tgz" >> "$GITHUB_ENV"
+      - name: Check whether this exact package is already published
+        if: steps.node-package.outputs.eligible == 'true'
+        id: package
+        run: node ../automation/scripts/check-node-release.ts "$NPM_ARCHIVE"
+      - name: Publish with npm Trusted Publishing
+        if: steps.package.outputs.publish_required == 'true'
+        run: npm publish "$NPM_ARCHIVE" --access public --tag latest --provenance
+      - name: Verify the registry integrity
+        if: steps.node-package.outputs.eligible == 'true'
+        run: node ../automation/scripts/check-node-release.ts "$NPM_ARCHIVE" --require-published

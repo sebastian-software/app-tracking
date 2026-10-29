@@ -2,16 +2,24 @@
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "include-component-in-tag": true,
   "tag-separator": "-",
-  "last-release-sha": "2255931ac5c7b90d8737aec062ddcf538e5e45e6",
-  "plugins": ["cargo-workspace"],
+  "bootstrap-sha": "4038485ffbd4686c3dc3e11100798aeb393c669a",
   "packages": {
-    "crates/app-tracking": {
+    ".": {
       "release-type": "rust",
       "package-name": "app-tracking",
       "component": "app-tracking",
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": true,
-      "bump-patch-for-minor-pre-major": false
+      "bump-patch-for-minor-pre-major": false,
+      "extra-files": [
+        { "type": "json", "path": "package.json", "jsonpath": "$.version" },
+        {
+          "type": "json",
+          "path": "{apps,packages}/*/package.json",
+          "glob": true,
+          "jsonpath": "$.version"
+        }
+      ]
     }
   }
 }
