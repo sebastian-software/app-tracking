@@ -14,7 +14,7 @@ direction is decided, not that it is implemented or deployed.
 | [0007](0007-dual-license.md)                             | MIT or Apache-2.0 licensing               | Accepted |
 | [0008](0008-background-telemetry-delivery.md)            | Background telemetry delivery             | Accepted |
 | [0009](0009-private-maintainer-reporting.md)             | Private maintainer reporting              | Accepted |
-| [0010](0010-metrics-purposes-and-consent.md)             | Metrics, purposes, and consent assessment | Proposed |
+| [0010](0010-metrics-purposes-and-consent.md)             | Metrics, purposes, and consent assessment | Accepted |
 
 | [0011](0011-monthly-history-retention.md) | Separately permitted monthly history | Accepted |
 

@@ -22,6 +22,7 @@ if (import.meta.main) {
       revision,
       sha256: hash,
       telemetry: process.env.TELEMETRY_ENABLED === "1",
+      service_metrics: process.env.SERVICE_METRICS_ENABLED === "1",
       reporting: process.env.REPORTING_ENABLED === "1",
       events: true,
     }) + "\n",

@@ -1,7 +1,8 @@
 //! Unified counter and resource client with library-owned persistent settings.
 //!
-//! `request_opt_in` owns the permission dialog and saved choice; `record` and
-//! `download` apply it. `set_opt_in` supports explicit settings changes.
+//! `request_opt_in` owns the permission dialog and saved choice. The optional
+//! `request_opt_in_reminder` repeats a deferred choice after 14 days; `record`
+//! and `download` apply the saved choice. `set_opt_in` supports explicit settings changes.
 //! Metrics declare their collection route and finite dimensions at construction.
 //! Import/construction never collects information or creates state. Reporting
 //! uses the event-batch contract, independently of the legacy CLI-only API.
@@ -309,7 +310,10 @@ impl Client {
         }
         let mut catalog = BTreeMap::new();
         for metric in metrics {
-            if catalog.len() >= 128 || catalog.insert(metric.id.clone(), metric).is_some() {
+            if (metric.collection == Collection::OptOut && metric.system != SystemContext::None)
+                || catalog.len() >= 128
+                || catalog.insert(metric.id.clone(), metric).is_some()
+            {
                 return Err(Error::Configuration);
             }
         }

@@ -13,6 +13,7 @@ function roleCheck(role: string, requireLimits: boolean): string {
       OR EXISTS (SELECT FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
         WHERE n.nspname='app_tracking'
         AND p.oid NOT IN ('app_tracking.admin_usage_v1(date,date,text,text)'::regprocedure,
+          'app_tracking.admin_service_requests_v1(date,date,text)'::regprocedure,
           'app_tracking.admin_events_v1(date,date,text,text,text)'::regprocedure,
           'app_tracking.admin_history_v1(date,date,text,text,text,text)'::regprocedure,
           'app_tracking.public_usage_v1()'::regprocedure, 'app_tracking.admin_profiles_v1(date,date)'::regprocedure)
@@ -73,6 +74,7 @@ export async function grantReporting(url: string, role: string): Promise<void> {
     `${roleCheck(role, true)}
     GRANT USAGE ON SCHEMA app_tracking TO "${role}";
     GRANT EXECUTE ON FUNCTION app_tracking.admin_usage_v1(date,date,text,text),
+      app_tracking.admin_service_requests_v1(date,date,text),
       app_tracking.admin_events_v1(date,date,text,text,text),
       app_tracking.admin_history_v1(date,date,text,text,text,text), app_tracking.public_usage_v1(), app_tracking.admin_profiles_v1(date,date) TO "${role}";`,
   );

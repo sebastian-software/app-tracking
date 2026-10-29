@@ -1,5 +1,12 @@
 # App tracking
 
+## Functional service statistics
+
+Shared counts of existing functional requests, reduced directly to reviewed
+route/day/response categories without client identifiers or additional device
+queries. These measure service demand and remain separate from opt-in local
+usage observations. See the [service-statistics contract](docs/service-statistics.md).
+
 App tracking covers release discovery and voluntary usage measurement for
 developer tools. A tool, an installation, a project, and a person are different
 things.

@@ -10,6 +10,7 @@ const manifest: {
   revision: string;
   sha256: string;
   telemetry?: boolean;
+  service_metrics?: boolean;
   reporting?: boolean;
   events?: boolean;
 } = JSON.parse(await readFile("rollback/release.json", "utf8"));
@@ -24,6 +25,11 @@ if (
 const target: Target = JSON.parse(await readFile(".deployment/target.json", "utf8"));
 const api = bunnyApi(required("BUNNY_API_KEY"));
 const telemetryEnabled = manifest.telemetry === true && process.env.TELEMETRY_ENABLED === "1";
+await api("PUT", `/compute/script/${target.scriptId}/secrets`, {
+  Name: "APP_TRACKING_SERVICE_METRICS_ENABLED",
+  Secret:
+    manifest.service_metrics === true && process.env.SERVICE_METRICS_ENABLED === "1" ? "1" : "0",
+});
 await api("PUT", `/compute/script/${target.scriptId}/secrets`, {
   Name: "APP_TRACKING_TELEMETRY_ENABLED",
   Secret: telemetryEnabled ? "1" : "0",

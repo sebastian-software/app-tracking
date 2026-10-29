@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-27
-- Last updated: 2026-10-27
+- Last updated: 2026-10-29
 
 Maintainers need cross-installation usage statistics without granting CLI
 credentials any analytics authority. Use WorkOS AuthKit for personal sign-in
@@ -39,6 +39,11 @@ are in the [reporting guide](../reporting.md). Accepted records the direction,
 not proof that credentials or production reporting are enabled.
 
 ## Change history
+
+- 2026-10-29: Add the separate functional-service aggregate read function under
+  the same WorkOS/reporting role boundary. Its 24-month shared counters contain
+  no installation/project identity and remain separate from these 90-day
+  attributable usage queries; see the [service contract](../service-statistics.md).
 
 - 2026-10-27: Separate maintainer authority and compute bounded private usage
   statistics directly from retained reports. Replace the initial key prototype

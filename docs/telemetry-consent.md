@@ -6,6 +6,13 @@ by this library implementation. The
 [wire contract](telemetry-api.md) owns requests and exact time boundaries;
 [retention](telemetry-retention.md) owns server data lifetime and launch evidence.
 
+This notice covers attributable local reporting. Functional version requests
+can separately contribute to aggregate [service statistics](service-statistics.md)
+without this grant. Hosts must explain that independent purpose and map a
+host-wide analytics opt-out to `UpdateClient::with_service_metrics(false)`;
+declining this notice alone is not that separate opt-out. The service path
+creates no local reporting identity or usage queue.
+
 ## Disclosure supplied before opt-in
 
 The following is the common disclosure for `telemetry-v1`. Hosts substitute
@@ -54,7 +61,7 @@ preselected consent or interrupting an ordinary command with a forced choice.
 > agreement and published policies. We do not independently verify a universal
 > maximum for all provider-internal records; see the current processor disclosure.
 >
-> Reporting is off until you opt in. Declining does not limit the tool or its
+> This additional local usage reporting is off until you opt in. Declining does not limit the tool or its
 > independently configurable update checks. You can inspect the effective
 > setting and queued payload without sending it, disable reporting at any time,
 > or request deletion using the locally held credential. Disabling stops new

@@ -5,8 +5,13 @@ import { neon } from "@neondatabase/serverless";
 import "../storage/database.ts";
 import type { UsageQuery, UsageResult } from "./contract.ts";
 import type { EventQuery, EventResult } from "./events.ts";
+import type { ServiceQuery, ServiceRequestResult } from "./service-requests.ts";
 
 export interface ReportingStorage {
+  serviceRequests?(
+    query: ServiceQuery,
+    signal: AbortSignal,
+  ): Promise<ServiceRequestResult | { error: string; retained_from?: string }>;
   profiles?(
     query: ProfileQuery,
     signal: AbortSignal,
@@ -126,6 +131,12 @@ export function createReportingStorage(url: string): ReportingStorage {
     }
   }
   return {
+    serviceRequests: (query, signal) =>
+      aggregate(
+        "SELECT app_tracking.admin_service_requests_v1($1::date,$2::date,$3) AS result",
+        [query.from, query.until, query.tool],
+        signal,
+      ),
     profiles: (query, signal) =>
       aggregate(
         "SELECT app_tracking.admin_profiles_v1($1::date,$2::date) AS result",

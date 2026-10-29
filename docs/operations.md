@@ -1,5 +1,12 @@
 # Production telemetry operations
 
+The independent [service-statistics path](service-statistics.md) counts existing
+functional requests without a local usage grant when its deployment switch is
+enabled. It has its own disclosure and DNT/GPC opt-out, bounded asynchronous
+writes, aggregate read function, and 24-month cleanup. Its activation does not
+enable local telemetry, monthly history, profile links, or publication. This
+change does not alter any existing consumer publication hold.
+
 Palamedes v2 is the first opt-in telemetry consumer. The public service uses one
 Bunny Edge Script and Pull Zone with a separate PlanetScale runtime credential.
 Version checks do not depend on the database or telemetry consent. Private

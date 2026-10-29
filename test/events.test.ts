@@ -139,6 +139,11 @@ test("opt-out path carries no installation or authorization and uses the same ha
     definitions,
   );
   assert.equal((await handler(request(value, ""))).status, 200);
+  for (const definition of [
+    { collection: "opt_out", dimensions: {}, system: "full" },
+    { collection: "opt_out", dimensions: {}, system: "none", project: true },
+  ])
+    assert.throws(() => eventBatch(value, { fixture: { basic: definition } }));
   assert.equal((await createEventHandler(noStorage, definitions)(request(value))).status, 401);
   assert.equal(
     (

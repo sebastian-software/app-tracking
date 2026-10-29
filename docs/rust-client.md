@@ -14,6 +14,13 @@ telemetry or changing the update API.
 
 ## Host integration
 
+The current backward-compatible client also offers
+`with_service_metrics(false)` to send `DNT: 1` on functional version requests.
+Map host analytics opt-out and `DO_NOT_TRACK` to it. It preserves updates and
+does not create or authorize local usage reporting. Older clients omit the
+header; the independent [service-statistics contract](service-statistics.md)
+owns server behavior.
+
 ```toml
 [dependencies]
 app-tracking = "0.1"
