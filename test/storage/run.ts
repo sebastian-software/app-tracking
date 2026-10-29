@@ -8,6 +8,7 @@ import { deletionIntegration } from "./deletion.ts";
 import { reportingIntegration } from "./reporting.ts";
 import { reportingQueryPlan } from "./reporting-plan.ts";
 import { eventIntegration } from "./events.ts";
+import { serviceMetricsIntegration } from "./service-metrics.ts";
 try {
   const admin = process.env.MIGRATION_DATABASE_URL,
     runtime = process.env.RUNTIME_DATABASE_URL,
@@ -29,6 +30,11 @@ try {
     console.log(
       JSON.stringify({
         event_reporting: await eventReportingIntegration(admin, runtime, reporter),
+      }),
+    );
+    console.log(
+      JSON.stringify({
+        service_statistics: await serviceMetricsIntegration(admin, runtime, reporter),
       }),
     );
     console.log(JSON.stringify({ profiles: await profileIntegration(admin, runtime, reporter) }));

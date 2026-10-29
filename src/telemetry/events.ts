@@ -139,6 +139,8 @@ export function eventBatch(input: unknown, definitions: EventCatalog = catalog.t
     const definition = definitions[input.tool_id][row.metric];
     if (
       definition.collection !== input.collection ||
+      (input.collection === "opt_out" &&
+        (definition.system !== "none" || definition.project === true)) ||
       row.collection !== input.collection ||
       !Number.isSafeInteger(row.day) ||
       Number(row.day) < 0 ||

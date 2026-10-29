@@ -27,6 +27,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "{:?}",
             client.request_opt_in("Help improve the synthetic fixture's resource support.")?
         ),
+        Some("permission-reminder") => println!(
+            "{:?}",
+            client.request_opt_in_reminder(
+                "Help improve the synthetic fixture's resource support."
+            )?
+        ),
         Some("baseline") => client.set_opt_in(false)?,
         Some("delete") => {
             client.delete()?;

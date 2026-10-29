@@ -60,6 +60,8 @@ pub(super) struct State {
     pub scope: String,
     pub opt_in: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_permission_prompt_at: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub history: Option<super::history::HistoryChoice>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub profile: Option<super::profile::ProfileChoice>,
@@ -81,6 +83,12 @@ pub(super) struct State {
 
 impl State {
     fn validate(&self, client: &Client) -> Result<(), Error> {
+        if self
+            .last_permission_prompt_at
+            .is_some_and(|at| at > 253402300799999)
+        {
+            return Err(Error::State);
+        }
         let hex = |s: &str| {
             s.len() == 64
                 && s.bytes()
@@ -215,6 +223,7 @@ impl State {
             schema_version: 1,
             scope,
             opt_in: None,
+            last_permission_prompt_at: None,
             history: None,
             profile: None,
             public_usage: None,

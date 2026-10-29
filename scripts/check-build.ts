@@ -8,10 +8,14 @@ let handle: Handler | undefined;
 let requests = 0;
 const environment = new Map<string, string>();
 let databaseRequests = 0;
+const background: Promise<unknown>[] = [];
 const bundle = await readFile("dist/edge.js", "utf8");
 runInNewContext(bundle, {
   Bunny: {
     v1: {
+      waitUntil(work: Promise<unknown>) {
+        background.push(work);
+      },
       serve(value: Handler) {
         handle = value;
       },
@@ -119,6 +123,17 @@ assert.equal(databaseRequests, 1);
 assert.equal((await handle(request(path))).status, 200);
 environment.set("APP_TRACKING_REPORTING_ENABLED", "0");
 assert.equal((await handle(request(reportingPath))).status, 404);
+environment.set("APP_TRACKING_SERVICE_METRICS_ENABLED", "1");
+const before = databaseRequests;
+assert.equal((await handle(request(path, { headers: { DNT: "1" } }))).status, 200);
+assert.equal(background.length, 0);
+assert.equal(databaseRequests, before);
+assert.equal((await handle(request(path))).status, 200);
+await Promise.all(background);
+assert.equal(background.length, 1);
+assert.equal(databaseRequests, before + 1);
+assert.equal((await handle(request("/health"))).status, 200);
+assert.equal(background.length, 1);
 console.log(
   "Deployment bundle: SDK registration, version contract, and health passed (local runtime harness).",
 );

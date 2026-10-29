@@ -34,7 +34,12 @@ Opt-out batches have no bearer credential, installation ID, or grant timestamp.
 The receiver validates their registered metrics without assigning an
 installation identity. Neither route trusts client-supplied metric definitions.
 The initial product catalog contains no production baseline metric; fixtures
-exercise the mechanism with a separate synthetic catalog entry.
+exercise the mechanism with a separate synthetic catalog entry. Opt-out
+definitions must use `system: "none"` and cannot enable project context; the
+SDK, receiver, and database catalog enforce this boundary. A baseline label
+alone does not establish a legal basis for a new local observation. Functional
+[service statistics](service-statistics.md) use their own server aggregate table
+and never enter this client-event route.
 
 ## Counter rows
 

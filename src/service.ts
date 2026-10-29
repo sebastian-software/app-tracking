@@ -1,6 +1,7 @@
 import { createHandler } from "./handler.ts";
 import { failure } from "./telemetry/contract.ts";
 import type { UpstreamOptions } from "./upstream.ts";
+import type { VersionObserver } from "./service-metrics.ts";
 
 type Handler = (request: Request) => Promise<Response>;
 
@@ -10,8 +11,9 @@ export function createService(
   telemetry: () => Handler | undefined,
   options: Partial<UpstreamOptions> = {},
   reporting: () => Handler | undefined = () => undefined,
+  observer?: VersionObserver,
 ): Handler {
-  const version = createHandler(options);
+  const version = createHandler(options, observer);
   return async (request) => {
     const path = new URL(request.url).pathname;
     if (

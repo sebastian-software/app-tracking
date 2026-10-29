@@ -3,8 +3,9 @@
 //! counters, saved settings, system context, and verified resource downloads.
 //! Import/construction performs no collection. Hosts choose policy, private
 //! state, observation boundaries, and the reserved background-worker entry.
-//! Only an explicit [`client::Client::request_opt_in`] can display a permission
-//! dialog. Automatic operations print nothing; updates are never installed or executed.
+//! Explicit [`client::Client::request_opt_in`] or
+//! [`client::Client::request_opt_in_reminder`] calls can display permission
+//! dialogs. Automatic operations print nothing; updates are never installed or executed.
 //!
 //! Call [`UpdateClient::check`] once at a host-controlled point in a command. The
 //! call completes synchronously; a due request has a 200 ms network deadline.
@@ -129,6 +130,7 @@ pub struct UpdateClient {
     resource: String,
     cache_dir: PathBuf,
     tool: Tool,
+    service_metrics: bool,
 }
 
 impl UpdateClient {
@@ -162,7 +164,16 @@ impl UpdateClient {
             resource,
             cache_dir: cache_dir.into(),
             tool,
+            service_metrics: true,
         })
+    }
+
+    /// Allow aggregate statistics about functional version requests. False sends
+    /// `DNT: 1` while preserving update checks. Map host analytics opt-out and
+    /// `DO_NOT_TRACK` here; this does not authorize additional usage reporting.
+    pub fn with_service_metrics(mut self, enabled: bool) -> Self {
+        self.service_metrics = enabled;
+        self
     }
 
     /// Complete an eligible check before returning. No detached update thread is used.
@@ -200,7 +211,13 @@ impl UpdateClient {
             // a following invocation will not immediately create another request.
             state.defer(now);
             store.save(&state)?;
-            match wire::fetch(&self.resource, &self.tool, &state, now) {
+            match wire::fetch(
+                &self.resource,
+                &self.tool,
+                &state,
+                now,
+                self.service_metrics,
+            ) {
                 Ok((release, etag)) => {
                     state.etag = etag;
                     if !release.stale {

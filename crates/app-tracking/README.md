@@ -21,8 +21,8 @@ use app_tracking::client::Client;
 use std::collections::BTreeMap;
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
 let client = Client::registered("https://tracking.example.com", "/private/profile", "palamedes", "2.0.0")?;
-// At a suitable interactive point; saved yes/no answers are reused:
-let permission = client.request_opt_in("Help prioritize Palamedes commands and platform support.")?;
+// At a suitable interactive point; deferred choices can be offered after 14 days:
+let permission = client.request_opt_in_reminder("Help prioritize Palamedes commands and platform support.")?;
 let _ = client.record("cli.invocation", || BTreeMap::from([
     ("command".into(), "extract".into()),
 ]));
@@ -34,6 +34,15 @@ let _ = client.flush_in_background();
 No dialog opens in CI or without terminal stdin/stderr. Use
 `with_interaction(Interaction::Never)` for JSON/agent modes. `record` and
 `download` never open dialogs. EOF leaves the choice undecided.
+
+`request_opt_in_reminder(message)` adds a friendly "Is the tool working well for
+you?" introduction and three explicit choices: allow, ask again in 14 days
+(the default), or never ask again. An existing grant or explicit refusal is
+reused permanently; settings disable, withdrawal, and deletion suppress these
+reminders. A due reminder appears only on a later eligible host call, never
+through a timer or a background worker. The helper persists minimal local
+prompt timing before display, even on EOF, without a reporting identity or
+usage observation. `request_opt_in(message)` retains its one-time yes/no flow.
 
 Handle `client::BACKGROUND_WORKER_ARGUMENT` before normal argument parsing and
 call `run_background_worker` with its nonce. Reporting network I/O runs there;
@@ -78,6 +87,17 @@ Unlinking one tool or completing its normal deletion leaves other tools intact.
 The server feature remains disabled pending its released disclosure/review.
 See [the profile contract](https://github.com/sebastian-software/app-tracking/blob/main/docs/profile-linking.md)
 for state permissions, copied/missing files, reset, and the 90-day lifecycle.
+
+## Aggregate service statistics
+
+The version service can count existing functional requests by reviewed route
+and response category, without client identifiers or device probes. This is
+independent of detailed usage consent. Call
+`UpdateClient::with_service_metrics(false)` to send `DNT: 1` while preserving
+updates. Map the host's analytics opt-out and `DO_NOT_TRACK` to this setting.
+The library never reads policy environment variables implicitly.
+See the [service-statistics contract](https://github.com/sebastian-software/app-tracking/blob/main/docs/service-statistics.md)
+for fields, origin-only coverage, retention, and deployment controls.
 
 ## Update checks
 

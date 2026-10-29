@@ -7,6 +7,13 @@
 
 ## Shared client boundary
 
+The accepted [measurement decision](../adr/0010-metrics-purposes-and-consent.md)
+now selects independent [functional service statistics](../service-statistics.md)
+without prior usage consent and records narrower no-consent candidates and
+their uncertainty. The local-reporting lifecycle below continues to describe
+the current attributable opt-in clients; it is not a universal legal rule for
+all service measurement.
+
 The implemented [Rust update client](../rust-client.md) supplies version checks
 for Dalo and Palamedes through a runtime-independent wire contract. The [Rust telemetry client](../rust-telemetry-client.md) implements the consent,
 queue, and deletion lifecycle. Consumer adoption remains separate. Sharing a library must not

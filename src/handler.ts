@@ -2,8 +2,9 @@ import { catalog } from "./catalog.ts";
 import { errorResponse, type VersionResponse } from "./contract.ts";
 import { createResolver, FRESH_SECONDS, MAX_AGE_SECONDS } from "./resolver.ts";
 import type { UpstreamOptions } from "./upstream.ts";
+import { observeVersion, type VersionObserver } from "./service-metrics.ts";
 
-export function createHandler(options: Partial<UpstreamOptions> = {}) {
+export function createHandler(options: Partial<UpstreamOptions> = {}, observer?: VersionObserver) {
   const now = options.now ?? Date.now;
   const resolve = createResolver({ ...options, fetch: options.fetch ?? fetch, now });
 
@@ -36,6 +37,7 @@ export function createHandler(options: Partial<UpstreamOptions> = {}) {
     const checked = await resolve(entry);
     const ageMs = checked ? now() - checked.checkedAt : Infinity;
     if (!checked || ageMs < 0 || ageMs >= MAX_AGE_SECONDS * 1_000) {
+      observeVersion(request, entry, 503, observer);
       return errorResponse(503, "release_unavailable");
     }
     const stale = ageMs >= FRESH_SECONDS * 1_000;
@@ -64,8 +66,10 @@ export function createHandler(options: Partial<UpstreamOptions> = {}) {
       ?.split(",")
       .map((value) => value.trim());
     if (validators?.some((value) => value === "*" || value.replace(/^W\//, "") === etag)) {
+      observeVersion(request, entry, 304, observer);
       return new Response(null, { status: 304, headers });
     }
+    observeVersion(request, entry, 200, observer);
     return new Response(body, { headers });
   };
 }

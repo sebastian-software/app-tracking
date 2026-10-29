@@ -24,6 +24,26 @@ pub(super) fn values() -> Dimensions {
 }
 
 #[test]
+fn baseline_definitions_cannot_enable_device_collectors() {
+    let directory = tempfile::tempdir().unwrap();
+    for context in [SystemContext::Platform, SystemContext::Full] {
+        assert!(matches!(
+            Client::new(
+                "https://tracking.example",
+                directory.path(),
+                "fixture",
+                "2.0.0",
+                [Metric::counter("basic", Collection::OptOut)
+                    .unwrap()
+                    .system_context(context)]
+            ),
+            Err(Error::Configuration)
+        ));
+    }
+    assert!(!directory.path().join("state.json").exists());
+}
+
+#[test]
 fn project_discovery_is_lazy_and_uses_the_shared_repository_hash() {
     use crate::project::{Origin, RepositoryContext};
     use std::sync::{

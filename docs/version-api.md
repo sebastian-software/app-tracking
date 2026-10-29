@@ -1,8 +1,10 @@
 # Version API
 
 This is the version-only contract. The Bunny deployment and rollback procedure
-are described in the [runbook](deployment.md). Update delivery creates no
-telemetry state and does not require consent to reporting.
+are described in the [runbook](deployment.md). Update delivery creates no client reporting identity and does not require
+consent to additional usage reporting. Optional aggregate
+[service statistics](service-statistics.md) count eligible functional requests
+without a client probe; DNT/GPC exclude a request from those statistics.
 
 ## Requests and catalog
 
@@ -120,8 +122,10 @@ check interval add delay; there is no one-hour end-to-end guarantee.
 The initial last-success cache and concurrent-refresh coalescing are bounded
 to catalog entries in one service instance. They are not durable or shared
 between Bunny isolates. Cold starts and eviction remove stale fallback; an
-outage then returns `503`. This implementation does not use Bunny's Cache API,
-PlanetScale, a second release feed, or persisted reporting state. A cold
+outage then returns `503`. Release resolution does not use Bunny's Cache API, PlanetScale, a second
+release feed, or client reporting state. Separately enabled background service
+statistics may persist shared request counters in PlanetScale; they cannot
+block release resolution or change its response. A cold
 oss-metrics collection can be slower than the lookup budget because it also
 collects other statistics. Such a request remains advisory and unavailable
 until the CDN has refreshed; app-tracking never falls back to another source.

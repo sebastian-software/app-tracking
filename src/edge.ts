@@ -2,6 +2,8 @@ import * as BunnySDK from "@bunny.net/edgescript-sdk";
 import { createService } from "./service.ts";
 import { createTelemetryService } from "./telemetry/service.ts";
 import { createReportingService } from "./reporting/service.ts";
+import { createServiceMetrics } from "./service-metrics.ts";
+import { createStorage } from "./storage/database.ts";
 declare const __APP_REVISION__: string;
 const deno = (
   globalThis as unknown as { Deno?: { env: { get(name: string): string | undefined } } }
@@ -9,6 +11,20 @@ const deno = (
 const env = (name: string) => deno?.env.get(name) ?? globalThis.process?.env?.[name];
 let telemetry: ReturnType<typeof createTelemetryService> | undefined;
 let reporting: ReturnType<typeof createReportingService> | undefined;
+let metricsStorage: ReturnType<typeof createStorage> | undefined;
+const runtime = (
+  globalThis as unknown as {
+    Bunny?: { v1?: { waitUntil?: (work: Promise<unknown>) => void } };
+  }
+).Bunny;
+const serviceMetrics = createServiceMetrics(
+  () => {
+    if (env("APP_TRACKING_SERVICE_METRICS_ENABLED") !== "1") return undefined;
+    const url = env("APP_TRACKING_DATABASE_URL");
+    return url ? (metricsStorage ??= createStorage(url)) : undefined;
+  },
+  (work) => runtime?.v1?.waitUntil?.(work),
+);
 const handle = createService(
   () => {
     if (env("APP_TRACKING_TELEMETRY_ENABLED") !== "1") return undefined;
@@ -40,6 +56,10 @@ const handle = createService(
     };
     if (!url) throw new Error("Reporting runtime is not configured");
     return (reporting ??= createReportingService(url, config));
+  },
+  (observation) => {
+    if (env("APP_TRACKING_SERVICE_METRICS_ENABLED") === "1" && runtime?.v1?.waitUntil)
+      serviceMetrics(observation);
   },
 );
 BunnySDK.net.http.serve(async (request) => {

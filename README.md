@@ -1,6 +1,6 @@
 # app-tracking
 
-Useful update notices. Optional usage reporting. Clear choices.
+Useful update notices. Service statistics. Optional detailed usage reporting.
 
 app-tracking gives developer tools a shared service and Rust client for update
 checks and opt-in usage reporting. It helps maintainers understand which
@@ -41,7 +41,21 @@ the [legacy consent contract](docs/telemetry-consent.md) for invocation-client
 behavior. The legacy client bounds pending offline deletion to 90 days after
 withdrawal, then shows deletion as unverified if it was not acknowledged.
 
-## What reporting can share
+## Service demand without a permission dialog
+
+A separate [service-statistics path](docs/service-statistics.md) can count
+functional version requests by day, tool, distribution/channel, and response
+category without usage consent. It stores shared counters, with no client
+identifier or device query, and honors DNT/GPC. Clients can disable it with
+`UpdateClient::with_service_metrics(false)` while retaining update checks.
+The path has its own deployment switch and private reporting API; it measures
+origin request demand, not users, installations, or local invocations.
+
+The [measurement decision](docs/adr/0010-metrics-purposes-and-consent.md) records
+the objective of maximum useful measurement without unnecessary consent,
+including defensible gray areas and the limits of each candidate design.
+
+## What detailed reporting can share
 
 Both reporting contracts aggregate counts locally by UTC day and normally
 upload daily while the tool is used. They have distinct payloads and state:
