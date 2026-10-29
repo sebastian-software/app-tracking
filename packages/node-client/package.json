@@ -1,6 +1,6 @@
 {
   "name": "@sebastian-software/app-tracking",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Consent-gated usage reporting and verified downloads for Node.js",
   "license": "MIT OR Apache-2.0",
   "repository": {
