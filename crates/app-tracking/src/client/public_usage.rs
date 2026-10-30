@@ -246,6 +246,9 @@ impl Client {
         if choice.confirmed {
             return Ok(true);
         }
+        if choice.enabled && now()?.saturating_sub(choice.changed_at) >= 7_776_000_000 {
+            return Ok(false);
+        }
         if choice.enabled
             && (!self.allowed(&store.state, Collection::OptIn)
                 || !matches!(
@@ -384,5 +387,36 @@ mod tests {
                 .unwrap()
         );
         assert!(client.public_usage_status().unwrap().pending);
+    }
+    #[test]
+    fn stale_pending_grant_is_not_sent_but_old_withdrawal_is() {
+        let root = tempfile::tempdir().unwrap();
+        let client =
+            Client::registered("https://example.test", root.path(), "ferriki", "1.0.0").unwrap();
+        client.set_opt_in(true).unwrap();
+        client.set_history_opt_in(true).unwrap();
+        client.set_public_usage_opt_in(true).unwrap();
+        {
+            let mut store = Store::open(&client, false).unwrap().unwrap();
+            store.state.identity.as_mut().unwrap().last_accepted_at = now().unwrap();
+            store.state.public_usage.as_mut().unwrap().changed_at = now().unwrap() - 7_776_000_000;
+            store.save().unwrap();
+        }
+        assert!(
+            !client
+                .sync_public_usage_with(|_, _, _| panic!("stale grant reached transport"))
+                .unwrap()
+        );
+        client.set_public_usage_opt_in(false).unwrap();
+        {
+            let mut store = Store::open(&client, false).unwrap().unwrap();
+            store.state.public_usage.as_mut().unwrap().changed_at = now().unwrap() - 7_776_000_000;
+            store.save().unwrap();
+        }
+        assert!(
+            client
+                .sync_public_usage_with(|_, _, body| Some(body.into()))
+                .unwrap()
+        );
     }
 }

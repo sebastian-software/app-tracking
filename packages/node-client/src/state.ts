@@ -176,7 +176,16 @@ export async function load(
           typeof choice.enabled !== "boolean" ||
           typeof choice.confirmed !== "boolean" ||
           !Number.isSafeInteger(choice.changedAt) ||
-          Number(choice.changedAt) < 0)
+          Number(choice.changedAt) < 0 ||
+          Number(choice.changedAt) > 253_402_300_799_999 ||
+          (key === "publicUsage" && Buffer.byteLength(choice.revision) > 64) ||
+          (choice.enabled &&
+            (value.identity === null ||
+              value.optIn !== true ||
+              value.disabled === true ||
+              value.deleting === true ||
+              (key === "publicUsage" &&
+                (!record(value.history) || value.history.enabled !== true)))))
       )
         fail("State");
     }

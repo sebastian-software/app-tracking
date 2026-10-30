@@ -663,3 +663,173 @@ test("a concurrent withdrawal cannot overtake an in-flight permission acknowledg
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test("invalid additional permission state fails closed", async () => {
+  const stateRoot = join(await fs.mkdtemp(join(fixture, "invalid-extra-")), "private");
+  const c = await client({ stateRoot });
+  await c.setOptIn(true);
+  await c.setHistoryOptIn(true);
+  await c.setPublicUsageOptIn(true);
+  const path = stateFile(stateRoot);
+  const original = JSON.parse(await fs.readFile(path, "utf8"));
+  for (const mutate of [
+    (s) => (s.history.changedAt = 253402300800000),
+    (s) => (s.publicUsage.revision = "x".repeat(65)),
+    (s) => (s.optIn = false),
+    (s) => (s.disabled = true),
+    (s) => (s.deleting = true),
+    (s) => (s.history.enabled = false),
+    (s) => (s.identity = null),
+  ]) {
+    const value = structuredClone(original);
+    mutate(value);
+    await fs.writeFile(path, JSON.stringify(value), { mode: 0o600 });
+    await assert.rejects(c.historyStatus(), { code: "State" });
+  }
+});
+
+test("stale pending grants cannot sync with an active identity; old withdrawals can", async () => {
+  let calls = 0;
+  const server = createServer(async (req, res) => {
+    calls++;
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    res.writeHead(200, { "cache-control": "no-store" });
+    res.end(body);
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const stateRoot = join(await fs.mkdtemp(join(fixture, "stale-extra-")), "private");
+  const c = await client({ origin, stateRoot });
+  try {
+    await c.setOptIn(true);
+    await c.setHistoryOptIn(true);
+    await c.setPublicUsageOptIn(true);
+    const path = stateFile(stateRoot, origin);
+    const state = JSON.parse(await fs.readFile(path, "utf8"));
+    state.identity.lastAcceptedAt = Date.now();
+    state.history.changedAt = state.publicUsage.changedAt = Date.now() - 90 * 86400000;
+    await fs.writeFile(path, JSON.stringify(state), { mode: 0o600 });
+    assert.equal(await c.syncHistoryPermission(), false);
+    assert.equal(await c.syncPublicUsagePermission(), false);
+    assert.equal(calls, 0);
+    await c.setHistoryOptIn(false);
+    const withdrawn = JSON.parse(await fs.readFile(path, "utf8"));
+    withdrawn.history.changedAt = withdrawn.publicUsage.changedAt = Date.now() - 90 * 86400000;
+    await fs.writeFile(path, JSON.stringify(withdrawn), { mode: 0o600 });
+    assert.equal(await c.syncHistoryPermission(), true);
+    assert.equal(await c.syncPublicUsagePermission(), true);
+    assert.equal(calls, 2);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("expired ordinary identity cannot grant or synchronize additional permissions", async () => {
+  const stateRoot = join(await fs.mkdtemp(join(fixture, "expired-extra-")), "private");
+  const c = await client({ stateRoot });
+  await c.setOptIn(true);
+  await c.setHistoryOptIn(true);
+  const path = stateFile(stateRoot);
+  const state = JSON.parse(await fs.readFile(path, "utf8"));
+  state.identity.consentedAt = Date.now() - 90 * 86400000;
+  state.identity.lastAcceptedAt = 0;
+  await fs.writeFile(path, JSON.stringify(state), { mode: 0o600 });
+  assert.equal(await c.syncHistoryPermission(), false);
+  await assert.rejects(c.setPublicUsageOptIn(true), { code: "AdditionalPermission" });
+  assert.equal(await c.requestHistoryOptIn("Settings"), "unavailable");
+  await c.delete();
+  assert.equal((await c.historyStatus()).decision, "declined");
+});
+
+test("concurrent refusal wins over an interactive affirmative answer", async () => {
+  const stateRoot = join(await fs.mkdtemp(join(fixture, "prompt-extra-")), "private");
+  const options = {
+    origin: "http://127.0.0.1:1",
+    stateRoot,
+    tool: "ferriki",
+    version: "1.2.3",
+    interaction: "terminal",
+  };
+  const c = await client(options);
+  await c.setOptIn(true);
+  const script = `Object.defineProperty(process.stdin,'isTTY',{value:true});Object.defineProperty(process.stderr,'isTTY',{value:true});const {Client}=require(${JSON.stringify(installed)});new Client(${JSON.stringify(options)}).requestHistoryOptIn('Settings').then(v=>console.log(v)).catch(e=>{console.error(e);process.exitCode=1});`;
+  const child = spawn(process.execPath, ["-e", script], { stdio: ["pipe", "pipe", "pipe"] });
+  try {
+    await new Promise((resolve, reject) => {
+      let output = "";
+      child.stderr.on("data", (chunk) => {
+        output += chunk;
+        if (output.includes("Allow? [y/N]")) resolve();
+      });
+      child.once("error", reject);
+      child.once("exit", () => reject(new Error("prompt exited early")));
+    });
+    await c.setHistoryOptIn(false);
+    child.stdin.end("y\n");
+    let output = "";
+    child.stdout.on("data", (chunk) => (output += chunk));
+    const [code] = await once(child, "exit");
+    assert.equal(code, 0);
+    assert.match(output, /unavailable/);
+    assert.equal((await c.historyStatus()).decision, "declined");
+  } finally {
+    child.kill();
+  }
+});
+
+test("concurrent publication refusal wins over an interactive affirmative answer", async () => {
+  const stateRoot = join(await fs.mkdtemp(join(fixture, "prompt-extra-")), "private");
+  const options = {
+    origin: "http://127.0.0.1:1",
+    stateRoot,
+    tool: "ferriki",
+    version: "1.2.3",
+    interaction: "terminal",
+  };
+  const c = await client(options);
+  await c.setOptIn(true);
+  await c.setHistoryOptIn(true);
+  const script = `Object.defineProperty(process.stdin,'isTTY',{value:true});Object.defineProperty(process.stderr,'isTTY',{value:true});const {Client}=require(${JSON.stringify(installed)});new Client(${JSON.stringify(options)}).requestPublicUsageOptIn('Settings').then(v=>console.log(v)).catch(e=>{console.error(e);process.exitCode=1});`;
+  const child = spawn(process.execPath, ["-e", script], { stdio: ["pipe", "pipe", "pipe"] });
+  try {
+    await new Promise((resolve, reject) => {
+      let output = "";
+      child.stderr.on("data", (chunk) => {
+        output += chunk;
+        if (output.includes("Allow? [y/N]")) resolve();
+      });
+      child.once("error", reject);
+      child.once("exit", () => reject(new Error("prompt exited early")));
+    });
+    await c.setPublicUsageOptIn(false);
+    child.stdin.end("y\n");
+    let output = "";
+    child.stdout.on("data", (chunk) => (output += chunk));
+    const [code] = await once(child, "exit");
+    assert.equal(code, 0);
+    assert.match(output, /unavailable/);
+    assert.equal((await c.publicUsageStatus()).decision, "declined");
+  } finally {
+    child.kill();
+  }
+});
+
+test("worker threads never prompt for additional permissions", async () => {
+  const stateRoot = join(await fs.mkdtemp(join(fixture, "worker-extra-")), "private");
+  const options = {
+    origin: "http://127.0.0.1:1",
+    stateRoot,
+    tool: "ferriki",
+    version: "1.2.3",
+    interaction: "terminal",
+  };
+  const c = await client(options);
+  await c.setOptIn(true);
+  await c.setHistoryOptIn(true);
+  const { Worker } = require("node:worker_threads");
+  const script = `const {parentPort}=require('node:worker_threads');Object.defineProperty(process.stdin,'isTTY',{value:true});Object.defineProperty(process.stderr,'isTTY',{value:true});const {Client}=require(${JSON.stringify(installed)});new Client(${JSON.stringify(options)}).requestHistoryOptIn('Settings').then(v=>parentPort.postMessage(v));`;
+  const worker = new Worker(script, { eval: true });
+  assert.equal((await once(worker, "message"))[0], "unavailable");
+  await worker.terminate();
+});

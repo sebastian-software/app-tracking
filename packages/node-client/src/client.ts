@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { isAbsolute, join } from "node:path";
 import { createInterface } from "node:readline";
+import { isMainThread } from "node:worker_threads";
 import { setTimeout as delay } from "node:timers/promises";
 import catalog from "../../../contracts/event-catalog.json" with { type: "json" };
 import schema from "../../../contracts/telemetry-v1.schema.json" with { type: "json" };
@@ -321,6 +322,7 @@ export class Client {
     if (saved.answer) return saved.answer;
     if (
       this.#options.interaction === "never" ||
+      !isMainThread ||
       this.#options.policy!.ci ||
       !process.stdin.isTTY ||
       !process.stderr.isTTY
@@ -458,7 +460,7 @@ export class Client {
       fail("Configuration");
     const saved = await this.#queue(() =>
       this.#state(false, (state) => {
-        if (!state || !this.#additionalAllowed(state, kind) || this.#worker)
+        if (!state || !this.#additionalAllowed(state, kind) || this.#worker || !isMainThread)
           return { answer: "unavailable" as PermissionOutcome, generation: 0 };
         const choice = state[kind];
         const answer: PermissionOutcome | undefined = !choice
@@ -475,6 +477,7 @@ export class Client {
     if (saved.answer) return saved.answer;
     if (
       this.#options.interaction === "never" ||
+      !isMainThread ||
       this.#options.policy!.ci ||
       !process.stdin.isTTY ||
       !process.stderr.isTTY
@@ -534,7 +537,12 @@ export class Client {
             if (!state || !choice || (choice.enabled && choice.revision !== this.#revision(kind)))
               return;
             if (choice.confirmed) return { confirmed: true as const };
-            if ((choice.enabled && !this.#additionalAllowed(state, kind)) || !state.identity)
+            if (
+              (choice.enabled &&
+                (!this.#additionalAllowed(state, kind) ||
+                  Math.max(0, now() - choice.changedAt) >= 90 * DAY)) ||
+              !state.identity
+            )
               return;
             return {
               confirmed: false as const,
