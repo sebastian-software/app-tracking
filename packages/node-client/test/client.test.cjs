@@ -1398,6 +1398,7 @@ test("Rust and Node contend on the same v2 lock in both runtime orders", async (
         const child = bound(spawn(binary, ["profile-sync"], { cwd: repo, env, stdio: "ignore" }));
         await arrived;
         await assert.rejects(c.profileStatus(), { code: "Busy" });
+        await assert.rejects(c.requestProfileReset(), { code: "Busy" });
         release();
         const [code] = await once(child, "exit");
         assert.equal(code, 0);
@@ -1405,6 +1406,7 @@ test("Rust and Node contend on the same v2 lock in both runtime orders", async (
         const syncing = c.syncProfileLinking();
         await arrived;
         assert.throws(() => run("profile-status"));
+        assert.throws(() => run("profile-reset"));
         release();
         assert.equal(await syncing, true);
       }
@@ -1591,4 +1593,27 @@ test("a killed Rust holder leaves the v2 lock busy until explicit recovery", asy
     release();
     await s.close();
   }
+});
+
+test("profile refusal persists and ordinary withdrawal queues an unlink", async () => {
+  const root = await fs.mkdtemp(join(fixture, "profile-withdrawal-"));
+  const shared = join(root, "shared");
+  const c = await client({
+    stateRoot: join(root, "state"),
+    sharedProfileRoot: shared,
+    policy: { offline: true },
+  });
+  await c.setOptIn(true);
+  await c.setProfileLinking(false);
+  assert.equal(await c.requestProfileLinking("Explain linking"), "declined");
+  await assert.rejects(fs.access(shared), { code: "ENOENT" });
+  await c.setProfileLinking(true);
+  await c.setOptIn(false);
+  assert.deepEqual(await c.profileStatus(), {
+    decision: "declined",
+    pending: true,
+    resetPending: false,
+  });
+  assert.equal(await c.syncProfileLinking(), false);
+  assert.equal((await c.status()).optIn, false);
 });
