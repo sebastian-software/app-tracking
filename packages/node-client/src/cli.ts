@@ -214,9 +214,11 @@ export class CliClient {
     status: CliStatus;
   }> {
     await this.reporting.delete();
-    // Capture before launching: a fast worker must not make a request look unneeded.
-    const pending = (await this.reporting.status()).deletionPending;
+    // Capture before launching: the worker may immediately own the state lock,
+    // or finish deletion. This result describes the persisted request, not delivery.
+    const status = await this.status();
+    const pending = status.reporting.deletionPending;
     const handedOff = await this.reporting.flushInBackground();
-    return { deletion: pending ? "pending" : "noIdentity", handedOff, status: await this.status() };
+    return { deletion: pending ? "pending" : "noIdentity", handedOff, status };
   }
 }

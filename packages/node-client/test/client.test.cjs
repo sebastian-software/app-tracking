@@ -2330,6 +2330,36 @@ test("CLI deletion reports pending until an authenticated worker acknowledgement
   }
 });
 
+test("CLI deletion returns its pending snapshot when the launched worker already owns state", async () => {
+  const root = await fs.mkdtemp(join(fixture, "cli-deletion-handoff-"));
+  const origin = "http://127.0.0.1:1";
+  const cli = new CliClient(cliOptions(origin, root));
+  await cli.enableReporting({ consent: "informed" });
+  const state = join(
+    root,
+    createHash("sha256").update(origin).digest("hex"),
+    "ardo",
+    "node-events-v1",
+    "state.json",
+  );
+  const held = `${state}.lock`;
+  // Deterministically model the worker acquiring its real state lock at handoff.
+  cli.reporting.flushInBackground = async () => {
+    await fs.mkdir(held);
+    return true;
+  };
+  try {
+    const result = await cli.deleteReporting();
+    assert.equal(result.deletion, "pending");
+    assert.equal(result.handedOff, true);
+    assert.equal(result.status.reporting.deletionPending, true);
+    await assert.rejects(cli.reporting.status(), { code: "Busy" });
+  } finally {
+    await fs.rm(held, { recursive: true, force: true });
+  }
+  assert.equal((await cli.status()).reporting.deletionPending, true);
+});
+
 test("CLI completion cancels and joins updates on successful, failed, and interrupted commands", async () => {
   for (const outcome of ["success", "failure", "interrupted"]) {
     let entered;

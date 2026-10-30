@@ -375,7 +375,9 @@ Settings use the same low-level implementations and policy snapshot:
   never grant history, publication, or profile linking.
 - `deleteReporting()` persists authenticated deletion before local worker handoff.
   Its `deletion: "pending"` is a request, not confirmation; `handedOff: true` is
-  only local scheduling. `noIdentity` means there is no identity left to delete.
+  only local scheduling. The returned status is captured before worker handoff,
+  so it cannot race that worker's state lock or imply a later acknowledgement.
+  `noIdentity` means there is no identity left to delete.
   Inspect `status().reporting.deletionPending` on a later settings call: only its
   transition from true to false after delivery demonstrates acknowledgement.
   Offline requests remain pending, and settings stay disabled afterward.
