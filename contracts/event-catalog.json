@@ -93,6 +93,16 @@
         "system": "full",
         "project": true
       }
+    },
+    "ardo": {
+      "cli.invocation": {
+        "collection": "opt_in",
+        "dimensions": {
+          "command": ["dev", "build", "preview", "other"]
+        },
+        "system": "full",
+        "project": true
+      }
     }
   }
 }

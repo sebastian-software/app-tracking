@@ -19,10 +19,11 @@ app-tracking makes no separate GitHub, npm, Homebrew, or crates.io lookup.
 
 | Tool        | Canonical distribution | Channel  | Snapshot field             |
 | ----------- | ---------------------- | -------- | -------------------------- |
+| `ardo`      | `github`               | `stable` | `github.ardo.release`      |
 | `dalo`      | `github`               | `stable` | `github.dalo.release`      |
 | `palamedes` | `github`               | `stable` | `github.palamedes.release` |
 
-The existing Dalo `npm` and `standalone` routes and Palamedes `npm` route remain
+The Ardo `npm` route, Dalo `npm` and `standalone` routes, and Palamedes `npm` route are
 compatibility aliases. They return the same GitHub release as the canonical
 route, with their requested distribution label. New integrations use `github`;
 the label selects a release feed, not proof of package-manager readiness.

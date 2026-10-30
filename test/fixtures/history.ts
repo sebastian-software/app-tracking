@@ -10,7 +10,7 @@ export function historyFixture(query: HistoryQuery): HistoryResult {
       ? query.stream === "legacy"
         ? ["dalo", "palamedes"]
         : query.metric === "cli.invocation"
-          ? ["dalo", "palamedes"]
+          ? ["ardo", "dalo", "palamedes"]
           : ["ferriki"]
       : [query.tool];
   const date = new Date(query.from + "T00:00:00Z");

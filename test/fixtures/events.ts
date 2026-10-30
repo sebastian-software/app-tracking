@@ -55,7 +55,12 @@ export function eventFixture(query: EventQuery): EventResult {
             {
               tool_id: tool,
               dimension: query.metric === "cli.invocation" ? "command" : "kind",
-              value: query.metric === "cli.invocation" ? "extract" : "grammar",
+              value:
+                query.metric === "cli.invocation"
+                  ? tool === "ardo"
+                    ? "build"
+                    : "extract"
+                  : "grammar",
               count,
             },
           ],

@@ -9,6 +9,7 @@ import { reportingIntegration } from "./reporting.ts";
 import { reportingQueryPlan } from "./reporting-plan.ts";
 import { eventIntegration } from "./events.ts";
 import { serviceMetricsIntegration } from "./service-metrics.ts";
+import { ardoIntegration } from "./ardo.ts";
 try {
   const admin = process.env.MIGRATION_DATABASE_URL,
     runtime = process.env.RUNTIME_DATABASE_URL,
@@ -39,6 +40,7 @@ try {
     );
     console.log(JSON.stringify({ profiles: await profileIntegration(admin, runtime, reporter) }));
     console.log(JSON.stringify({ history: await historyIntegration(admin, runtime, reporter) }));
+    console.log(JSON.stringify({ ardo: await ardoIntegration(admin) }));
     console.log(JSON.stringify({ reporting_plan: await reportingQueryPlan(admin) }));
   } else
     console.log(

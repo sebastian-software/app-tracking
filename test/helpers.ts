@@ -13,6 +13,7 @@ export function metricsDocument(version = "1.2.3", generatedAt = new Date(NOW).t
     generatedAt,
     sources: { github: "ok", releases: "ok", npm: "error", crates: "error" },
     github: {
+      ardo: { release: { tag: "ardo-v6.0.0", version: "6.0.0", publishedAt: published } },
       dalo: { release: { tag: `dalo-v${version}`, version, publishedAt: published } },
       palamedes: { release: { tag: "palamedes-v2.3.4", version: "2.3.4", publishedAt: published } },
     },

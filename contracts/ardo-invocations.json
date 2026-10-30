@@ -1,0 +1,7 @@
+{
+  "tool": "ardo",
+  "metric": "cli.invocation",
+  "version": "6.0.0",
+  "commands": ["dev", "build", "preview", "other"],
+  "invalid_commands": ["install", "/private/site", "https://private.example"]
+}

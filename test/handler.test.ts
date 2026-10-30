@@ -66,6 +66,17 @@ test("all installation routes use the same GitHub release metadata", async () =>
       release_url: "https://github.com/sebastian-software/palamedes/releases/tag/palamedes-v2.3.4",
     });
   }
+  for (const distribution of ["github", "npm"]) {
+    const response = await handle(request(`/v1/versions/ardo/${distribution}/stable`));
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      ...versionFixture(),
+      distribution,
+      tool_id: "ardo",
+      latest_version: "6.0.0",
+      release_url: "https://github.com/sebastian-software/ardo/releases/tag/ardo-v6.0.0",
+    });
+  }
   assert.ok(calls.every((url) => url === "https://metrics.sebastian-software.com/v1/metrics.json"));
 });
 
@@ -83,6 +94,7 @@ test("invalid requests and unsupported mappings never perform an upstream lookup
     ["/v1/versions/%64alo/npm/stable", 404, "not_found"],
     ["/v1/versions/unknown/npm/stable", 404, "unknown_tool"],
     ["/v1/versions/__proto__/npm/stable", 404, "not_found"],
+    ["/v1/versions/ardo/standalone/stable", 404, "unsupported_distribution"],
     ["/v1/versions/dalo/homebrew/stable", 404, "unsupported_distribution"],
     ["/v1/versions/palamedes/standalone/stable", 404, "unsupported_distribution"],
     ["/v1/versions/palamedes/crates/stable", 404, "unsupported_distribution"],

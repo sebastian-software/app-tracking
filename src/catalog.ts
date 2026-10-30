@@ -11,6 +11,12 @@ export interface Distribution {
 // Reviewed mappings only. Distribution labels are API compatibility aliases;
 // every installation of a tool uses the same GitHub release from oss-metrics.
 export const catalog: readonly Distribution[] = [
+  ...["github", "npm"].map((distribution) => ({
+    tool: "ardo",
+    distribution,
+    channel: "stable" as const,
+    source: { repository: "ardo", tagPrefix: "ardo-v" },
+  })),
   ...["github", "npm", "standalone"].map((distribution) => ({
     tool: "dalo",
     distribution,

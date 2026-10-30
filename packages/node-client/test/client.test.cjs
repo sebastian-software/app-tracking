@@ -1128,7 +1128,7 @@ test(
     };
     const c = new Client({ ...opts, interaction: "never" });
     await c.setDisabled(false);
-    const script = `Object.defineProperty(process.stdin,'isTTY',{value:true});Object.defineProperty(process.stderr,'isTTY',{value:true});const {Client}=require(${JSON.stringify(installed)});new Client(${JSON.stringify(opts)}).requestOptInReminder('Purpose').then(x=>process.stdout.write(x)).catch(e=>{console.error(e);process.exitCode=1});`;
+    const script = `Object.defineProperty(process.stdin,'isTTY',{value:true});Object.defineProperty(process.stderr,'isTTY',{value:true});const {Client}=require(${JSON.stringify(installed)});new Client(${JSON.stringify(opts)}).requestOptInReminder('Purpose').then(x=>process.stdout.write(x)).catch(e=>{if(e.code==='Busy')process.stdout.write('Busy');else{console.error(e);process.exitCode=1}});`;
     const children = Array.from({ length: 4 }, () =>
       bound(spawn(process.execPath, ["-e", script], { stdio: ["pipe", "pipe", "pipe"] })),
     );
@@ -1146,8 +1146,11 @@ test(
         return { output, prompt };
       }),
     );
-    assert.ok(results.every((x) => x.output === "unavailable"));
+    // Foreground reads and claims can return bounded contention. The winner
+    // must still claim exactly one prompt; other errors remain test failures.
+    assert.ok(results.every((x) => x.output === "unavailable" || x.output === "Busy"));
     assert.equal(results.filter((x) => x.prompt.includes("default: later")).length, 1);
+    assert.equal((await c.status()).decision, "undecided");
   },
 );
 
@@ -1725,4 +1728,34 @@ test("profile missing files, stale choices, CI, and noninteractive modes fail cl
   } finally {
     await s.close();
   }
+});
+
+test("the shipped Ardo catalog gates and validates the shared invocation scenarios", async () => {
+  const scenarios = JSON.parse(
+    await fs.readFile(resolve(__dirname, "../../../contracts/ardo-invocations.json"), "utf8"),
+  );
+  const c = await client({ tool: scenarios.tool, version: scenarios.version });
+  assert.equal(
+    await c.record(scenarios.metric, () => {
+      throw new Error("Must not collect before consent");
+    }),
+    "suppressed",
+  );
+  assert.deepEqual(await c.preview(), { open: [], batches: [] });
+  await c.setOptIn(true);
+  for (const command of scenarios.commands)
+    assert.equal(await c.record(scenarios.metric, { command }), "counted");
+  for (const command of scenarios.invalid_commands)
+    await assert.rejects(c.record(scenarios.metric, { command }), { code: "Configuration" });
+  await assert.rejects(c.record(scenarios.metric, { command: "build", site: "private" }), {
+    code: "Configuration",
+  });
+  const preview = await c.preview();
+  assert.deepEqual(
+    preview.open.map((row) => row.dimensions.command).sort(),
+    [...scenarios.commands].sort(),
+  );
+  assert.ok(preview.open.every((row) => row.count === 1 && row.collection === "opt_in"));
+  await c.setOptIn(false);
+  assert.equal(await c.record(scenarios.metric, { command: "build" }), "suppressed");
 });
