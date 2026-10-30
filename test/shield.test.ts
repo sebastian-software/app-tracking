@@ -36,7 +36,9 @@ function fixture() {
       if (!state.ignoreWrites)
         Object.assign(state.zone!, (body as { shieldZone: object }).shieldZone);
     } else if (method === "GET" && path.startsWith("/shield/rate-limits/7?")) {
-      result = { data: state.rules, page: { nextPage: null } };
+      result = state.rules.length
+        ? { data: state.rules, page: { nextPage: null } }
+        : { data: null, page: null };
     } else if (method === "GET" && path === "/shield/shield-zone/7/bot-detection") {
       result = { data: { executionMode: state.botMode } };
     } else if (method === "POST" && path === "/shield/rate-limit") {

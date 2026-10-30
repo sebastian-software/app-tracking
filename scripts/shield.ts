@@ -47,15 +47,22 @@ interface Rule {
   ruleConfiguration: Record<string, unknown>;
 }
 interface Page<T> {
-  data: T[];
-  page: { nextPage: number | null };
+  data: T[] | null;
+  page: { nextPage: number | null } | null;
+  error?: { success: boolean };
 }
 async function list<T>(api: BunnyApi, path: string): Promise<T[]> {
   const entries: T[] = [];
   for (let page = 1; page <= 100; page++) {
     const result = await api<Page<T>>("GET", `${path}?perPage=100&page=${page}`);
-    if (!Array.isArray(result.data) || !result.page) throw new Error("Invalid Shield listing");
-    entries.push(...result.data);
+    if (result.error?.success === false) throw new Error("Shield listing failed");
+    if (result.data !== null && !Array.isArray(result.data))
+      throw new Error("Invalid Shield listing");
+    const data = result.data ?? [];
+    entries.push(...data);
+    // Shield returns nullable data and no pagination for an empty rule list.
+    if (!data.length && !result.page) return entries;
+    if (!result.page) throw new Error("Missing Shield pagination");
     if (result.page.nextPage === null) return entries;
     if (result.page.nextPage !== page + 1) throw new Error("Invalid Shield pagination");
   }
