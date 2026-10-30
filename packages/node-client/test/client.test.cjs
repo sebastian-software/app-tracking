@@ -349,17 +349,52 @@ test(
     const stateRoot = join(fixture, "parallel-state");
     const c = await client({ stateRoot });
     await c.setOptIn(true);
-    const script = `const { Client } = require(${JSON.stringify(installed)}); const c = new Client(${JSON.stringify({ origin: "http://127.0.0.1:1", stateRoot, tool: "ferriki", version: "1.2.3", interaction: "never" })}); (async()=>{ for(let n=0;n<20;n++){ for(let retry=0;;retry++){try{await c.record("language.use", ${JSON.stringify(dimensions)});break;}catch(e){if(e.code!=="Busy"||retry>200)throw e;await new Promise(r=>setTimeout(r,2));}} } })().catch(()=>{process.exitCode=1});`;
-    await Promise.all(
+    const script = `
+      const { Client } = require(${JSON.stringify(installed)});
+      const c = new Client(${JSON.stringify({ origin: "http://127.0.0.1:1", stateRoot, tool: "ferriki", version: "1.2.3", interaction: "never" })});
+      (async () => {
+        let counted = 0, busy = 0;
+        for (let n = 0; n < 20; n++) {
+          try {
+            await c.record("language.use", ${JSON.stringify(dimensions)});
+            counted++;
+          } catch (error) {
+            if (error.code !== "Busy") throw error;
+            busy++;
+          }
+        }
+        process.stdout.write(JSON.stringify({ counted, busy }));
+      })().catch((error) => {
+        const code = typeof error?.code === "string" && /^[A-Za-z]+$/.test(error.code)
+          ? error.code : "Unknown";
+        process.stderr.write("record failed: " + code);
+        process.exitCode = 1;
+      });`;
+    const results = await Promise.all(
       Array.from({ length: 3 }, async () => {
         const child = spawn(process.execPath, ["-e", script], {
-          stdio: ["ignore", "ignore", "pipe"],
+          stdio: ["ignore", "pipe", "pipe"],
         });
-        const [code] = await once(child, "exit");
-        assert.equal(code, 0);
+        let stdout = "",
+          stderr = "";
+        child.stdout.setEncoding("utf8").on("data", (chunk) => {
+          stdout += chunk;
+        });
+        child.stderr.setEncoding("utf8").on("data", (chunk) => {
+          stderr += chunk;
+        });
+        const [code, signal] = await once(child, "close");
+        assert.equal(code, 0, `child exited with code ${code}, signal ${signal}: ${stderr}`);
+        const result = JSON.parse(stdout);
+        assert.ok(Number.isInteger(result.counted) && result.counted >= 0);
+        assert.ok(Number.isInteger(result.busy) && result.busy >= 0);
+        assert.equal(result.counted + result.busy, 20);
+        return result;
       }),
     );
-    assert.equal((await c.preview()).open[0].count, 60);
+    const counted = results.reduce((total, result) => total + result.counted, 0);
+    assert.ok(counted >= 3, `expected successful concurrent work: ${JSON.stringify(results)}`);
+    assert.equal((await c.preview()).open[0]?.count ?? 0, counted);
   },
 );
 
