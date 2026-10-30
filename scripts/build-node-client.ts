@@ -15,7 +15,7 @@ for (const format of ["cjs", "esm"] as const) {
     outfile: join(dist, format === "cjs" ? "index.cjs" : "index.mjs"),
     bundle: true,
     platform: "node",
-    target: "node24",
+    target: "node22",
     format,
     define: { __WORKER_PATH__: "__appWorkerPath" },
     banner: {
@@ -41,9 +41,19 @@ await build({
   outfile: join(dist, "worker.cjs"),
   bundle: true,
   platform: "node",
-  target: "node24",
+  target: "node22",
   format: "cjs",
   define: { __WORKER_PATH__: "''" },
+});
+// Consumer tests use the real receiver contract without native TypeScript support.
+// Keep this fixture outside the published package.
+await build({
+  entryPoints: [join(root, "test/fixtures/node-event-validator.ts")],
+  outfile: join(root, "dist/node-client-test/event-validator.mjs"),
+  bundle: true,
+  platform: "node",
+  target: "node22",
+  format: "esm",
 });
 const declarations = spawnSync(
   process.execPath,
