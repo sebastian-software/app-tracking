@@ -529,3 +529,112 @@ test("changed metric scope discards old data before validation and requires anot
   await c.setOptIn(true);
   assert.equal(await c.record("language.use", dimensions), "counted");
 });
+
+test("installed reminder claims before input, defers privately, and observes cooldown and decisions", async () => {
+  const stateRoot = join(fixture, "reminder");
+  const script = `
+    Object.defineProperty(process.stdin, 'isTTY', {value:true});
+    Object.defineProperty(process.stderr, 'isTTY', {value:true});
+    Date.now = () => Number(process.env.TEST_NOW);
+    const {Client}=require(${JSON.stringify(installed)});
+    const c=new Client({origin:'http://127.0.0.1:1',stateRoot:process.env.TEST_ROOT,tool:'ferriki',version:'1.2.3',projectContext:()=>{throw Error('project accessed')}});
+    c.requestOptInReminder('Purpose').then(result=>process.stdout.write(result)).catch(e=>{console.error(e);process.exitCode=1});`;
+  async function run(at, answer) {
+    const child = spawn(process.execPath, ["-e", script], {
+      env: { ...process.env, TEST_ROOT: stateRoot, TEST_NOW: String(at) },
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let output = "",
+      prompt = "";
+    child.stdout.on("data", (chunk) => (output += chunk));
+    child.stderr.on("data", (chunk) => {
+      prompt += chunk;
+      if (prompt.includes("default: later") && answer !== null) child.stdin.end(answer);
+    });
+    if (answer === null) child.stdin.end();
+    const [code] = await once(child, "exit");
+    assert.equal(code, 0, prompt);
+    return { output, prompt };
+  }
+  const at = 1_000_000_000_000,
+    interval = 14 * 86_400_000;
+  assert.equal((await run(at, "\n")).output, "unavailable");
+  const files = await fs.readdir(
+    join(
+      stateRoot,
+      createHash("sha256").update("http://127.0.0.1:1").digest("hex"),
+      "ferriki",
+      "node-events-v1",
+    ),
+  );
+  const stateFile = files.find((name) => name.endsWith(".json"));
+  assert.ok(stateFile);
+  const stored = JSON.parse(
+    await fs.readFile(
+      join(
+        stateRoot,
+        createHash("sha256").update("http://127.0.0.1:1").digest("hex"),
+        "ferriki",
+        "node-events-v1",
+        stateFile,
+      ),
+    ),
+  );
+  assert.equal(stored.identity, null);
+  assert.deepEqual(stored.open, {});
+  assert.deepEqual(stored.batches, []);
+  assert.equal(stored.job, null);
+  for (const time of [at - 1, at, at + interval - 1]) {
+    const result = await run(time, null);
+    assert.equal(result.output, "unavailable");
+    assert.equal(result.prompt, "");
+  }
+  assert.equal((await run(at + interval, "yes\n")).output, "granted");
+  assert.equal((await run(at + 2 * interval, null)).output, "granted");
+});
+
+test("reminder interruption, concurrent claim, and refusal during the prompt remain safe", async () => {
+  const stateRoot = join(fixture, "reminder-race");
+  const opts = { origin: "http://127.0.0.1:1", stateRoot, tool: "ferriki", version: "1.2.3" };
+  const script = `Object.defineProperty(process.stdin,'isTTY',{value:true}); Object.defineProperty(process.stderr,'isTTY',{value:true}); const {Client}=require(${JSON.stringify(installed)}); new Client(${JSON.stringify(opts)}).requestOptInReminder('Purpose').then(x=>process.stdout.write(x)).catch(e=>{console.error(e);process.exitCode=1});`;
+  const launch = () => spawn(process.execPath, ["-e", script], { stdio: ["pipe", "pipe", "pipe"] });
+  const first = launch();
+  let prompt = "";
+  first.stderr.on("data", (data) => (prompt += data));
+  while (!prompt.includes("default: later")) await once(first.stderr, "data");
+  const second = launch();
+  let result = "";
+  second.stdout.on("data", (data) => (result += data));
+  assert.equal((await once(second, "exit"))[0], 0);
+  assert.equal(result, "unavailable");
+  const c = new Client({ ...opts, interaction: "never" });
+  await c.setOptIn(false);
+  let firstResult = "";
+  first.stdout.on("data", (data) => (firstResult += data));
+  first.stdin.end("yes\n");
+  assert.equal((await once(first, "exit"))[0], 0);
+  assert.equal(firstResult, "declined");
+  assert.equal((await c.status()).decision, "declined");
+
+  const interruptedRoot = join(fixture, "reminder-interrupted");
+  const interruptedScript = script.replace(
+    JSON.stringify(stateRoot),
+    JSON.stringify(interruptedRoot),
+  );
+  const interrupted = spawn(process.execPath, ["-e", interruptedScript], {
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  let interruption = "";
+  interrupted.stderr.on("data", (data) => (interruption += data));
+  while (!interruption.includes("default: later")) await once(interrupted.stderr, "data");
+  interrupted.stdin.end("yes");
+  let interruptedResult = "";
+  interrupted.stdout.on("data", (data) => (interruptedResult += data));
+  assert.equal((await once(interrupted, "exit"))[0], 0);
+  assert.equal(interruptedResult, "unavailable");
+  assert.equal(
+    (await new Client({ ...opts, stateRoot: interruptedRoot, interaction: "never" }).status())
+      .decision,
+    "undecided",
+  );
+});

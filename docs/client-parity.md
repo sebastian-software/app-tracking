@@ -9,22 +9,6 @@ scope of [#53](https://github.com/sebastian-software/app-tracking/issues/53).
 
 ## Existing gaps
 
-### Deferred consent reminders
-
-Rust gained `request_opt_in_reminder` in
-[#69](https://github.com/sebastian-software/app-tracking/pull/69).
-Node currently has only the one-time `requestOptIn` flow. This is an open parity
-gap under [#53](https://github.com/sebastian-software/app-tracking/issues/53), not
-an intentional difference in consent policy.
-
-The Node implementation must follow the
-[same reminder contract](unified-client.md#optional-14-day-reminders): explicit
-yes/later/never choices, a 14-day cooldown after a claimed prompt, permanent
-respect for refusals and withdrawals, no dialog in unattended or restricted
-contexts, and no reporting identity or observations created by deferral alone.
-Tests must cover the cooldown boundary, clock rollback, abandoned/concurrent
-prompts, and a concurrent refusal winning over an affirmative answer.
-
 ### Additional permissions
 
 Rust supports separately permitted history, public usage totals, and cross-tool
