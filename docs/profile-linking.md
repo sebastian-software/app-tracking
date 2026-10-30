@@ -8,8 +8,9 @@ choice never imply permission to link tools.
 
 ## Local choice and state
 
-The unified Rust client accepts `with_shared_profile(private_user_root)` without
-I/O. Participating tools use the same root and exact configured service-origin
+The Rust client accepts `with_shared_profile_v2(private_user_root)` and the
+Node client accepts `sharedProfileRoot` without I/O. Rust also retains the
+legacy `with_shared_profile` controls for v1 state. Participating tools use the same root and exact configured service-origin
 string (without a trailing slash), outside
 project checkouts. The host selects its appropriate private user-profile path;
 there is no hardware, OS machine ID, username, or repository fallback.
@@ -33,15 +34,16 @@ timestamp. Renewed grants start a new future boundary. A confirmed status means
 the last acknowledgement, not a continuous server-side authority check.
 
 The client stores separate tool choices and one shared file:
-`<root>/profiles-v1/<SHA256(service-origin)>/profile.json`. Its exact v1 format is:
+`<root>/profiles-v2/<SHA256(service-origin)>/profile.json`. The v2 file format is:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "origin": "https://example.test",
   "profile_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "token": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-  "reset_pending": false
+  "reset_pending": false,
+  "link_attempted": false
 }
 ```
 
@@ -55,9 +57,30 @@ profile. Unchanged state survives tool upgrades. Lost state requires a new
 explicit linking choice; it is never reconstructed from hardware. Copied state
 represents the same profile, so profile counts cannot identify physical devices.
 
-This is a shared file/wire contract for a future Node client too. The Node SDK
-and its adoption remain deferred. Do not claim Rust/Node client interoperability
-has been exercised until the Node implementation runs the same lifecycle proof.
+The interoperable format is stored in `profiles-v2`, using the JSON shape shown above and a distinct shared lock directory named `profile.lock`. Neither
+client copies a v1 profile, reset credential, or choice into v2. Each tool must
+make a new explicit choice. Legacy Rust clients and controls continue to use
+`profiles-v1`; a v2 reset does not reset v1. Existing v1 server links remain
+until they are explicitly withdrawn/reset or the same reporting identity is
+linked elsewhere. Hosts upgrading from v1 should keep legacy controls accessible.
+
+The v2 lock is an atomic directory created by either runtime. It never expires
+or gets stolen: a paused process must not resume after another writer takes its
+lock. If a crash leaves it behind, stop every participating tool first, then
+remove the empty `profile.lock` directory. Do not remove it while a participant
+may still be running. Network filesystems are unsupported. On Windows use a
+private ACL for the root. A profile with no attempted link request can be reset locally, including offline.
+Before sending a link request, each runtime persists `link_attempted` under the
+shared lock. A reset that receives 404 after an attempt remains pending because a
+previously timed-out first registration could still arrive after that response.
+Only the exact deleted receipt rotates v2 state. An ambiguously attempted profile may therefore require service-side recovery
+rather than automatic rotation.
+
+Node exposes `requestProfileLinking`, `setProfileLinking`, `profileStatus`,
+`syncProfileLinking`, `profileResetPending`, `requestProfileReset`, and
+`syncProfileReset`. Rust exposes corresponding methods suffixed `_v2` while the
+unsuffixed methods continue to operate on v1.
+
 New profile choices carry their disclosure revision. Unknown scope stops
 linking and requires a new affirmative choice. Feature-unused SDK state omits
 the field; downgrading after use fails closed rather than discarding authority.
@@ -69,8 +92,9 @@ the field; downgrading after use fails closed rather than discarding authority.
   Turning ordinary reporting off also queues this unlink; synchronize through
   settings or complete ordinary authenticated deletion.
 - **Reset the shared profile:** `request_profile_reset()` saves a pending reset;
-  `sync_profile_reset()` uses the separate shared-profile credential. Only an
-  exact deleted/not-found acknowledgement rotates local ID/token. Existing
+  `sync_profile_reset()` uses the separate shared-profile credential. For v2, an exact deleted acknowledgement rotates the local ID/token after a
+  link was attempted. A never-attempted profile can rotate locally; ambiguous
+  not-found responses stay pending. Legacy v1 retains its existing reset behavior. Existing
   tool choices then require new consent; they never silently relink.
 - **Delete ordinary reports:** the existing tool-scoped deletion operation
   removes that tool's contributions and its link. Another tool's independent
@@ -118,8 +142,7 @@ Runtime and storage switches both reject new grants while keeping withdrawal
 and reset accessible. Disabling reporting also disables these optional gates
 through deployment configuration. A nonempty reference is documentation, not
 automatic legal clearance. Existing
-grants are never enrolled by deployment. The current implementation prepares
-Rust and server support while the consumer integrations remain separate work.
+grants are never enrolled by deployment. The clients and server support the contract while consumer integrations remain separate work.
 
 After provider recovery, disable the profile policy before reopening reporting,
 reconcile the recovery-point gap and known revocations, and require fresh

@@ -11,6 +11,8 @@ export interface ClientOptions {
   origin: string;
   /** Absolute private directory. Node and Rust use separate subdirectories. */
   stateRoot: string;
+  /** Absolute private root shared by participating Rust and Node v2 clients. */
+  sharedProfileRoot?: string;
   tool: string;
   version: string;
   /** Use never for JSON output, editors, agents, and unattended modes. */
@@ -30,6 +32,11 @@ export interface ClientOptions {
 export interface AdditionalPermissionStatus {
   decision: Decision;
   pending: boolean;
+}
+export interface ProfilePermissionStatus {
+  decision: Decision;
+  pending: boolean;
+  resetPending: boolean;
 }
 export interface Status {
   decision: Decision;

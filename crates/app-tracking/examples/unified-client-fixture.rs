@@ -16,6 +16,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         client
     };
+    let client = if let Ok(shared) = std::env::var("APP_TRACKING_FIXTURE_SHARED") {
+        client.with_shared_profile_v2(shared)
+    } else {
+        client
+    };
     let arguments: Vec<_> = std::env::args().collect();
     match arguments.get(1).map(String::as_str) {
         Some(BACKGROUND_WORKER_ARGUMENT) => {
@@ -23,6 +28,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let _ = client.run_background_worker(token)?;
         }
         Some("enable") => client.set_opt_in(true)?,
+        Some("profile-enable") => {
+            client.set_opt_in(true)?;
+            client.set_profile_linking_v2(true)?;
+        }
+        Some("profile-status") => println!("{:?}", client.profile_status_v2()?),
+        Some("profile-reset") => client.request_profile_reset_v2()?,
+        Some("profile-sync") => println!("{}", client.sync_profile_linking_v2()?),
+        Some("profile-sync-reset") => println!("{}", client.sync_profile_reset_v2()?),
         Some("permission") => println!(
             "{:?}",
             client.request_opt_in("Help improve the synthetic fixture's resource support.")?

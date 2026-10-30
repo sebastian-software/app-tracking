@@ -12,8 +12,9 @@ scope of [#53](https://github.com/sebastian-software/app-tracking/issues/53).
 ### Additional permissions
 
 Rust and Node both support separately permitted history and public usage totals.
-Cross-tool profile linking remains unavailable in Node and is tracked by
-[#54](https://github.com/sebastian-software/app-tracking/issues/54).
+Both clients support a separately selected v2 shared profile. Rust also retains
+legacy v1 controls; Node does not access v1. See the [profile guide](profile-linking.md)
+for reset and migration boundaries.
 
 Closing these gaps requires the corresponding independent permission flows and
 equivalent authorization, withdrawal, and deletion behavior. A general usage

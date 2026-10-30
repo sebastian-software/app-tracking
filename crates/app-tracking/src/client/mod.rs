@@ -11,6 +11,7 @@ mod download;
 mod history;
 mod permission;
 mod profile;
+mod profile_v2;
 mod public_usage;
 mod state;
 mod system;
@@ -192,6 +193,7 @@ pub struct Client {
     project: OnceLock<Option<crate::project::ProjectIdentity>>,
     project_source: Mutex<Option<ProjectSource>>,
     profile_root: Option<PathBuf>,
+    profile_v2_root: Option<PathBuf>,
 }
 
 impl std::fmt::Debug for Client {
@@ -345,6 +347,7 @@ impl Client {
             project: OnceLock::new(),
             project_source: Mutex::new(None),
             profile_root: None,
+            profile_v2_root: None,
         })
     }
 

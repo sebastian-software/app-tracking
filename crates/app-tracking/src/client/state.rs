@@ -66,6 +66,8 @@ pub(super) struct State {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub profile: Option<super::profile::ProfileChoice>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile_v2: Option<super::profile::ProfileChoice>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub public_usage: Option<super::public_usage::PublicUsageChoice>,
     #[serde(default)]
     pub opt_in_scope: Option<String>,
@@ -125,6 +127,20 @@ impl State {
             return Err(Error::State);
         }
         if self.profile.as_ref().is_some_and(|choice| {
+            choice.revision.is_empty()
+                || choice.revision.len() > 64
+                || choice.changed_at > 253402300799999
+                || (choice.enabled
+                    && (self.identity.is_none()
+                        || self.opt_in != Some(true)
+                        || self.disabled
+                        || self.deleting
+                        || choice.profile_id.as_ref().is_none_or(|id| !hex(id))))
+                || (!choice.enabled && choice.profile_id.is_some())
+        }) {
+            return Err(Error::State);
+        }
+        if self.profile_v2.as_ref().is_some_and(|choice| {
             choice.revision.is_empty()
                 || choice.revision.len() > 64
                 || choice.changed_at > 253402300799999
@@ -226,6 +242,7 @@ impl State {
             last_permission_prompt_at: None,
             history: None,
             profile: None,
+            profile_v2: None,
             public_usage: None,
             opt_in_scope: None,
             disabled: false,
@@ -265,6 +282,15 @@ impl State {
     }
     pub fn withdraw_profile(&mut self) -> Result<(), Error> {
         if let Some(choice) = &mut self.profile
+            && choice.enabled
+        {
+            choice.revision = super::profile::PROFILE_CONSENT_REVISION.into();
+            choice.enabled = false;
+            choice.profile_id = None;
+            choice.confirmed = false;
+            choice.changed_at = super::now()?.max(choice.changed_at.saturating_add(1));
+        }
+        if let Some(choice) = &mut self.profile_v2
             && choice.enabled
         {
             choice.revision = super::profile::PROFILE_CONSENT_REVISION.into();

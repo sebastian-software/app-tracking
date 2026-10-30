@@ -10,6 +10,8 @@ import { eventBatch, type EventCatalog } from "../../../src/telemetry/events.ts"
 import { strictJSON } from "../../../src/telemetry/json.ts";
 import { hash, projectIdentity, systemContext } from "./context.ts";
 import { download } from "./download.ts";
+import { withProfile } from "./profile.ts";
+import { PROFILE_CONSENT_REVISION, PROFILE_NOTICE } from "./permissions.ts";
 import {
   HISTORY_CONSENT_REVISION,
   HISTORY_NOTICE,
@@ -73,6 +75,9 @@ export class Client {
       !options ||
       typeof options.stateRoot !== "string" ||
       !isAbsolute(options.stateRoot) ||
+      (options.sharedProfileRoot !== undefined &&
+        (typeof options.sharedProfileRoot !== "string" ||
+          !isAbsolute(options.sharedProfileRoot))) ||
       !Object.hasOwn(definitions, options.tool) ||
       typeof options.version !== "string" ||
       options.version.length > 128 ||
@@ -249,6 +254,7 @@ export class Client {
       state.identity ??= { id: random(), token: random(), consentedAt: now(), lastAcceptedAt: 0 };
     else {
       this.#withdrawAdditional(state, "history");
+      this.#withdrawProfile(state);
       clear(state);
     }
   }
@@ -275,6 +281,7 @@ export class Client {
             state!.job = null;
             if (disabled) {
               this.#withdrawAdditional(state!, "history");
+              this.#withdrawProfile(state!);
               clear(state!);
             }
           }),
@@ -290,6 +297,7 @@ export class Client {
         () =>
           this.#state(true, (state) => {
             this.#withdrawAdditional(state!, "history");
+            this.#withdrawProfile(state!);
             state!.optIn = false;
             state!.optInScope = null;
             state!.disabled = true;
@@ -692,6 +700,323 @@ export class Client {
   }
   syncPublicUsagePermission(): Promise<boolean> {
     return this.#syncAdditional("publicUsage");
+  }
+  #withdrawProfile(state: State): void {
+    const choice = state.profile;
+    if (choice?.enabled)
+      state.profile = {
+        revision: PROFILE_CONSENT_REVISION,
+        enabled: false,
+        changedAt: Math.max(now(), choice.changedAt + 1),
+        confirmed: !state.identity,
+        profileId: null,
+      };
+  }
+  #profileRoot(): string {
+    if (!this.#options.sharedProfileRoot) fail("Configuration");
+    return this.#options.sharedProfileRoot;
+  }
+  async #saveProfileChoice(state: State, enabled: boolean): Promise<void> {
+    if (enabled && !this.#allowed(state)) fail("AdditionalPermission");
+    let id: string | null = null;
+    if (enabled)
+      await withProfile(this.#profileRoot(), this.#options.origin, true, async (profile) => {
+        if (!profile) fail("State");
+        if (profile.reset_pending) fail("PreviousIdentity");
+        id = profile.profile_id;
+      });
+    const old = state.profile;
+    const at = now();
+    if (
+      old &&
+      old.revision === PROFILE_CONSENT_REVISION &&
+      old.enabled === enabled &&
+      old.profileId === id &&
+      (old.confirmed || Math.max(0, at - old.changedAt) < 90 * DAY)
+    )
+      return;
+    state.profile = {
+      revision: PROFILE_CONSENT_REVISION,
+      enabled,
+      changedAt: Math.max(at, (old?.changedAt ?? -1) + 1),
+      confirmed: !state.identity,
+      profileId: id,
+    };
+    state.generation++;
+    state.job = null;
+  }
+  setProfileLinking(enabled: boolean): Promise<void> {
+    return this.#queue(async () => {
+      bool(enabled);
+      if (this.#options.policy!.ci) fail("AdditionalPermission");
+      await this.#network(
+        true,
+        () =>
+          this.#state(true, async (state) => {
+            if (!state) fail("AdditionalPermission");
+            await this.#saveProfileChoice(state, enabled);
+          }),
+        undefined,
+      );
+    });
+  }
+  profileStatus(): Promise<import("./types.ts").ProfilePermissionStatus> {
+    return this.#queue(async () => {
+      const empty = { decision: "undecided" as const, pending: false, resetPending: false };
+      if (this.#options.policy!.ci) return empty;
+      return this.#state(false, async (state) => {
+        const choice = state?.profile;
+        if (!choice || !choice.enabled)
+          return {
+            decision: choice ? "declined" : "undecided",
+            pending: !!choice && !choice.confirmed,
+            resetPending: false,
+          };
+        return withProfile(this.#profileRoot(), this.#options.origin, false, async (profile) => {
+          const resetPending = profile?.reset_pending === true;
+          const matches =
+            !!profile &&
+            !resetPending &&
+            choice.revision === PROFILE_CONSENT_REVISION &&
+            choice.profileId === profile.profile_id &&
+            (choice.confirmed || Math.max(0, now() - choice.changedAt) < 90 * DAY);
+          return {
+            decision: matches ? "granted" : "undecided",
+            pending: !choice.confirmed || resetPending,
+            resetPending,
+          };
+        });
+      });
+    });
+  }
+  async requestProfileLinking(reason: string): Promise<PermissionOutcome> {
+    if (
+      typeof reason !== "string" ||
+      !reason.trim() ||
+      Buffer.byteLength(reason) > 4096 ||
+      /[\x00-\x08\x0b-\x1f\x7f]/.test(reason)
+    )
+      fail("Configuration");
+    if (
+      this.#options.policy!.ci ||
+      !this.#options.sharedProfileRoot ||
+      this.#worker ||
+      !isMainThread
+    )
+      return "unavailable";
+    const saved = await this.#queue(() =>
+      this.#state(false, (state) => ({
+        allowed: !!state && this.#allowed(state),
+        generation: state?.generation ?? 0,
+      })),
+    );
+    if (!saved.allowed) return "unavailable";
+    const status = await this.profileStatus();
+    if (status.decision === "declined" || status.decision === "granted") return status.decision;
+    if (
+      status.resetPending ||
+      this.#options.interaction === "never" ||
+      !process.stdin.isTTY ||
+      !process.stderr.isTTY
+    )
+      return "unavailable";
+    const answer = await new Promise<boolean | undefined>((resolve) => {
+      const terminal = createInterface({ input: process.stdin, output: process.stderr });
+      terminal.once("close", () => resolve(undefined));
+      terminal.once("SIGINT", () => terminal.close());
+      terminal.question(
+        `\nOptional cross-tool profile linking for ${this.#options.tool}\n\n${reason.trim()}\n\n${PROFILE_NOTICE}\n\nAllow profile linking? [y/N] `,
+        (input) => {
+          const v = input.trim().toLowerCase();
+          resolve(
+            v === "y" || v === "yes"
+              ? true
+              : v === "" || v === "n" || v === "no"
+                ? false
+                : undefined,
+          );
+          terminal.close();
+        },
+      );
+    });
+    if (answer === undefined) return "unavailable";
+    return this.#queue(() =>
+      this.#network(
+        false,
+        () =>
+          this.#state(false, async (state) => {
+            if (
+              !state ||
+              !this.#allowed(state) ||
+              (answer && state.generation !== saved.generation)
+            )
+              return "unavailable";
+            await this.#saveProfileChoice(state, answer);
+            return answer ? "granted" : "declined";
+          }),
+        "unavailable" as PermissionOutcome,
+      ),
+    );
+  }
+  syncProfileLinking(): Promise<boolean> {
+    return this.#queue(async () => {
+      if (this.#options.policy!.offline || this.#options.policy!.ci) return false;
+      return this.#network(
+        false,
+        () =>
+          this.#state(false, async (state) => {
+            const choice = state?.profile;
+            if (
+              !state ||
+              !choice ||
+              !state.identity ||
+              (choice.enabled &&
+                (choice.revision !== PROFILE_CONSENT_REVISION ||
+                  !this.#allowed(state) ||
+                  (!choice.confirmed && Math.max(0, now() - choice.changedAt) >= 90 * DAY)))
+            )
+              return false;
+            const send = async (
+              profile?: import("./profile.ts").SharedProfile,
+              save?: () => Promise<void>,
+            ) => {
+              if (
+                choice.enabled &&
+                (!profile || profile.reset_pending || profile.profile_id !== choice.profileId)
+              )
+                return false;
+              if (choice.confirmed) return true;
+              if (profile) {
+                profile.link_attempted = true;
+                await save!();
+              }
+              const body = JSON.stringify({
+                schema_version: 1,
+                revision: PROFILE_CONSENT_REVISION,
+                enabled: choice.enabled,
+                changed_at: choice.changedAt,
+                profile_id: choice.profileId,
+                profile_token: profile?.token ?? null,
+              });
+              try {
+                const connection = await request(
+                  new URL(`/v1/profile-links/events/${state.identity!.id}`, this.#options.origin),
+                  "PUT",
+                  {
+                    Authorization: `Bearer ${state.identity!.token}`,
+                    "App-Tracking-Tool": this.#options.tool,
+                    "Content-Type": "application/json",
+                    "Accept-Encoding": "identity",
+                  },
+                  body,
+                  5000,
+                );
+                try {
+                  const response = connection.response;
+                  const receipt: unknown = strictJSON(await readBody(response, 2048));
+                  if (
+                    response.statusCode !== 200 ||
+                    response.headers["cache-control"] !== "no-store" ||
+                    !object(receipt) ||
+                    Object.keys(receipt).sort().join() !==
+                      "changed_at,enabled,profile_id,revision,schema_version" ||
+                    receipt.schema_version !== 1 ||
+                    receipt.revision !== PROFILE_CONSENT_REVISION ||
+                    receipt.enabled !== choice.enabled ||
+                    receipt.changed_at !== choice.changedAt ||
+                    receipt.profile_id !== choice.profileId
+                  )
+                    return false;
+                  choice.confirmed = true;
+                  return true;
+                } finally {
+                  connection.close();
+                }
+              } catch {
+                return false;
+              }
+            };
+            return choice.enabled
+              ? withProfile(this.#profileRoot(), this.#options.origin, false, send)
+              : send();
+          }),
+        false,
+      );
+    });
+  }
+  profileResetPending(): Promise<boolean> {
+    return this.#queue(async () =>
+      this.#options.policy!.ci || !this.#options.sharedProfileRoot
+        ? false
+        : withProfile(
+            this.#profileRoot(),
+            this.#options.origin,
+            false,
+            async (p) => p?.reset_pending === true,
+          ),
+    );
+  }
+  requestProfileReset(): Promise<void> {
+    return this.#queue(async () => {
+      if (this.#options.policy!.ci) fail("AdditionalPermission");
+      await withProfile(this.#profileRoot(), this.#options.origin, false, async (p, save) => {
+        if (p) {
+          p.reset_pending = true;
+          await save();
+        }
+      });
+    });
+  }
+  syncProfileReset(): Promise<boolean> {
+    return this.#queue(async () => {
+      if (this.#options.policy!.ci) return false;
+      return withProfile(this.#profileRoot(), this.#options.origin, false, async (p, save) => {
+        if (!p) return false;
+        if (!p.reset_pending) return true;
+        if (!p.link_attempted) {
+          p.profile_id = random();
+          p.token = random();
+          p.reset_pending = false;
+          await save();
+          return true;
+        }
+        if (this.#options.policy!.offline) return false;
+        try {
+          const connection = await request(
+            new URL(`/v1/shared-profiles/${p.profile_id}`, this.#options.origin),
+            "DELETE",
+            { Authorization: `Bearer ${p.token}`, "Accept-Encoding": "identity" },
+            undefined,
+            5000,
+          );
+          try {
+            const response = connection.response;
+            const receipt: unknown = strictJSON(await readBody(response, 2048));
+            if (
+              response.statusCode !== 200 ||
+              response.headers["cache-control"] !== "no-store" ||
+              !object(receipt) ||
+              Object.keys(receipt).sort().join() !== "profile_id,revision,schema_version,status" ||
+              receipt.schema_version !== 1 ||
+              receipt.revision !== PROFILE_CONSENT_REVISION ||
+              receipt.status !== "deleted" ||
+              receipt.profile_id !== p.profile_id
+            )
+              return false;
+            p.profile_id = random();
+            p.token = random();
+            p.reset_pending = false;
+            p.link_attempted = false;
+            await save();
+            return true;
+          } finally {
+            connection.close();
+          }
+        } catch {
+          return false;
+        }
+      });
+    });
   }
   record(metric: string, dimensions: Dimensions = {}): Promise<Recorded> {
     return this.#queue(async () => {

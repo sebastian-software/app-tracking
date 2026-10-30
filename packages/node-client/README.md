@@ -206,3 +206,14 @@ whether it is pending. Explicitly call `syncHistoryPermission()` and
 changes stay pending. Acknowledgement starts eligibility on the following UTC
 date and does not mean a monthly summary exists. Withdrawing history also
 withdraws publication. Ordinary withdrawal, disabling, and deletion revoke both.
+
+## Optional shared profile linking
+
+Set `sharedProfileRoot` to an absolute private directory also used by Rust's
+`with_shared_profile_v2`. Construction does not access it. After ordinary
+reporting is enabled, use `requestProfileLinking` or an explicit settings
+choice with `setProfileLinking`, and call `syncProfileLinking` to send it.
+Use `profileStatus`, `profileResetPending`, `requestProfileReset`, and
+`syncProfileReset` for settings. Reset applies only to the shared v2 profile;
+legacy Rust v1 links require their own controls. A 404 reset stays pending.
+See the [profile guide](../../docs/profile-linking.md) for recovery and scope.
