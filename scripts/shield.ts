@@ -188,6 +188,7 @@ export async function configureShield(api: BunnyApi, pullZoneId: number, apply =
     ddosBlocking: zone.dDoSExecutionMode === 1,
     apiWritesPerMinutePerIp: ruleMatches(rule) ? API_WRITE_RULE.requestCount : null,
     botChallenges: false,
+    rateLimitCount: rules.length,
     ...(!verified
       ? {
           managedRulePresent: !!rule,

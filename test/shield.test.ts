@@ -158,3 +158,17 @@ test("Bunny errors expose validation fields without provider messages, values, o
       "Bunny operation failed (400): Validation.Error, RuleConfiguration.TransformationTypes",
   });
 });
+
+test("Shield business errors inside HTTP 200 cannot be mistaken for applied protection", async (t) => {
+  for (const field of ["error", "errorResponse"]) {
+    t.mock.method(globalThis, "fetch", async () =>
+      Response.json({
+        [field]: { success: false, errorKey: "InvalidRule", message: "private account details" },
+      }),
+    );
+    await assert.rejects(bunnyApi("synthetic-key")("POST", "/shield/rate-limit", {}), {
+      message: "Bunny operation failed (200): InvalidRule",
+    });
+    t.mock.restoreAll();
+  }
+});
