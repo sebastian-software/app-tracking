@@ -2,6 +2,58 @@ use super::*;
 use std::io::{Read, Write};
 use std::net::TcpListener;
 
+#[test]
+fn shared_cli_settings_fixtures() {
+    let contract: serde_json::Value =
+        serde_json::from_str(include_str!("../../fixtures/cli-settings.json")).unwrap();
+    for case in contract["scenarios"].as_array().unwrap() {
+        let directory = tempfile::tempdir().unwrap();
+        let p = &case["policy"];
+        let c = Client::registered("http://127.0.0.1:1", directory.path(), "ardo", "1.0.0")
+            .unwrap()
+            .with_policy(Policy {
+                offline: p["offline"].as_bool().unwrap_or(false),
+                do_not_track: p["doNotTrack"].as_bool().unwrap_or(false),
+                host_disabled: p["hostDisabled"].as_bool().unwrap_or(false),
+                telemetry: p["telemetry"].as_str().map(str::to_owned),
+                ci: p["ci"].as_bool().unwrap_or(false),
+                ci_revision: p["ciRevision"].as_str().map(str::to_owned),
+                isolated_ci_state: p["isolatedCiState"].as_bool().unwrap_or(false),
+                ..Default::default()
+            });
+        for action in case["actions"].as_array().unwrap() {
+            match action.as_str().unwrap() {
+                "enable" => {
+                    c.set_opt_in(true).unwrap();
+                    c.set_disabled(false).unwrap();
+                }
+                "record" => {
+                    c.record("cli.invocation", || {
+                        [("command".into(), "build".into())].into()
+                    })
+                    .unwrap();
+                }
+                "withdraw" => c.set_opt_in(false).unwrap(),
+                "disable" => c.set_disabled(true).unwrap(),
+                "delete" => c.delete().unwrap(),
+                _ => panic!("unknown fixture action"),
+            }
+        }
+        let status = serde_json::to_value(c.status().unwrap()).unwrap();
+        assert_eq!(status["decision"], case["decision"], "{case}");
+        assert_eq!(status["collect_opt_in"], case["collect"], "{case}");
+        assert_eq!(status["deletion_pending"], case["pending"], "{case}");
+        assert_eq!(status["disabled"], case["disabled"], "{case}");
+        let preview: serde_json::Value = serde_json::from_str(&c.preview().unwrap()).unwrap();
+        assert_eq!(
+            preview["open"].as_array().unwrap().len() as u64,
+            case["rows"].as_u64().unwrap(),
+            "{case}"
+        );
+        assert!(!c.preview().unwrap().contains("token"));
+    }
+}
+
 pub(super) fn client(root: &std::path::Path) -> Client {
     Client::new(
         "https://tracking.example",

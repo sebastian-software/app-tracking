@@ -38,6 +38,10 @@ path = "crates/app-tracking/examples/unified-client-fixture.rs"
 name = "update-consumer"
 path = "crates/app-tracking/examples/update-consumer.rs"
 
+[[example]]
+name = "cli-integration"
+path = "crates/app-tracking/examples/cli-integration.rs"
+
 [lints]
 workspace = true
 

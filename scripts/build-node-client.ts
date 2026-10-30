@@ -55,13 +55,30 @@ await build({
   target: "node22",
   format: "esm",
 });
+await build({
+  entryPoints: [join(root, "test/fixtures/node-update-contract.ts")],
+  outfile: join(root, "dist/node-client-test/update-contract.mjs"),
+  bundle: true,
+  platform: "node",
+  target: "node22",
+  format: "esm",
+});
 const declarations = spawnSync(
   process.execPath,
   [join(root, "node_modules/typescript/bin/tsc"), "-p", join(directory, "tsconfig.json")],
   { cwd: root, stdio: "inherit" },
 );
 if (declarations.status !== 0) throw new Error("Node client declaration build failed");
-for (const name of ["index", "client", "types", "download", "permissions"])
+for (const name of [
+  "index",
+  "client",
+  "types",
+  "download",
+  "permissions",
+  "update",
+  "update-contract",
+  "cli",
+])
   await copyFile(
     join(dist, "declarations/packages/node-client/src", `${name}.d.ts`),
     join(dist, "types", `${name}.d.ts`),

@@ -11,6 +11,7 @@ import { strictJSON } from "../../../src/telemetry/json.ts";
 import { hash, projectIdentity, systemContext } from "./context.ts";
 import { download } from "./download.ts";
 import { withProfile } from "./profile.ts";
+import { resolvePolicy } from "./policy.ts";
 import { PROFILE_CONSENT_REVISION, PROFILE_NOTICE } from "./permissions.ts";
 import {
   HISTORY_CONSENT_REVISION,
@@ -51,8 +52,6 @@ import {
 
 declare const __WORKER_PATH__: string;
 const definitions: EventCatalog = catalog.tools;
-const truthy = (value: string | undefined) =>
-  value !== undefined && value !== "" && value !== "0" && value !== "false";
 const bool = (value: unknown) => {
   if (typeof value !== "boolean") fail("Configuration");
   return value;
@@ -89,18 +88,7 @@ export class Client {
       fail("Configuration");
     if (options.projectContext !== undefined && typeof options.projectContext !== "function")
       fail("Configuration");
-    const policy = { ...options.policy };
-    for (const key of ["offline", "ci", "isolatedCiState", "doNotTrack", "hostDisabled"] as const)
-      if (policy[key] !== undefined) bool(policy[key]);
-    const envTelemetry = process.env.APP_TRACKING_TELEMETRY;
-    policy.telemetry =
-      envTelemetry !== undefined && envTelemetry !== "on"
-        ? envTelemetry
-        : (policy.telemetry ?? envTelemetry);
-    policy.doNotTrack = truthy(process.env.DO_NOT_TRACK) || policy.doNotTrack === true;
-    policy.ci =
-      truthy(process.env.CI) || truthy(process.env.CONTINUOUS_INTEGRATION) || policy.ci === true;
-    policy.ciRevision = process.env.APP_TRACKING_CI ?? policy.ciRevision;
+    const policy = resolvePolicy(options.policy);
     this.#options = { ...options, origin, policy, interaction: options.interaction ?? "terminal" };
     this.#scope = `${origin}\n${options.tool}\n${policy.ci ? "ci" : "local"}`;
     this.#metricScope = hash(canonical(definitions[options.tool]));
