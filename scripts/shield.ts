@@ -45,7 +45,8 @@ interface Rule {
   id: number;
   shieldZoneId: number;
   ruleName: string;
-  ruleConfiguration: Record<string, unknown>;
+  ruleConfiguration: Record<string, unknown> | null;
+  ruleJson?: string | null;
 }
 interface Page<T> {
   data: T[] | null;
@@ -83,11 +84,24 @@ function managedRule(rules: Rule[], zone: ShieldZone) {
   if (matches.length > 1) throw new Error("Ambiguous managed Shield rate limit");
   return matches[0] as Rule | undefined;
 }
+function ruleConfiguration(rule: Rule | undefined): Record<string, unknown> | undefined {
+  if (rule?.ruleConfiguration) return rule.ruleConfiguration;
+  if (!rule?.ruleJson) return;
+  try {
+    const configuration: unknown = JSON.parse(rule.ruleJson);
+    if (configuration && typeof configuration === "object" && !Array.isArray(configuration))
+      return configuration as Record<string, unknown>;
+  } catch {
+    /* Do not expose a provider response in an exception. */
+  }
+  throw new Error("Invalid managed rate limit configuration");
+}
 function ruleMatches(rule: Rule | undefined) {
+  const configuration = ruleConfiguration(rule);
   return (
-    !!rule?.ruleConfiguration &&
+    !!configuration &&
     Object.entries(API_WRITE_RULE).every(([key, expected]) =>
-      isDeepStrictEqual(rule.ruleConfiguration[key], expected),
+      isDeepStrictEqual(configuration[key], expected),
     )
   );
 }
@@ -159,8 +173,10 @@ export async function configureShield(api: BunnyApi, pullZoneId: number, apply =
           .map(([key]) => key),
         ddosBlocking: zone.dDoSExecutionMode === 1,
         rateFieldsDiffer: Object.entries(API_WRITE_RULE)
-          .filter(([key, value]) => !isDeepStrictEqual(rule?.ruleConfiguration?.[key], value))
+          .filter(([key, value]) => !isDeepStrictEqual(ruleConfiguration(rule)?.[key], value))
           .map(([key]) => key),
+        managedRulePresent: !!rule,
+        configurationFields: Object.keys(ruleConfiguration(rule) ?? {}),
       })}`,
     );
   // Log only selected configuration values, never IDs, headers, payloads, or traffic.
@@ -172,6 +188,12 @@ export async function configureShield(api: BunnyApi, pullZoneId: number, apply =
     ddosBlocking: zone.dDoSExecutionMode === 1,
     apiWritesPerMinutePerIp: ruleMatches(rule) ? API_WRITE_RULE.requestCount : null,
     botChallenges: false,
+    ...(!verified
+      ? {
+          managedRulePresent: !!rule,
+          configurationFields: Object.keys(ruleConfiguration(rule) ?? {}),
+        }
+      : {}),
   };
 }
 

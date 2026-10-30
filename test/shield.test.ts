@@ -37,7 +37,14 @@ function fixture() {
         Object.assign(state.zone!, (body as { shieldZone: object }).shieldZone);
     } else if (method === "GET" && path.startsWith("/shield/rate-limits/7?")) {
       result = state.rules.length
-        ? { data: state.rules, page: { nextPage: null } }
+        ? {
+            data: state.rules.map((rule) => ({
+              ...rule,
+              ruleConfiguration: null,
+              ruleJson: JSON.stringify(rule.ruleConfiguration),
+            })),
+            page: { nextPage: null },
+          }
         : { data: null, page: null };
     } else if (method === "GET" && path === "/shield/shield-zone/7/bot-detection") {
       result = { data: state.botMode === null ? null : { executionMode: state.botMode } };
@@ -79,6 +86,7 @@ test("Shield inspection never writes; creation selects Basic and converges on th
   assert.equal(state.writes.length, 2);
   const observed = await configureShield(api, 2);
   assert.equal(observed.verified, true);
+  assert.ok("apiWritesPerMinutePerIp" in observed);
   assert.equal(observed.apiWritesPerMinutePerIp, 120);
   assert.ok(!JSON.stringify(observed).includes("shieldZoneId"));
   const methods = API_WRITE_RULE.chainedRuleConditions[0].value.split(" ");
