@@ -3,22 +3,25 @@
 Shared client features should ship in Rust and Node.js in the same PR. The
 repository's [agent instructions](../AGENTS.md) require both implementations to
 be checked, equivalent behavior to be verified, and any exception to be visible.
-A shared release version is not a claim that every API already exists in both
-clients. The initial Node client covers the event-reporting and verified-download
-scope of [#53](https://github.com/sebastian-software/app-tracking/issues/53).
+A shared release version alone does not establish feature parity.
 
-## Existing gaps
+## Current baseline
 
-### Additional permissions
+Rust and Node support ordinary reporting, reminders, verified downloads, and
+separate history, public usage, and shared v2 profile choices. General usage
+consent never silently enables an additional permission. The v2 profile tests
+exercise actual Rust and installed Node clients, including both creation orders
+and concurrent access. See [#54](https://github.com/sebastian-software/app-tracking/issues/54)
+and the [profile guide](profile-linking.md) for the contract and evidence.
 
-Rust and Node both support separately permitted history and public usage totals.
-Both clients support a separately selected v2 shared profile. Rust also retains
-legacy v1 controls; Node does not access v1. See the [profile guide](profile-linking.md)
-for reset and migration boundaries.
+## Intentional legacy v1 exception
 
-Closing these gaps requires the corresponding independent permission flows and
-equivalent authorization, withdrawal, and deletion behavior. A general usage
-grant must never silently enable an additional permission.
+Rust retains its legacy v1 profile controls and files. That format uses an OS
+file lock unavailable to the pure-JavaScript Node package, so Node does not read
+or migrate v1 profiles or their choices. Each tool must make a fresh explicit v2
+choice; Rust hosts retain legacy controls for existing v1 state. The shared v2
+format and its cross-runtime tests provide the common path without changing
+released v1 behavior.
 
 ## Maintaining the baseline
 

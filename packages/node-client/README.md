@@ -5,10 +5,12 @@ The package contains ESM, CommonJS, TypeScript declarations, and its background
 worker. It uses Node.js built-ins and bundled JavaScript; consumers need no
 Rust toolchain, native addon, platform package, or installation script.
 
-This package shares its version and release tag with the Rust client. It
-implements the shared Node-client portion of [issue #53](https://github.com/sebastian-software/app-tracking/issues/53).
-Ferriki adoption and separately registered runtime/host version fields still
-need their own delivery evidence. Cross-tool profile permissions are not yet enabled by this client. This package currently targets the repository's Node.js 24 runtime.
+This package shares its version and release tag with the Rust client. It supports
+consent reminders ([#53](https://github.com/sebastian-software/app-tracking/issues/53)),
+separate history and publication permissions, and optional shared v2 profile
+linking. Ferriki adoption and separately registered runtime/host version fields
+still need their own delivery evidence. The package targets the repository's
+Node.js 24 runtime.
 
 ## Build and verify
 
@@ -21,8 +23,9 @@ pnpm test:node-client
 
 The command builds both module formats, emits declarations, packs the actual npm
 artifact, and runs isolated consumer tests against that artifact. Its HTTP
-fixtures use loopback servers and synthetic identities. The three-platform
-Node-client workflow runs the same command without installing Rust.
+fixtures use loopback servers and synthetic identities. The command builds a Rust
+fixture to test shared profiles across both runtimes. The three-platform
+Node-client workflow installs the pinned Rust toolchain for these tests.
 
 `pnpm build:node-client` builds only the package. To create a local tarball, run
 `npm pack --ignore-scripts` in `packages/node-client` after building. Product
