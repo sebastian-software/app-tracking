@@ -876,20 +876,13 @@ export class Client {
                   (!choice.confirmed && Math.max(0, now() - choice.changedAt) >= 90 * DAY)))
             )
               return false;
-            const send = async (
-              profile?: import("./profile.ts").SharedProfile,
-              save?: () => Promise<void>,
-            ) => {
+            const send = async (profile?: import("./profile.ts").SharedProfile) => {
               if (
                 choice.enabled &&
                 (!profile || profile.reset_pending || profile.profile_id !== choice.profileId)
               )
                 return false;
               if (choice.confirmed) return true;
-              if (profile) {
-                profile.link_attempted = true;
-                await save!();
-              }
               const body = JSON.stringify({
                 schema_version: 1,
                 revision: PROFILE_CONSENT_REVISION,
@@ -973,13 +966,6 @@ export class Client {
       return withProfile(this.#profileRoot(), this.#options.origin, false, async (p, save) => {
         if (!p) return false;
         if (!p.reset_pending) return true;
-        if (!p.link_attempted) {
-          p.profile_id = random();
-          p.token = random();
-          p.reset_pending = false;
-          await save();
-          return true;
-        }
         if (this.#options.policy!.offline) return false;
         try {
           const connection = await request(
@@ -1006,7 +992,6 @@ export class Client {
             p.profile_id = random();
             p.token = random();
             p.reset_pending = false;
-            p.link_attempted = false;
             await save();
             return true;
           } finally {

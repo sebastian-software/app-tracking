@@ -19,7 +19,6 @@ struct SharedState {
     profile_id: String,
     token: String,
     reset_pending: bool,
-    link_attempted: bool,
 }
 impl SharedState {
     fn new(origin: &str) -> Result<Self, Error> {
@@ -29,7 +28,6 @@ impl SharedState {
             profile_id: random()?,
             token: random()?,
             reset_pending: false,
-            link_attempted: false,
         })
     }
 }
@@ -420,7 +418,7 @@ impl Client {
         {
             return Ok(false);
         }
-        let mut profile = if choice.enabled {
+        let profile = if choice.enabled {
             ProfileFile::open(self, false)?
         } else {
             None
@@ -439,10 +437,6 @@ impl Client {
         let Some(identity) = store.state.identity.as_ref() else {
             return Ok(false);
         };
-        if let Some(profile) = &mut profile {
-            profile.state.link_attempted = true;
-            profile.save()?;
-        }
         let token = profile.as_ref().map(|profile| profile.state.token.clone());
         let body=serde_json::json!({"schema_version":1,"revision":PROFILE_CONSENT_REVISION,"enabled":choice.enabled,"changed_at":choice.changed_at,"profile_id":choice.profile_id,"profile_token":token}).to_string();
         let Some((200, receipt)) = send(
@@ -502,11 +496,6 @@ impl Client {
             return Ok(false);
         };
         if !profile.state.reset_pending {
-            return Ok(true);
-        }
-        if !profile.state.link_attempted {
-            profile.state = SharedState::new(&self.origin)?;
-            profile.save()?;
             return Ok(true);
         }
         if self.policy.offline {
@@ -839,56 +828,6 @@ mod tests {
         );
     }
     #[test]
-    fn local_reset_and_ambiguous_missing_acknowledgement_fail_closed() {
-        let root = tempfile::tempdir().unwrap();
-        let c = client(
-            &root.path().join("state"),
-            &root.path().join("shared"),
-            "dalo",
-        );
-        c.set_opt_in(true).unwrap();
-        c.set_profile_linking_v2(true).unwrap();
-        let first = ProfileFile::open(&c, false)
-            .unwrap()
-            .unwrap()
-            .state
-            .profile_id
-            .clone();
-        c.request_profile_reset_v2().unwrap();
-        assert!(
-            c.reset_profile_with_v2(|_, _| panic!("no request should be sent"))
-                .unwrap()
-        );
-        assert_ne!(
-            first,
-            ProfileFile::open(&c, false)
-                .unwrap()
-                .unwrap()
-                .state
-                .profile_id
-        );
-        c.set_profile_linking_v2(true).unwrap();
-        assert!(!c.sync_profile_with_v2(|_, _, _| None).unwrap());
-        let attempted = ProfileFile::open(&c, false)
-            .unwrap()
-            .unwrap()
-            .state
-            .profile_id
-            .clone();
-        c.request_profile_reset_v2().unwrap();
-        assert!(
-            !c.reset_profile_with_v2(|_, _| Some((
-                404,
-                r#"{"schema_version":1,"error":{"code":"installation_not_found"}}"#.into()
-            )))
-            .unwrap()
-        );
-        let profile = ProfileFile::open(&c, false).unwrap().unwrap();
-        assert_eq!(profile.state.profile_id, attempted);
-        assert!(profile.state.reset_pending);
-        assert!(profile.state.link_attempted);
-    }
-    #[test]
     fn legacy_profile_and_choice_are_not_migrated_or_reset() {
         let root = tempfile::tempdir().unwrap();
         let shared = root.path().join("shared");
@@ -906,11 +845,50 @@ mod tests {
         ));
         c.set_profile_linking_v2(true).unwrap();
         c.request_profile_reset_v2().unwrap();
-        assert!(c.sync_profile_reset_v2().unwrap());
+        assert!(
+            !c.reset_profile_with_v2(|_, _| Some((404, "{}".into())))
+                .unwrap()
+        );
         assert_eq!(fs::read(legacy).unwrap(), before);
         assert!(matches!(
             c.profile_status().unwrap().decision,
             OptInDecision::Granted
         ));
+    }
+    #[test]
+    fn copied_profile_reset_requires_server_ack_even_if_original_linked_later() {
+        let root = tempfile::tempdir().unwrap();
+        let original = client(
+            &root.path().join("one"),
+            &root.path().join("shared-one"),
+            "dalo",
+        );
+        let copied = client(
+            &root.path().join("two"),
+            &root.path().join("shared-two"),
+            "palamedes",
+        );
+        original.set_opt_in(true).unwrap();
+        original.set_profile_linking_v2(true).unwrap();
+        let first = ProfileFile::open(&original, false).unwrap().unwrap();
+        let id = first.state.profile_id.clone();
+        let target = ProfileFile::open(&copied, true).unwrap().unwrap();
+        fs::copy(
+            first.directory.join("profile.json"),
+            target.directory.join("profile.json"),
+        )
+        .unwrap();
+        drop(target);
+        drop(first);
+        assert!(original.sync_profile_with_v2(acknowledge).unwrap());
+        copied.request_profile_reset_v2().unwrap();
+        assert!(
+            !copied
+                .reset_profile_with_v2(|_, _| Some((404, "{}".into())))
+                .unwrap()
+        );
+        let state = ProfileFile::open(&copied, false).unwrap().unwrap();
+        assert_eq!(state.state.profile_id, id);
+        assert!(state.state.reset_pending);
     }
 }

@@ -15,17 +15,17 @@ string (without a trailing slash), outside
 project checkouts. The host selects its appropriate private user-profile path;
 there is no hardware, OS machine ID, username, or repository fallback.
 
-`request_profile_linking(reason)` owns the additional explanation and yes/no
-dialog. Saved refusals are reused. `set_profile_linking(bool)` records an
+`request_profile_linking_v2(reason)` owns the additional explanation and yes/no
+dialog. Saved refusals are reused. `set_profile_linking_v2(bool)` records an
 explicit settings choice. Ordinary usage permission is required before a grant;
 CI is always excluded, including separately permitted isolated CI reporting.
 Nonterminals, JSON/agent modes and background workers never open a dialog.
 Neither construction nor ordinary recording reads or creates shared state.
 
-`profile_status()` reports the saved tool decision and pending state.
-`profile_reset_pending()` explicitly inspects shared-reset status, including
+`profile_status_v2()` reports the saved tool decision and pending state.
+`profile_reset_pending_v2()` explicitly inspects shared-reset status, including
 after this tool has opted out.
-`sync_profile_linking()` is an explicit settings-network operation with a
+`sync_profile_linking_v2()` is an explicit settings-network operation with a
 five-second total budget. Register the ordinary reporting identity first.
 Until an exact acknowledgement, the choice remains pending; an offline change
 never claims that server data has already been removed. Eligibility begins
@@ -42,8 +42,7 @@ The client stores separate tool choices and one shared file:
   "origin": "https://example.test",
   "profile_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "token": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-  "reset_pending": false,
-  "link_attempted": false
+  "reset_pending": false
 }
 ```
 
@@ -62,19 +61,22 @@ client copies a v1 profile, reset credential, or choice into v2. Each tool must
 make a new explicit choice. Legacy Rust clients and controls continue to use
 `profiles-v1`; a v2 reset does not reset v1. Existing v1 server links remain
 until they are explicitly withdrawn/reset or the same reporting identity is
-linked elsewhere. Hosts upgrading from v1 should keep legacy controls accessible.
+linked elsewhere. The server keeps one link per tool reporting identity: linking
+that same identity to v2 replaces its v1 link. A tool-scoped unlink removes its
+current server link regardless of which format created it. Shared-profile reset
+uses its profile ID and does not reset the other format. Hosts upgrading from v1
+should keep legacy controls accessible.
 
 The v2 lock is an atomic directory created by either runtime. It never expires
 or gets stolen: a paused process must not resume after another writer takes its
 lock. If a crash leaves it behind, stop every participating tool first, then
 remove the empty `profile.lock` directory. Do not remove it while a participant
 may still be running. Network filesystems are unsupported. On Windows use a
-private ACL for the root. A profile with no attempted link request can be reset locally, including offline.
-Before sending a link request, each runtime persists `link_attempted` under the
-shared lock. A reset that receives 404 after an attempt remains pending because a
-previously timed-out first registration could still arrive after that response.
-Only the exact deleted receipt rotates v2 state. An ambiguously attempted profile may therefore require service-side recovery
-rather than automatic rotation.
+private ACL for the root. An offline reset or a 404 response stays pending,
+including for a profile that was never registered: another copy may have been
+linked, or a timed-out registration may still arrive. Only an exact deleted
+receipt rotates v2 state. Service-side recovery may be needed for a profile that
+was never registered.
 
 Node exposes `requestProfileLinking`, `setProfileLinking`, `profileStatus`,
 `syncProfileLinking`, `profileResetPending`, `requestProfileReset`, and
@@ -87,13 +89,12 @@ the field; downgrading after use fails closed rather than discarding authority.
 
 ## Unlinking and reset
 
-- **Unlink this tool:** save `set_profile_linking(false)` and explicitly
+- **Unlink this tool:** save `set_profile_linking_v2(false)` and explicitly
   synchronize it. Other tools' links and all ordinary reporting grants remain.
   Turning ordinary reporting off also queues this unlink; synchronize through
   settings or complete ordinary authenticated deletion.
-- **Reset the shared profile:** `request_profile_reset()` saves a pending reset;
-  `sync_profile_reset()` uses the separate shared-profile credential. For v2, an exact deleted acknowledgement rotates the local ID/token after a
-  link was attempted. A never-attempted profile can rotate locally; ambiguous
+- **Reset the shared profile:** `request_profile_reset_v2()` saves a pending reset;
+  `sync_profile_reset_v2()` uses the separate shared-profile credential. Only an exact deleted acknowledgement rotates the local ID/token. Offline and
   not-found responses stay pending. Legacy v1 retains its existing reset behavior. Existing
   tool choices then require new consent; they never silently relink.
 - **Delete ordinary reports:** the existing tool-scoped deletion operation

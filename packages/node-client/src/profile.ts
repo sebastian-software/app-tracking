@@ -12,7 +12,6 @@ export interface SharedProfile {
   profile_id: string;
   token: string;
   reset_pending: boolean;
-  link_attempted: boolean;
 }
 export interface ProfileChoice {
   revision: string;
@@ -59,15 +58,14 @@ export async function withProfile<T>(
       const value = parsed as Record<string, unknown>;
       if (
         Object.keys(value).sort().join() !==
-          "link_attempted,origin,profile_id,reset_pending,schema_version,token" ||
+          "origin,profile_id,reset_pending,schema_version,token" ||
         value.schema_version !== 2 ||
         value.origin !== origin ||
         typeof value.profile_id !== "string" ||
         !hex.test(value.profile_id) ||
         typeof value.token !== "string" ||
         !hex.test(value.token) ||
-        typeof value.reset_pending !== "boolean" ||
-        typeof value.link_attempted !== "boolean"
+        typeof value.reset_pending !== "boolean"
       )
         fail("State");
       profile = value as unknown as SharedProfile;
@@ -83,7 +81,6 @@ export async function withProfile<T>(
           profile_id: random(),
           token: random(),
           reset_pending: false,
-          link_attempted: false,
         };
     } finally {
       await file?.close();
