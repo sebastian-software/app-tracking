@@ -393,8 +393,11 @@ test(
       }),
     );
     const counted = results.reduce((total, result) => total + result.counted, 0);
-    assert.ok(counted >= 3, `expected successful concurrent work: ${JSON.stringify(results)}`);
+    // Busy is a valid result and carries no fairness or minimum-throughput promise.
+    // Check every acknowledged write, then prove progress after contention ends.
     assert.equal((await c.preview()).open[0]?.count ?? 0, counted);
+    assert.equal(await c.record("language.use", dimensions), "counted");
+    assert.equal((await c.preview()).open[0].count, counted + 1);
   },
 );
 
