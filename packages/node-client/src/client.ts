@@ -311,10 +311,14 @@ export class Client {
       fail("Configuration");
     if (this.#veto() || this.#worker || !isMainThread) return "unavailable";
     let saved = await this.#queue(() =>
-      this.#state(false, (state) => ({
-        answer: this.#permission(state),
-        generation: state?.generation ?? 0,
-      })),
+      this.#state(
+        false,
+        (state) => ({
+          answer: this.#permission(state),
+          generation: state?.generation ?? 0,
+        }),
+        reminder,
+      ),
     );
     if (saved.answer) return saved.answer;
     if (
@@ -347,7 +351,7 @@ export class Client {
     const metrics = Object.entries(definitions[this.#options.tool])
       .map(([id, definition]) => `  ${id} (${Object.keys(definition.dimensions).join(", ")})`)
       .join("\n");
-    const prompt = `\nOptional usage reporting for ${this.#options.tool}\n\n${reason.trim()}\n\nData: usage counts, tool version, and a random reporting ID for this tool/profile.\n${metrics}\nAlso: bounded OS/version, executable architecture, and CPU family.\nWhen supplied: SHA-256 of the normalized repository URL, which can be guessed from a known URL.\nYour answer is saved for this tool/profile and can be changed in settings.\n\n${reminder ? "Allow optional usage reporting? [yes/later/never] (default: later)" : "Allow optional usage reporting? [y/N]"} `;
+    const prompt = `${reminder ? `\nIs ${this.#options.tool} working well for you?\nYou can help shape its next improvements by sharing optional usage statistics.\n` : ""}\nOptional usage reporting for ${this.#options.tool}\n\n${reason.trim()}\n\nData: usage counts, tool version, and a random reporting ID for this tool/profile.\n${metrics}\nAlso: bounded OS/version, executable architecture, and CPU family.\nWhen supplied: SHA-256 of the normalized repository URL, which can be guessed from a known URL.\nYour answer is saved for this tool/profile and can be changed in settings.\n\n${reminder ? "Your choice does not affect how you use the tool. You can change it in settings.\n\nWould you like to share optional usage statistics?\n  yes    Allow optional usage reporting\n  later  Ask again in 14 days (default: later)\n  never  Do not ask again\n\nYour choice [later]:" : "Allow optional usage reporting? [y/N]"} `;
     const answer = reminder
       ? await new Promise<boolean | undefined>((resolve) => {
           let buffer = Buffer.alloc(0);

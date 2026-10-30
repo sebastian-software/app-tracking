@@ -162,7 +162,8 @@ export async function load(
     if (
       value.lastPermissionPromptAt !== undefined &&
       (!Number.isSafeInteger(value.lastPermissionPromptAt) ||
-        Number(value.lastPermissionPromptAt) < 0)
+        Number(value.lastPermissionPromptAt) < 0 ||
+        Number(value.lastPermissionPromptAt) >= 253_402_300_800_000)
     )
       fail("State");
     if (value.identity !== null) {
