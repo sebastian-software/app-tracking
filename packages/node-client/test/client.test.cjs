@@ -2402,9 +2402,16 @@ test("synthetic CLI preserves stdout and exit status while updates work without 
     assert.equal(reportingCalls, 0);
     // Broken reporting storage is advisory in ordinary execution, observable in settings.
     const root = await fs.mkdtemp(join(fixture, "broken-cli-"));
-    const occupied = join(root, "occupied");
-    await fs.writeFile(occupied, "synthetic");
-    const cli = new CliClient(cliOptions(s.origin, occupied));
+    const cli = new CliClient(cliOptions(s.origin, root));
+    await cli.enableReporting({ consent: "informed" });
+    const corrupt = join(
+      root,
+      createHash("sha256").update(s.origin).digest("hex"),
+      "ardo",
+      "node-events-v1",
+      "state.json",
+    );
+    await fs.writeFile(corrupt, "{synthetic interrupted state", { mode: 0o600 });
     await assert.rejects(cli.enableReporting({ consent: "informed" }), { code: "State" });
     assert.equal((await cli.recordInvocation("build")).ok, false);
     assert.equal((await cli.complete()).reporting.ok, false);
