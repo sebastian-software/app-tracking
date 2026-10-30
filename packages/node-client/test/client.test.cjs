@@ -1844,6 +1844,11 @@ test("update construction is passive in CJS and ESM; disabled/offline never crea
   assert.equal(typeof esm.UpdateClient, "function");
   assert.equal(typeof esm.CliClient, "function");
   assert.equal(esm.UPDATE_NETWORK_BUDGET_MS, 200);
+  for (const c of updateContract.origins) {
+    const construct = () => new UpdateClient(updateOptions(c.value, root));
+    if (c.valid) construct();
+    else assert.throws(construct, { code: "Configuration" }, c.value);
+  }
   for (const C of [UpdateClient, esm.UpdateClient]) {
     const updates = new C(updateOptions("http://127.0.0.1:1", root));
     assert.equal(await updates.check("disabled"), undefined);

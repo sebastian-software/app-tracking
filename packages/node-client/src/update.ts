@@ -1,6 +1,7 @@
 import { constants } from "node:fs";
 import { lstat, open, rename, rm } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
+import { isIP } from "node:net";
 import { directory, lock, random, type Lease } from "./state.ts";
 import { endpoint, readBody, request } from "./transport.ts";
 import { TrackingError } from "./types.ts";
@@ -48,7 +49,7 @@ export class UpdateClient {
       if (
         !options ||
         typeof options.origin !== "string" ||
-        !/^https?:\/\/[^/?#\\\s]+\/?$/.test(options.origin) ||
+        /^https?:\/\/[^/?#\\\s]+\/?$/.exec(options.origin)?.[0] !== options.origin ||
         !isAbsolute(options.cacheRoot) ||
         !slug(options.tool, 64) ||
         !slug(options.distribution, 32) ||
@@ -60,12 +61,11 @@ export class UpdateClient {
       const origin = endpoint(options.origin, true).origin;
       if (origin.startsWith("http:")) {
         const authority = options.origin.slice(7).replace(/\/$/, "");
-        if (
-          !/^(?:127\.(?:0|[1-9][0-9]{0,2})\.(?:0|[1-9][0-9]{0,2})\.(?:0|[1-9][0-9]{0,2})|\[::1\])(?::[0-9]+)?$/.test(
-            authority,
-          )
-        )
-          throw new UpdateError("Configuration");
+        const host = authority.startsWith("[")
+          ? authority.slice(1, authority.indexOf("]"))
+          : authority.split(":")[0];
+        // Check the original host too: WHATWG URL normalizes shortened/encoded IPv4.
+        if (!isIP(host)) throw new UpdateError("Configuration");
       }
       const dnt = process.env.DO_NOT_TRACK;
       this.#options = {

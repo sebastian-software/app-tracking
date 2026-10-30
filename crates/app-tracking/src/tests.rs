@@ -401,6 +401,13 @@ fn shared_update_contract_fixtures() {
         serde_json::from_str(include_str!("../fixtures/update-client.json")).unwrap();
     let at = contract["now"].as_u64().unwrap();
     let t = Tool::new("ardo", "1.0.0", "github", "stable").unwrap();
+    for case in contract["origins"].as_array().unwrap() {
+        assert_eq!(
+            UpdateClient::new(case["value"].as_str().unwrap(), "unused", t.clone()).is_ok(),
+            case["valid"].as_bool().unwrap(),
+            "{case}"
+        );
+    }
     for case in contract["precedence"].as_array().unwrap() {
         let installed = Version::parse(case["installed"].as_str().unwrap()).unwrap();
         let latest = Version::parse(case["latest"].as_str().unwrap()).unwrap();

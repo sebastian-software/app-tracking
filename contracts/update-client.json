@@ -315,5 +315,47 @@
       "accepted": false,
       "sent": null
     }
+  ],
+  "origins": [
+    {
+      "value": "https://example.com",
+      "valid": true
+    },
+    {
+      "value": "https://example.com/",
+      "valid": true
+    },
+    {
+      "value": "http://127.0.0.1:8787",
+      "valid": true
+    },
+    {
+      "value": "http://[::1]:8787",
+      "valid": true
+    },
+    {
+      "value": "http://[0:0:0:0:0:0:0:1]:8787",
+      "valid": true
+    },
+    {
+      "value": "http://127.1:8787",
+      "valid": false
+    },
+    {
+      "value": "http://%31%32%37.0.0.1:8787",
+      "valid": false
+    },
+    {
+      "value": "https://example.com/\n",
+      "valid": false
+    },
+    {
+      "value": "https://example.com/private",
+      "valid": false
+    },
+    {
+      "value": "https://user:secret@example.com",
+      "valid": false
+    }
   ]
 }
