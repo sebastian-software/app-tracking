@@ -131,6 +131,48 @@ it. Provider rejections can differ from application JSON; clients must back off.
 Authenticated upload limits remain installation-scoped in SQL. Deletion has no
 upload quota and remains retryable after a gateway rejection.
 
+### Bunny Shield
+
+Production deployment also runs `scripts/shield.ts --apply` against the exact
+`app-tracking` script's `sebastian-app-tracking` pull zone. It selects Shield
+Basic explicitly; Bunny's recommended defaults currently select paid Advanced.
+The script never upgrades a plan, changes custom rules, or configures temporary
+proof endpoints. Basic includes request-based overage billing; check the
+[current provider terms](https://bunny.net/shield/) when reviewing traffic costs.
+
+The maintained settings enable blocking WAF rules and low-sensitivity DDoS
+protection, disable request-body/header logging, and avoid forced browser
+challenges for CLI consumers. It also reads and maintains the existing gateway
+limit of 20 requests per second per IP with a burst of 40. That zone-wide limit
+includes version and deletion routes; clients must back off and retry deletion
+after gateway rejection. Shared NATs can hit a limit. No paid bot-detection,
+upload-scanning, or custom rate-limit add-on is requested.
+
+The [Shield v1 OpenAPI](https://api.bunny.net/shield/docs/v1/swagger.json) owns
+the provider enums. Writes are followed by configuration read-back. Repeating
+the command is idempotent; unexpected plans, ambiguous zone ownership,
+or a failed read-back stop deployment without deleting operator-owned settings.
+
+Read the current configuration without changing or deploying the service:
+
+```sh
+gh workflow run deploy.yml -f shield_read_check=true
+```
+
+Reapply and verify only the fixed Shield configuration:
+
+```sh
+gh workflow run deploy.yml -f shield_apply=true
+```
+
+The workflow uses the existing Actions secret. It logs selected settings and
+pass/fail only. Provider security processing remains subject to Bunny's terms;
+disabled application/CDN logging is not a zero-IP-processing claim. Shield
+reduces flooding and automated abuse; it cannot attest authentic tool usage.
+No proof-of-work, fingerprinting in the clients, or additional client protocol
+is required. Rust and Node continue to handle gateway failures with their
+existing bounded transport behavior.
+
 Enabled deployments verify repeated unauthenticated cache bypass, then use an
 owned synthetic identity to prove registration, acceptance, replay, conflicting
 replay rejection, credential isolation, and deletion through the real CDN. The
