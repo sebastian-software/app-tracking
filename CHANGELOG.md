@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.6.1](https://github.com/sebastian-software/app-tracking/compare/app-tracking-v0.6.0...app-tracking-v0.6.1) (2026-10-30)
+
+
+### Bug Fixes
+
+* **deps:** update actions/checkout action to v7 ([#75](https://github.com/sebastian-software/app-tracking/issues/75)) ([1e9039a](https://github.com/sebastian-software/app-tracking/commit/1e9039ac7c0b9d767819d998ffca383c9d5e6816))
+* **deps:** update actions/configure-pages action to v6 ([#76](https://github.com/sebastian-software/app-tracking/issues/76)) ([253ebe9](https://github.com/sebastian-software/app-tracking/commit/253ebe9200359a834512010d5460ae6a986d2088))
+* **deps:** update actions/deploy-pages action to v5 ([#77](https://github.com/sebastian-software/app-tracking/issues/77)) ([8e1a30c](https://github.com/sebastian-software/app-tracking/commit/8e1a30c5d20e6cea81cc52f45eef69659cd662de))
+* **deps:** update actions/setup-node action to v7 ([#78](https://github.com/sebastian-software/app-tracking/issues/78)) ([2c1f116](https://github.com/sebastian-software/app-tracking/commit/2c1f1169103ab863e1ee57623d79544a760fa307))
+* **deps:** update actions/upload-artifact action to v7 ([#79](https://github.com/sebastian-software/app-tracking/issues/79)) ([50c5907](https://github.com/sebastian-software/app-tracking/commit/50c59071020ce042cf52d150980ce0fe8550d5f1))
+* **deps:** update actions/upload-pages-artifact action to v5 ([#80](https://github.com/sebastian-software/app-tracking/issues/80)) ([b9073a0](https://github.com/sebastian-software/app-tracking/commit/b9073a0eb73879b7f9a85fabeae04acd047fcac7))
+* **deps:** update pnpm to v12 ([#81](https://github.com/sebastian-software/app-tracking/issues/81)) ([e990c34](https://github.com/sebastian-software/app-tracking/commit/e990c340f73ede03b84541396d4dfb8d024043c5))
+* **deps:** update pnpm/action-setup action to v6 ([#82](https://github.com/sebastian-software/app-tracking/issues/82)) ([f70429f](https://github.com/sebastian-software/app-tracking/commit/f70429fe873285c5c2bbd03f16acff9f2d0ae05a))
+* **deps:** update rust-lang/crates-io-auth-action to v1.0.6 ([#74](https://github.com/sebastian-software/app-tracking/issues/74)) ([9fe6a9f](https://github.com/sebastian-software/app-tracking/commit/9fe6a9f544ae929f2dab58eb291558eb201ba7af))
+
 ## [0.6.0](https://github.com/sebastian-software/app-tracking/compare/app-tracking-v0.5.0...app-tracking-v0.6.0) (2026-10-29)
 
 

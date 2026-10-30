@@ -1,6 +1,6 @@
 [package]
 name = "app-tracking"
-version = "0.6.0"
+version = "0.6.1"
 description = "Update checks, usage counters, and verified downloads for developer tools"
 edition.workspace = true
 rust-version.workspace = true
