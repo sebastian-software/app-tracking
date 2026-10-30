@@ -35,7 +35,15 @@ export interface Job {
   created: number;
   batch: string;
 }
+export interface AdditionalChoice {
+  revision: string;
+  enabled: boolean;
+  changedAt: number;
+  confirmed: boolean;
+}
 export interface State {
+  history?: AdditionalChoice;
+  publicUsage?: AdditionalChoice;
   schemaVersion: 1;
   scope: string;
   optIn: boolean | null;
@@ -158,6 +166,20 @@ export async function load(
       )
     )
       fail("State");
+    for (const key of ["history", "publicUsage"]) {
+      const choice = value[key];
+      if (
+        choice !== undefined &&
+        (!record(choice) ||
+          Object.keys(choice).sort().join() !== "changedAt,confirmed,enabled,revision" ||
+          typeof choice.revision !== "string" ||
+          typeof choice.enabled !== "boolean" ||
+          typeof choice.confirmed !== "boolean" ||
+          !Number.isSafeInteger(choice.changedAt) ||
+          Number(choice.changedAt) < 0)
+      )
+        fail("State");
+    }
     if (value.identity !== null) {
       if (
         !record(value.identity) ||

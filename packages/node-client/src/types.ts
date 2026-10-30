@@ -27,6 +27,10 @@ export interface ClientOptions {
     isolatedCiState?: boolean;
   };
 }
+export interface AdditionalPermissionStatus {
+  decision: Decision;
+  pending: boolean;
+}
 export interface Status {
   decision: Decision;
   optIn: boolean;
@@ -54,6 +58,7 @@ export type ErrorCode =
   | "State"
   | "Busy"
   | "Clock"
+  | "AdditionalPermission"
   | "PreviousIdentity"
   | "Background"
   | "Interaction"
@@ -69,6 +74,7 @@ const messages: Record<ErrorCode, string> = {
   State: "private client state unavailable or invalid",
   Busy: "client state is busy",
   Clock: "client clock outside supported range",
+  AdditionalPermission: "additional permission prerequisites are not met",
   PreviousIdentity: "delete the previous reporting identity before renewing an expired grant",
   Background: "background reporting worker unavailable",
   Interaction: "permission dialog input or output unavailable",

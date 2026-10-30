@@ -529,3 +529,137 @@ test("changed metric scope discards old data before validation and requires anot
   await c.setOptIn(true);
   assert.equal(await c.record("language.use", dimensions), "counted");
 });
+
+test("additional permissions require independent choices and exact authenticated acknowledgements", async () => {
+  let mode = "mismatch";
+  const requests = [];
+  const server = createServer(async (req, res) => {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    requests.push({
+      url: req.url,
+      auth: req.headers.authorization,
+      tool: req.headers["app-tracking-tool"],
+      body: JSON.parse(body),
+    });
+    if (mode === "redirect") {
+      res.writeHead(307, { location: "/elsewhere" });
+      res.end();
+      return;
+    }
+    if (mode === "malformed") {
+      res.writeHead(200, { "cache-control": "no-store" });
+      res.end('{"schema_version":1,"schema_version":1}');
+      return;
+    }
+    const receipt = JSON.parse(body);
+    if (mode === "mismatch") receipt.changed_at++;
+    res.writeHead(200, { "cache-control": "no-store", "content-type": "application/json" });
+    res.end(JSON.stringify(receipt));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const c = await client({ origin: `http://127.0.0.1:${server.address().port}` });
+    await assert.rejects(c.setHistoryOptIn(true), { code: "AdditionalPermission" });
+    await c.setOptIn(true);
+    await assert.rejects(c.setPublicUsageOptIn(true), { code: "AdditionalPermission" });
+    await c.setHistoryOptIn(true);
+    assert.deepEqual(await c.historyStatus(), { decision: "granted", pending: true });
+    assert.equal(await c.syncHistoryPermission(), false);
+    mode = "malformed";
+    assert.equal(await c.syncHistoryPermission(), false);
+    mode = "redirect";
+    assert.equal(await c.syncHistoryPermission(), false);
+    mode = "exact";
+    assert.equal(await c.syncHistoryPermission(), true);
+    assert.deepEqual(await c.historyStatus(), { decision: "granted", pending: false });
+    await c.setPublicUsageOptIn(true);
+    assert.equal(await c.syncPublicUsagePermission(), true);
+    assert.match(requests[0].url, /^\/v1\/history-permissions\/events\/[a-f0-9]{64}$/);
+    assert.match(requests[0].auth, /^Bearer [a-f0-9]{64}$/);
+    assert.equal(requests[0].tool, "ferriki");
+    assert.deepEqual(requests[0].body, requests[1].body);
+    assert.equal(requests.at(-1).body.revision, "public-usage-v1");
+    await c.setHistoryOptIn(false);
+    assert.deepEqual(await c.publicUsageStatus(), { decision: "declined", pending: true });
+    await c.setHistoryOptIn(true);
+    assert.equal((await c.publicUsageStatus()).decision, "declined");
+    await c.setOptIn(false);
+    assert.equal((await c.historyStatus()).decision, "declined");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("additional permission choices stay pending offline and survive ordinary re-enabling", async () => {
+  const c = await client({ policy: { offline: true } });
+  await c.setOptIn(true);
+  await c.setHistoryOptIn(true);
+  await c.setPublicUsageOptIn(true);
+  assert.equal(await c.syncHistoryPermission(), false);
+  await c.setDisabled(true);
+  assert.deepEqual(await c.historyStatus(), { decision: "declined", pending: true });
+  assert.deepEqual(await c.publicUsageStatus(), { decision: "declined", pending: true });
+  await c.setDisabled(false);
+  assert.equal(await c.requestHistoryOptIn("Privacy settings"), "declined");
+});
+
+test("unknown and stale affirmative scopes require a fresh choice", async () => {
+  const stateRoot = join(await fs.mkdtemp(join(fixture, "scope-")), "private");
+  const c = await client({ stateRoot });
+  await c.setOptIn(true);
+  await c.setHistoryOptIn(true);
+  const path = stateFile(stateRoot);
+  const state = JSON.parse(await fs.readFile(path, "utf8"));
+  state.history.revision = "future-scope";
+  state.history.confirmed = true;
+  await fs.writeFile(path, JSON.stringify(state), { mode: 0o600 });
+  assert.equal((await c.historyStatus()).decision, "undecided");
+  assert.equal(await c.syncHistoryPermission(), false);
+  await c.setHistoryOptIn(true);
+  assert.equal((await c.historyStatus()).pending, true);
+  const fresh = JSON.parse(await fs.readFile(path, "utf8"));
+  fresh.history.changedAt = Date.now() - 90 * 86400000;
+  await fs.writeFile(path, JSON.stringify(fresh), { mode: 0o600 });
+  assert.equal(await c.requestHistoryOptIn("Privacy settings"), "unavailable");
+  await c.setHistoryOptIn(true);
+  assert.ok(
+    JSON.parse(await fs.readFile(path, "utf8")).history.changedAt > fresh.history.changedAt,
+  );
+  await c.delete();
+  assert.equal((await c.historyStatus()).decision, "declined");
+});
+
+test("a concurrent withdrawal cannot overtake an in-flight permission acknowledgement", async () => {
+  let received;
+  const seen = new Promise((resolve) => (received = resolve));
+  let release;
+  const proceed = new Promise((resolve) => (release = resolve));
+  const server = createServer(async (req, res) => {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    received();
+    await proceed;
+    res.writeHead(200, { "cache-control": "no-store" });
+    res.end(body);
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const stateRoot = join(await fs.mkdtemp(join(fixture, "race-")), "private");
+  const first = await client({ origin, stateRoot });
+  const second = await client({ origin, stateRoot });
+  try {
+    await first.setOptIn(true);
+    await first.setHistoryOptIn(true);
+    const sync = first.syncHistoryPermission();
+    await seen;
+    await assert.rejects(second.setHistoryOptIn(false), { code: "Busy" });
+    release();
+    assert.equal(await sync, true);
+    await second.setHistoryOptIn(false);
+    assert.deepEqual(await first.historyStatus(), { decision: "declined", pending: true });
+  } finally {
+    release();
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
