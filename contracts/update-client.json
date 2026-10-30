@@ -1,0 +1,361 @@
+{
+  "now": 1793361600,
+  "release": {
+    "schema_version": 1,
+    "tool_id": "ardo",
+    "distribution": "github",
+    "channel": "stable",
+    "latest_version": "1.2.3",
+    "published_at": "2026-10-29T10:00:00Z",
+    "release_url": "https://github.com/example/ardo/releases/tag/v1.2.3",
+    "checked_at": "2026-10-30T12:00:00Z",
+    "stale": false
+  },
+  "precedence": [
+    {
+      "installed": "1.2.2",
+      "latest": "1.2.3",
+      "greater": true
+    },
+    {
+      "installed": "1.2.3-beta.1",
+      "latest": "1.2.3",
+      "greater": true
+    },
+    {
+      "installed": "1.2.3",
+      "latest": "1.2.3+server",
+      "greater": false
+    },
+    {
+      "installed": "1.2.3+local",
+      "latest": "1.2.3+server",
+      "greater": false
+    },
+    {
+      "installed": "1.3.0-beta.1",
+      "latest": "1.2.3",
+      "greater": false
+    },
+    {
+      "installed": "2.0.0",
+      "latest": "1.2.3",
+      "greater": false
+    },
+    {
+      "installed": "1.2.3-alpha.9",
+      "latest": "1.2.3-alpha.10",
+      "greater": true
+    },
+    {
+      "installed": "1.2.3-alpha",
+      "latest": "1.2.3-alpha.1",
+      "greater": true
+    },
+    {
+      "installed": "1.2.3-1",
+      "latest": "1.2.3-alpha",
+      "greater": true
+    },
+    {
+      "installed": "18446744073709551614.0.0",
+      "latest": "18446744073709551615.0.0",
+      "greater": true
+    }
+  ],
+  "invalid_versions": [
+    "v1.2.3",
+    "1.2",
+    "01.2.3",
+    "1.2.3-01",
+    "1.2.3\n",
+    "18446744073709551616.0.0",
+    "1.2.3+"
+  ],
+  "validation": [
+    {
+      "patch": {},
+      "offset": 0,
+      "valid": true,
+      "fresh": true
+    },
+    {
+      "patch": {},
+      "offset": -300,
+      "valid": true,
+      "fresh": true
+    },
+    {
+      "patch": {},
+      "offset": -301,
+      "valid": false
+    },
+    {
+      "patch": {},
+      "offset": 3899,
+      "valid": true,
+      "fresh": true
+    },
+    {
+      "patch": {},
+      "offset": 3900,
+      "valid": true,
+      "fresh": false
+    },
+    {
+      "patch": {
+        "stale": true
+      },
+      "offset": 3900,
+      "valid": true,
+      "fresh": true
+    },
+    {
+      "patch": {
+        "stale": true
+      },
+      "offset": 86400,
+      "valid": false
+    },
+    {
+      "patch": {
+        "tool_id": "other"
+      },
+      "offset": 0,
+      "valid": false
+    },
+    {
+      "patch": {
+        "distribution": "npm"
+      },
+      "offset": 0,
+      "valid": false
+    },
+    {
+      "patch": {
+        "schema_version": 2
+      },
+      "offset": 0,
+      "valid": false
+    },
+    {
+      "patch": {
+        "channel": "preview"
+      },
+      "offset": 0,
+      "valid": false
+    },
+    {
+      "patch": {
+        "latest_version": "2.0.0-beta"
+      },
+      "offset": 0,
+      "valid": false
+    },
+    {
+      "patch": {
+        "release_url": "http://example.com/release"
+      },
+      "offset": 0,
+      "valid": false
+    },
+    {
+      "patch": {
+        "release_url": "https://user:secret@example.com/release"
+      },
+      "offset": 0,
+      "valid": false
+    },
+    {
+      "patch": {
+        "release_url": "https://example.com/release#fragment"
+      },
+      "offset": 0,
+      "valid": false
+    },
+    {
+      "patch": {
+        "release_url": "https://example.com/\u001b[31m"
+      },
+      "offset": 0,
+      "valid": false
+    },
+    {
+      "patch": {
+        "checked_at": "2026-10-30T12:00:00+00:00"
+      },
+      "offset": 0,
+      "valid": false
+    },
+    {
+      "patch": {
+        "checked_at": "2026-02-30T12:00:00Z"
+      },
+      "offset": 0,
+      "valid": false
+    },
+    {
+      "patch": {
+        "published_at": "2026-10-30T12:05:01Z"
+      },
+      "offset": 0,
+      "valid": false
+    },
+    {
+      "patch": {
+        "checked_at": "2026-10-30t12:00:00.123456789Z"
+      },
+      "offset": 0,
+      "valid": true,
+      "fresh": true
+    },
+    {
+      "patch": {
+        "release_url": " https://example.com/release"
+      },
+      "offset": 0,
+      "valid": false
+    },
+    {
+      "patch": {
+        "checked_at": "2026-10-30T12:00:00Z\n"
+      },
+      "offset": 0,
+      "valid": false
+    },
+    {
+      "patch": {
+        "checked_at": "2026-10-30T11:59:60Z"
+      },
+      "offset": 0,
+      "valid": false
+    },
+    {
+      "patch": {
+        "published_at": "2026-09-30T23:59:60Z"
+      },
+      "offset": 0,
+      "valid": true,
+      "fresh": true
+    }
+  ],
+  "backoff_seconds": [300, 600, 1200, 2400, 3600, 3600],
+  "notices": [
+    {
+      "noticed": null,
+      "latest": "1.2.3",
+      "offset": 0,
+      "offer": true,
+      "stale": false
+    },
+    {
+      "noticed": "1.2.3",
+      "latest": "1.2.3+metadata",
+      "offset": 1,
+      "offer": false
+    },
+    {
+      "noticed": "1.2.4",
+      "latest": "1.2.3",
+      "offset": 3600,
+      "offer": false
+    },
+    {
+      "noticed": "1.2.3",
+      "latest": "1.2.4",
+      "offset": 3600,
+      "offer": true,
+      "stale": true
+    },
+    {
+      "noticed": null,
+      "latest": "1.2.3",
+      "offset": 86400,
+      "offer": false
+    }
+  ],
+  "conditional": [
+    {
+      "cached": true,
+      "offset": 3601,
+      "etag": "W/\"opaque\"",
+      "response_etag": null,
+      "accepted": true,
+      "sent": "W/\"opaque\""
+    },
+    {
+      "cached": true,
+      "offset": 3601,
+      "etag": "\"opaque\"",
+      "response_etag": "W/\"new\"",
+      "accepted": true,
+      "sent": "\"opaque\""
+    },
+    {
+      "cached": true,
+      "offset": 3900,
+      "etag": "W/\"opaque\"",
+      "response_etag": null,
+      "accepted": false,
+      "sent": "W/\"opaque\""
+    },
+    {
+      "cached": true,
+      "offset": 86400,
+      "etag": "W/\"opaque\"",
+      "response_etag": null,
+      "accepted": false,
+      "sent": null
+    },
+    {
+      "cached": false,
+      "offset": 0,
+      "etag": "W/\"opaque\"",
+      "response_etag": null,
+      "accepted": false,
+      "sent": null
+    }
+  ],
+  "origins": [
+    {
+      "value": "https://example.com",
+      "valid": true
+    },
+    {
+      "value": "https://example.com/",
+      "valid": true
+    },
+    {
+      "value": "http://127.0.0.1:8787",
+      "valid": true
+    },
+    {
+      "value": "http://[::1]:8787",
+      "valid": true
+    },
+    {
+      "value": "http://[0:0:0:0:0:0:0:1]:8787",
+      "valid": true
+    },
+    {
+      "value": "http://127.1:8787",
+      "valid": false
+    },
+    {
+      "value": "http://%31%32%37.0.0.1:8787",
+      "valid": false
+    },
+    {
+      "value": "https://example.com/\n",
+      "valid": false
+    },
+    {
+      "value": "https://example.com/private",
+      "valid": false
+    },
+    {
+      "value": "https://user:secret@example.com",
+      "valid": false
+    }
+  ]
+}

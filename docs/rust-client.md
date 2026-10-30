@@ -153,5 +153,7 @@ Trusted Publishing. Do not bump, tag, or publish routine releases manually.
 
 Publication is separate from consumer rollout and deploying the version
 service. A crate cannot be overwritten after publication; later fixes use a
-new version. The private Node package is build tooling, not a second published
-package or an independently maintained release version.
+new version. The published Node client implements the same update contract and
+shares this product version. See its [guide](../packages/node-client/README.md)
+and the [parity notes](client-parity.md) for runtime-specific persistence and
+CLI composition.

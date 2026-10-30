@@ -1,0 +1,134 @@
+{
+  "scenarios": [
+    {
+      "name": "never granted",
+      "policy": {},
+      "actions": ["record"],
+      "decision": "undecided",
+      "collect": false,
+      "rows": 0,
+      "pending": false,
+      "disabled": false
+    },
+    {
+      "name": "explicit grant",
+      "policy": {},
+      "actions": ["enable", "record"],
+      "decision": "granted",
+      "collect": true,
+      "rows": 1,
+      "pending": false,
+      "disabled": false
+    },
+    {
+      "name": "withdrawal discards unsent data",
+      "policy": {},
+      "actions": ["enable", "record", "withdraw"],
+      "decision": "declined",
+      "collect": false,
+      "rows": 0,
+      "pending": false,
+      "disabled": false
+    },
+    {
+      "name": "disable discards unsent data",
+      "policy": {},
+      "actions": ["enable", "record", "disable"],
+      "decision": "granted",
+      "collect": false,
+      "rows": 0,
+      "pending": false,
+      "disabled": true
+    },
+    {
+      "name": "offline deletion stays pending",
+      "policy": { "offline": true },
+      "actions": ["enable", "record", "delete"],
+      "decision": "declined",
+      "collect": false,
+      "rows": 0,
+      "pending": true,
+      "disabled": true
+    },
+    {
+      "name": "delete without identity",
+      "policy": { "offline": true },
+      "actions": ["delete"],
+      "decision": "declined",
+      "collect": false,
+      "rows": 0,
+      "pending": false,
+      "disabled": true
+    },
+    {
+      "name": "DNT veto",
+      "policy": { "doNotTrack": true },
+      "actions": ["enable", "record"],
+      "decision": "granted",
+      "collect": false,
+      "rows": 0,
+      "pending": false,
+      "disabled": false
+    },
+    {
+      "name": "host veto",
+      "policy": { "hostDisabled": true },
+      "actions": ["enable", "record"],
+      "decision": "granted",
+      "collect": false,
+      "rows": 0,
+      "pending": false,
+      "disabled": false
+    },
+    {
+      "name": "environment veto",
+      "policy": { "telemetry": "off" },
+      "actions": ["enable", "record"],
+      "decision": "granted",
+      "collect": false,
+      "rows": 0,
+      "pending": false,
+      "disabled": false
+    },
+    {
+      "name": "CI requires independent prerequisites",
+      "policy": { "ci": true },
+      "actions": ["enable", "record"],
+      "decision": "granted",
+      "collect": false,
+      "rows": 0,
+      "pending": false,
+      "disabled": false
+    },
+    {
+      "name": "CI revision without isolation",
+      "policy": { "ci": true, "ciRevision": "telemetry-v1" },
+      "actions": ["enable", "record"],
+      "decision": "granted",
+      "collect": false,
+      "rows": 0,
+      "pending": false,
+      "disabled": false
+    },
+    {
+      "name": "CI flags do not grant consent",
+      "policy": { "ci": true, "ciRevision": "telemetry-v1", "isolatedCiState": true },
+      "actions": ["record"],
+      "decision": "undecided",
+      "collect": false,
+      "rows": 0,
+      "pending": false,
+      "disabled": false
+    },
+    {
+      "name": "separate explicit CI grant",
+      "policy": { "ci": true, "ciRevision": "telemetry-v1", "isolatedCiState": true },
+      "actions": ["enable", "record"],
+      "decision": "granted",
+      "collect": true,
+      "rows": 1,
+      "pending": false,
+      "disabled": false
+    }
+  ]
+}

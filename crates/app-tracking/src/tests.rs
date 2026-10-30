@@ -394,3 +394,134 @@ fn deadline_includes_body_streaming_and_body_size_is_bounded() {
     );
     join.join().unwrap();
 }
+
+#[test]
+fn shared_update_contract_fixtures() {
+    let contract: Value =
+        serde_json::from_str(include_str!("../fixtures/update-client.json")).unwrap();
+    let at = contract["now"].as_u64().unwrap();
+    let t = Tool::new("ardo", "1.0.0", "github", "stable").unwrap();
+    for case in contract["origins"].as_array().unwrap() {
+        assert_eq!(
+            UpdateClient::new(case["value"].as_str().unwrap(), "unused", t.clone()).is_ok(),
+            case["valid"].as_bool().unwrap(),
+            "{case}"
+        );
+    }
+    for case in contract["precedence"].as_array().unwrap() {
+        let installed = Version::parse(case["installed"].as_str().unwrap()).unwrap();
+        let latest = Version::parse(case["latest"].as_str().unwrap()).unwrap();
+        assert_eq!(
+            latest.cmp_precedence(&installed).is_gt(),
+            case["greater"].as_bool().unwrap(),
+            "{case}"
+        );
+    }
+    for v in contract["invalid_versions"].as_array().unwrap() {
+        assert!(
+            Tool::new("ardo", v.as_str().unwrap(), "github", "stable").is_err(),
+            "{v}"
+        );
+    }
+    for case in contract["validation"].as_array().unwrap() {
+        let mut value = contract["release"].clone();
+        value
+            .as_object_mut()
+            .unwrap()
+            .extend(case["patch"].as_object().unwrap().clone());
+        let release: wire::Release = serde_json::from_value(value).unwrap();
+        let now = at
+            .checked_add_signed(case["offset"].as_i64().unwrap())
+            .unwrap();
+        assert_eq!(
+            release.validate(&t, now).is_ok(),
+            case["valid"].as_bool().unwrap(),
+            "{case}"
+        );
+        if case["valid"] == true {
+            let fresh = release.stale
+                || now.saturating_sub(release.checked_seconds().unwrap()) < HOUR + CLOCK_SKEW;
+            assert_eq!(fresh, case["fresh"].as_bool().unwrap(), "{case}");
+        }
+    }
+    let c = UpdateClient::new("https://example.com", "unused", t).unwrap();
+    let mut state: State = serde_json::from_value(json!({
+        "schema_version": 1, "resource": c.resource, "next_check": 0, "failures": 0,
+        "release": null, "etag": null, "noticed_version": null, "noticed_at": 0
+    }))
+    .unwrap();
+    for delay in contract["backoff_seconds"].as_array().unwrap() {
+        state.defer(at);
+        assert_eq!(state.next_check, at + delay.as_u64().unwrap());
+    }
+    for case in contract["notices"].as_array().unwrap() {
+        let mut value = contract["release"].clone();
+        value["latest_version"] = case["latest"].clone();
+        state.release = Some(serde_json::from_value(value).unwrap());
+        state.noticed_version = case["noticed"].as_str().map(str::to_owned);
+        state.noticed_at = at;
+        let result = c.notice(&mut state, at + case["offset"].as_u64().unwrap());
+        assert_eq!(result.is_some(), case["offer"].as_bool().unwrap(), "{case}");
+        if let Some(result) = result {
+            assert_eq!(result.stale, case["stale"].as_bool().unwrap());
+        }
+    }
+}
+
+#[test]
+fn shared_conditional_response_fixtures() {
+    let contract: Value =
+        serde_json::from_str(include_str!("../fixtures/update-client.json")).unwrap();
+    let at = contract["now"].as_u64().unwrap();
+    for case in contract["conditional"].as_array().unwrap() {
+        let extra = case["response_etag"]
+            .as_str()
+            .map(|s| format!("ETag: {s}\r\n"))
+            .unwrap_or_default();
+        let (base, request, join) = server(304, String::new(), &extra, Duration::ZERO);
+        let directory = tempfile::tempdir().unwrap();
+        let c = UpdateClient::new(
+            &base,
+            directory.path(),
+            Tool::new("ardo", "1.2.3", "github", "stable").unwrap(),
+        )
+        .unwrap();
+        let store = Store::claim(directory.path(), "ardo.github.stable")
+            .unwrap()
+            .unwrap();
+        let mut state = store.load(&c.resource, at);
+        if case["cached"] == true {
+            state.release = Some(serde_json::from_value(contract["release"].clone()).unwrap());
+        }
+        state.etag = case["etag"].as_str().map(str::to_owned);
+        store.save(&state).unwrap();
+        drop(store);
+        let result = c.check_at(Mode::Enabled, at + case["offset"].as_u64().unwrap());
+        assert_eq!(
+            result.is_ok(),
+            case["accepted"].as_bool().unwrap(),
+            "{case}"
+        );
+        let request = request.recv().unwrap();
+        if let Some(tag) = case["sent"].as_str() {
+            assert!(request.contains(&format!("if-none-match: {tag}\r\n")));
+        } else {
+            assert!(!request.contains("if-none-match:"));
+        }
+        if result.is_ok() {
+            let store = Store::claim(directory.path(), "ardo.github.stable")
+                .unwrap()
+                .unwrap();
+            let saved = store.load(&c.resource, at);
+            assert_eq!(
+                saved.etag.as_deref(),
+                case["response_etag"].as_str().or(case["etag"].as_str())
+            );
+            assert_eq!(
+                serde_json::to_value(saved.release).unwrap()["checked_at"],
+                contract["release"]["checked_at"]
+            );
+        }
+        join.join().unwrap();
+    }
+}

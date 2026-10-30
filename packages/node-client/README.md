@@ -225,3 +225,166 @@ Use `profileStatus`, `profileResetPending`, `requestProfileReset`, and
 `syncProfileReset` for settings. Reset applies only to the shared v2 profile;
 legacy Rust v1 links require their own controls. A 404 reset stays pending.
 See the [profile guide](../../docs/profile-linking.md) for recovery and scope.
+
+## Independent update checks
+
+`UpdateClient` implements the same version-service contract as Rust. It needs
+no reporting client or consent. Import and construction perform no I/O:
+
+```ts
+import { UpdateClient } from "@sebastian-software/app-tracking";
+
+const updates = new UpdateClient({
+  origin: "https://app-tracking.example.com",
+  cacheRoot: "/private/host-owned/update-cache", // Absolute; scoped to this endpoint.
+  tool: "ardo",
+  version: "1.0.0", // Installed SemVer stays local.
+  distribution: "github", // Shared release feed, independent of installation method.
+  channel: "stable",
+  serviceMetrics: false, // DNT: 1; functional updates remain available.
+});
+const cancellation = new AbortController();
+try {
+  const update = await updates.check("enabled", { signal: cancellation.signal });
+  if (update) {
+    // The host chooses stderr/interactive eligibility and installation guidance.
+    console.error(`Update ${update.latestVersion}; see ${update.releaseUrl}`);
+  }
+} catch {
+  // Optional update failures leave the command's stdout and result unchanged.
+}
+```
+
+`check` accepts `enabled`, `disabled`, or `offline`. The last two perform no
+filesystem or network work. `DO_NOT_TRACK` and `serviceMetrics: false` suppress
+service statistics, never functional checks. Reporting refusal has no effect on
+updates. Results contain `latestVersion`, `releaseUrl`, and `stale`; no remote
+shell command is accepted, installed, or executed.
+
+There is one HTTP attempt per due call with the same **200 ms total network
+budget** as Rust, including DNS, connection/TLS, headers, and body. Redirects are
+rejected. Headers and JSON bodies are each bounded to 16 KiB. Schema, route,
+SemVer, HTTPS links, and UTC timestamps are validated. Successful fresh checks
+suppress requests for an hour; failures/stale responses use 5, 10, 20, 40, then
+60 minutes of backoff. A notice is claimed before return, at most once per
+release per 24 hours; higher releases can be offered immediately. Build metadata
+does not change SemVer precedence. Original `checked_at` values survive 304s,
+opaque strong/weak ETags are preserved, and source results expire after 24 hours.
+
+Cache files live in `cacheRoot/node-updates-v1/<tool>.<distribution>.<channel>.json`.
+They contain update metadata and throttles only. Rust's OS-locked update files
+are separate: the two runtimes do not share update throttles or notices. Choose
+one check owner when a product has multiple entry points. Node uses its existing
+nonblocking 30-second interprocess lease with five-second renewal, checks the
+lease before committing, and persists a retry claim before opening a connection.
+A crashed lease can recover after expiry; the durable claim still backs off.
+Corrupt, unknown-schema, or oversized (64 KiB) cache content is ignored and
+repaired. Private files use 0600, directories 0700 on Unix; select a private
+user-profile root with appropriate ACLs on Windows. Temporary writes are synced
+and atomically replaced; incomplete temporary files are never treated as cache.
+Network filesystems are outside the persistence contract.
+
+Await each call. The SDK does not detach update work, install exit hooks, or poll
+while idle. Cancellation destroys the HTTP request and settles after local
+cleanup; no later update request or cache write follows settlement. A pre-request
+claim already committed before cancellation remains as backoff. Node may finish
+an underlying DNS resolver operation later, but it cannot send that aborted
+request. Filesystem and scheduler time are additional to the network budget.
+`UpdateError.code` distinguishes `Configuration`, `Cache`, `Network`,
+`HttpStatus` (with numeric `status`), `InvalidResponse`, and `Cancelled`; errors
+omit private paths, response bodies, and URLs.
+
+## Optional CLI composition
+
+`CliClient` adds a one-command lifecycle above the existing `Client` and
+`UpdateClient`. Use one instance per actual command. It does not parse flags,
+observe commands automatically, display an automatic dialog, or install process
+signal handlers. The packed package includes an executable synthetic example in
+`examples/cli.mjs`; its TypeScript declarations need no host-side mirror types.
+
+An Ardo integration can replace its local transport/cache/SemVer module and
+reporting/service sequencing with SDK calls:
+
+```ts
+import { CliClient } from "@sebastian-software/app-tracking";
+
+const services = new CliClient({
+  origin,
+  stateRoot,
+  tool: "ardo",
+  version,
+  interaction: eligibleForHumanDialog ? "terminal" : "never",
+  policy: hostPolicy, // Host maps its own environment variables here.
+  invocation: {
+    metric: "cli.invocation",
+    categories: {
+      dev: { command: "dev" },
+      build: { command: "build" },
+      preview: { command: "preview" },
+    },
+  },
+  updates: { cacheRoot, distribution: "github", mode: hostUpdateMode },
+});
+
+try {
+  await services.recordInvocation(commandCategory); // Once, where real work starts.
+  await runCommand();
+  if (eligibleForUpdateOutput) {
+    const result = await services.checkForUpdates({ signal: commandSignal });
+    if (result.ok && result.value) renderUpdate(result.value); // Host installation guidance.
+  }
+} finally {
+  await services.complete(); // Also on failure/interruption; async disposal is supported.
+}
+```
+
+The identifiers in this example are host-supplied values/functions. Ardo's own
+flags, environment names, Vite hooks, privacy purpose/link, project discovery,
+TTY/JSON/agent eligibility, silent logging, rendering, and installation detection
+stay in Ardo. Call `recordInvocation` at the outer observation boundary, never
+once in a wrapper and again for every watch iteration. Repeated calls on the
+same instance return `alreadyRecorded`; calls after completion return `completed`.
+Help, version, and settings paths do not call it. A configured category mapping
+is validated against the maintained tool/metric catalog before use.
+
+`recordInvocation`, `checkForUpdates`, and the reporting handoff in `complete`
+return `AdvisoryResult<T>`: `{ ok: true, value }` or `{ ok: false, error }`.
+Optional operational failures stay observable without rejecting normal command
+completion, printing, or changing exit status. Invalid categories remain explicit
+configuration errors. Settings operations reject on local failures. Completion
+is idempotent: it cancels and joins any started update, joins local recording,
+and hands off due reports once without waiting for delivery. No check starts
+unless the host calls `checkForUpdates`. If an update should finish before exit,
+await its result before calling `complete`; otherwise completion cancels it.
+For a host-owned interruption, abort its signal and still await `complete` in
+`finally`. The SDK cannot clean up after `SIGKILL` or a direct `process.exit()`.
+
+Settings use the same low-level implementations and policy snapshot:
+
+- `status()` returns ordinary reporting plus separate history, publication, and
+  profile decisions/pending state. `preview()` omits credentials.
+- `requestReportingOptIn(reason, reminder?)` explicitly invokes the maintained
+  disclosure/dialog and saved-choice logic. It is never called automatically.
+- `enableReporting({ consent: "informed" })` persists an explicit informed human
+  settings choice and removes a saved disable. The host must first disclose the
+  purpose/data/privacy link and obtain that choice; never derive it from config,
+  CI flags, output eligibility, or an upgrade. Environment vetoes still win.
+- `withdrawReporting()` discards unsent data and withdraws additional permissions.
+  `disableReporting()` stops collection and discards unsent data. Both synchronize
+  existing additional withdrawals when possible and return pending status; they
+  never grant history, publication, or profile linking.
+- `deleteReporting()` persists authenticated deletion before local worker handoff.
+  Its `deletion: "pending"` is a request, not confirmation; `handedOff: true` is
+  only local scheduling. The returned status is captured before worker handoff,
+  so it cannot race that worker's state lock or imply a later acknowledgement.
+  `noIdentity` means there is no identity left to delete.
+  Inspect `status().reporting.deletionPending` on a later settings call: only its
+  transition from true to false after delivery demonstrates acknowledgement.
+  Offline requests remain pending, and settings stay disabled afterward.
+
+Offline policy overrides an enabled update mode and blocks all network work.
+Reporting refusal/disable does not disable updates. CI retains its separate
+state, revision/isolation prerequisites, and explicit grant. The low-level
+`reporting` and `updates` clients remain available for advanced integrations.
+Actual Ardo adoption and deletion of its temporary implementation remain in
+[Ardo PR #440](https://github.com/sebastian-software/ardo/pull/440).
