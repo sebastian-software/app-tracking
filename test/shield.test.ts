@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { configureShield, SHIELD_SETTINGS, API_WRITE_RULE } from "../scripts/shield.ts";
-import type { BunnyApi } from "../scripts/bunny.ts";
+import { bunnyApi, type BunnyApi } from "../scripts/bunny.ts";
 
 function fixture() {
   const state = {
@@ -81,9 +81,8 @@ test("Shield inspection never writes; creation selects Basic and converges on th
   assert.equal(observed.verified, true);
   assert.equal(observed.apiWritesPerMinutePerIp, 120);
   assert.ok(!JSON.stringify(observed).includes("shieldZoneId"));
-  const method = new RegExp(API_WRITE_RULE.chainedRuleConditions[0].value);
-  assert.ok(method.test("POST") && method.test("PUT"));
-  assert.ok(!method.test("DELETE") && !method.test("GET"));
+  const methods = API_WRITE_RULE.chainedRuleConditions[0].value.split(" ");
+  assert.deepEqual(methods, ["POST", "PUT"]);
 });
 
 test("Shield repairs drift without modifying foreign rate limits or retaining payload logging", async () => {
@@ -130,4 +129,24 @@ test("Shield requires effective read-back instead of trusting successful writes"
   state.zone!.wafEnabled = true;
   state.zone!.dDoSExecutionMode = 0;
   await assert.rejects(configureShield(api, 2, true), /did not converge/);
+});
+
+test("Bunny errors expose validation fields without provider messages, values, or credentials", async (t) => {
+  t.mock.method(globalThis, "fetch", async () =>
+    Response.json(
+      {
+        errorKey: "Validation.Error",
+        message: "private account and credential details",
+        errors: {
+          "RuleConfiguration.TransformationTypes": ["private submitted values"],
+          "account.private": ["private account details"],
+        },
+      },
+      { status: 400 },
+    ),
+  );
+  await assert.rejects(bunnyApi("synthetic-key")("POST", "/shield/rate-limit", {}), {
+    message:
+      "Bunny operation failed (400): Validation.Error, RuleConfiguration.TransformationTypes",
+  });
 });

@@ -20,6 +20,7 @@ export const API_WRITE_RULE = {
   value: "/v1/",
   isNegated: false,
   isRegexVariable: false,
+  transformationTypes: [],
   requestCount: 120,
   counterKeyType: 0, // IP, shared across all matching paths.
   timeframe: 60,
@@ -27,8 +28,8 @@ export const API_WRITE_RULE = {
   chainedRuleConditions: [
     {
       variableTypes: { REQUEST_METHOD: "" },
-      operatorType: 14, // RX.
-      value: "^(POST|PUT)$",
+      operatorType: 12, // WITHIN; does not require Advanced's regex support.
+      value: "POST PUT",
       isNegated: false,
       isRegexVariable: false,
     },
