@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.0](https://github.com/sebastian-software/app-tracking/compare/app-tracking-v0.6.1...app-tracking-v0.7.0) (2026-10-30)
+
+
+### Features
+
+* add interoperable shared profile linking ([#91](https://github.com/sebastian-software/app-tracking/issues/91)) ([09e18f6](https://github.com/sebastian-software/app-tracking/commit/09e18f638a4556ac644a95a0abe85fe4fcbbdef4))
+* add Node consent reminders ([#85](https://github.com/sebastian-software/app-tracking/issues/85)) ([cee840c](https://github.com/sebastian-software/app-tracking/commit/cee840c8dbf2d0c9be717712f3e5ea2edca5e748))
+* add Node history and public usage permissions ([#87](https://github.com/sebastian-software/app-tracking/issues/87)) ([84edf7e](https://github.com/sebastian-software/app-tracking/commit/84edf7e6007707e0269a0eaee08f86c80b2ab1b8))
+* **node:** add independent updates and CLI lifecycle ([#99](https://github.com/sebastian-software/app-tracking/issues/99)) ([c98ea59](https://github.com/sebastian-software/app-tracking/commit/c98ea59de7bd7524a5e1155c42fb77876f147ea5))
+* **node:** support Node.js 22, 24, and 26 ([#96](https://github.com/sebastian-software/app-tracking/issues/96)) ([ea8b10f](https://github.com/sebastian-software/app-tracking/commit/ea8b10f9fe4e449b748800190187206b172074cd))
+* register Ardo versions and opt-in usage ([#95](https://github.com/sebastian-software/app-tracking/issues/95)) ([959c0f4](https://github.com/sebastian-software/app-tracking/commit/959c0f4686ee53adfe0e11b9dfe70bb1649e137d))
+
 ## [0.6.1](https://github.com/sebastian-software/app-tracking/compare/app-tracking-v0.6.0...app-tracking-v0.6.1) (2026-10-30)
 
 
