@@ -65,10 +65,15 @@ await client.flushInBackground().catch(() => {});
 ```
 
 Import and construction do not collect system/project information, create state,
-or access the network. Only `requestOptIn` may open the library-owned yes/no
-dialog. Saved grants and refusals are reused. EOF, interruption, invalid input,
+or access the network. `requestOptIn` opens a library-owned yes/no dialog.
+Alternatively, call `requestOptInReminder(reason)` to offer yes, later, or never.
+Later is the default and prompts again only on an eligible call after 14 elapsed
+days. Prompt timing is saved before display, including if input is interrupted;
+deferral creates no reporting identity or observations. Never and withdrawal
+prevent future reminders. Saved grants and refusals are reused. EOF, interruption,
 CI, nonterminal input/output, and `interaction: "never"` leave an undecided
-choice unchanged. An empty submitted answer declines. The host owns its privacy
+choice unchanged. An empty answer declines in the one-time dialog and defers in
+the reminder dialog. The host owns its privacy
 notice, suitable prompt location, and settings commands.
 
 `setOptIn(true)` is for an explicit informed human settings choice; never infer

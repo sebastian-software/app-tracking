@@ -148,9 +148,10 @@ export class Client {
   async #state<T>(
     create: boolean,
     action: (state: State | undefined) => T | Promise<T>,
+    waitForLock = false,
   ): Promise<T> {
     if (!(await directory(this.#directory, create))) return action(undefined);
-    const release = await this.#lock(statePath(this.#directory));
+    const release = await this.#lock(statePath(this.#directory), waitForLock);
     try {
       const state = await load(
         statePath(this.#directory),
@@ -166,15 +167,19 @@ export class Client {
       await release();
     }
   }
-  async #lock(path: string): Promise<Lease> {
-    const deadline = Date.now() + (this.#worker ? 500 : 0);
+  async #lock(path: string, wait = false): Promise<Lease> {
+    const deadline = performance.now() + (this.#worker || wait ? 500 : 0);
     for (;;) {
       try {
         return await lock(path);
       } catch (error) {
-        if (!(error instanceof TrackingError) || error.code !== "Busy" || Date.now() >= deadline)
+        if (
+          !(error instanceof TrackingError) ||
+          error.code !== "Busy" ||
+          performance.now() >= deadline
+        )
           throw error;
-        // Only a detached worker waits for short foreground state writes.
+        // Workers and prompt claims wait briefly for foreground state writes.
         await delay(5);
       }
     }
@@ -305,6 +310,13 @@ export class Client {
       return this.#allowed(state) ? "granted" : "unavailable";
   }
   async requestOptIn(reason: string): Promise<PermissionOutcome> {
+    return this.#requestOptIn(reason, false);
+  }
+  /** Offer yes, later (default), or never, at most once every 14 days. */
+  async requestOptInReminder(reason: string): Promise<PermissionOutcome> {
+    return this.#requestOptIn(reason, true);
+  }
+  async #requestOptIn(reason: string, reminder: boolean): Promise<PermissionOutcome> {
     if (
       typeof reason !== "string" ||
       !reason.trim() ||
@@ -312,12 +324,16 @@ export class Client {
       /[\x00-\x08\x0b-\x1f\x7f]/.test(reason)
     )
       fail("Configuration");
-    if (this.#veto()) return "unavailable";
-    const saved = await this.#queue(() =>
-      this.#state(false, (state) => ({
-        answer: this.#permission(state),
-        generation: state?.generation ?? 0,
-      })),
+    if (this.#veto() || this.#worker || !isMainThread) return "unavailable";
+    let saved = await this.#queue(() =>
+      this.#state(
+        false,
+        (state) => ({
+          answer: this.#permission(state),
+          generation: state?.generation ?? 0,
+        }),
+        reminder,
+      ),
     );
     if (saved.answer) return saved.answer;
     if (
@@ -328,26 +344,81 @@ export class Client {
       !process.stderr.isTTY
     )
       return "unavailable";
+    if (reminder) {
+      const claimed = await this.#queue(() =>
+        this.#state(
+          true,
+          (state) => {
+            const answer = this.#permission(state);
+            if (answer) return { answer, generation: state!.generation };
+            const at = now();
+            const last = state!.lastPermissionPromptAt;
+            if (last !== undefined && (at < last || at - last < 14 * DAY))
+              return { answer: "unavailable" as PermissionOutcome, generation: state!.generation };
+            state!.lastPermissionPromptAt = at;
+            return { answer: undefined, generation: state!.generation };
+          },
+          true,
+        ),
+      );
+      if (claimed.answer) return claimed.answer;
+      saved = claimed;
+    }
     const metrics = Object.entries(definitions[this.#options.tool])
       .map(([id, definition]) => `  ${id} (${Object.keys(definition.dimensions).join(", ")})`)
       .join("\n");
-    const prompt = `\nOptional usage reporting for ${this.#options.tool}\n\n${reason.trim()}\n\nData: usage counts, tool version, and a random reporting ID for this tool/profile.\n${metrics}\nAlso: bounded OS/version, executable architecture, and CPU family.\nWhen supplied: SHA-256 of the normalized repository URL, which can be guessed from a known URL.\nYour answer is saved for this tool/profile and can be changed in settings.\n\nAllow optional usage reporting? [y/N] `;
-    const answer = await new Promise<boolean | undefined>((resolve) => {
-      const terminal = createInterface({ input: process.stdin, output: process.stderr });
-      terminal.once("close", () => resolve(undefined));
-      terminal.once("SIGINT", () => terminal.close());
-      terminal.question(prompt, (input) => {
-        const value = input.trim().toLowerCase();
-        resolve(
-          value === "y" || value === "yes"
-            ? true
-            : value === "" || value === "n" || value === "no"
-              ? false
-              : undefined,
-        );
-        terminal.close();
-      });
-    });
+    const prompt = `${reminder ? `\nIs ${this.#options.tool} working well for you?\nYou can help shape its next improvements by sharing optional usage statistics.\n` : ""}\nOptional usage reporting for ${this.#options.tool}\n\n${reason.trim()}\n\nData: usage counts, tool version, and a random reporting ID for this tool/profile.\n${metrics}\nAlso: bounded OS/version, executable architecture, and CPU family.\nWhen supplied: SHA-256 of the normalized repository URL, which can be guessed from a known URL.\nYour answer is saved for this tool/profile and can be changed in settings.\n\n${reminder ? "Your choice does not affect how you use the tool. You can change it in settings.\n\nWould you like to share optional usage statistics?\n  yes    Allow optional usage reporting\n  later  Ask again in 14 days (default: later)\n  never  Do not ask again\n\nYour choice [later]:" : "Allow optional usage reporting? [y/N]"} `;
+    const answer = reminder
+      ? await new Promise<boolean | undefined>((resolve) => {
+          let buffer = Buffer.alloc(0);
+          const finish = (answer: boolean | undefined) => {
+            process.stdin.off("data", onData);
+            process.stdin.off("end", onEnd);
+            process.stdin.pause();
+            resolve(answer);
+          };
+          const onEnd = () => finish(undefined);
+          const onData = (chunk: Buffer | string) => {
+            buffer = Buffer.concat([buffer, Buffer.from(chunk)]);
+            for (;;) {
+              const newline = buffer.indexOf(10);
+              if (newline < 0) {
+                if (buffer.length > 256) finish(undefined);
+                return;
+              }
+              if (newline + 1 > 256) {
+                finish(undefined);
+                return;
+              }
+              const value = buffer.subarray(0, newline).toString("utf8").trim().toLowerCase();
+              buffer = buffer.subarray(newline + 1);
+              if (value === "y" || value === "yes") return finish(true);
+              if (value === "n" || value === "no" || value === "never") return finish(false);
+              if (value === "" || value === "l" || value === "later") return finish(undefined);
+              process.stderr.write("Please choose yes, later, or never: ");
+            }
+          };
+          process.stdin.on("data", onData);
+          process.stdin.once("end", onEnd);
+          process.stderr.write(prompt);
+          process.stdin.resume();
+        })
+      : await new Promise<boolean | undefined>((resolve) => {
+          const terminal = createInterface({ input: process.stdin, output: process.stderr });
+          terminal.once("close", () => resolve(undefined));
+          terminal.once("SIGINT", () => terminal.close());
+          terminal.question(prompt, (input) => {
+            const value = input.trim().toLowerCase();
+            resolve(
+              value === "y" || value === "yes"
+                ? true
+                : value === "" || value === "n" || value === "no"
+                  ? false
+                  : undefined,
+            );
+            terminal.close();
+          });
+        });
     if (answer === undefined) return "unavailable";
     return this.#queue(() =>
       this.#network(

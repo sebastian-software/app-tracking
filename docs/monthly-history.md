@@ -126,3 +126,26 @@ rows just to backfill history.
 The [additional-consent rollout](additional-consent-rollout.md) records the
 disclosure boundaries and release checks. Saved history choices carry their
 revision; missing/unknown affirmative revisions require a fresh explicit choice.
+
+## Verify a scheduled month
+
+The deployment read check establishes reporting availability; it does not prove
+that a month was finalized. After the scheduled retention run on or after day 8
+UTC, use the reporting-only database credential to check a specific month and
+scope, for example:
+
+```sh
+node scripts/check-history-month.ts 2026-11-01 palamedes legacy cli.invocation local
+```
+
+Set `REPORTING_DATABASE_URL` in the execution environment without putting the
+credential in shell history. The command reads the fixed reporting function and
+prints only the scope, state, reason, and whether the period completed. Exit zero
+requires one covered, enabled period in `finalized/ready` or `suppressed/cohort`
+state. Suppression is a completed screening outcome, not a zero count. Pending,
+incomplete, disabled, expired, missing, and invalid results exit nonzero. Inspect
+unavailable reasons and the scheduled retention workflow before drawing conclusions;
+source expiry cannot be repaired by inventing or backfilling observations. This
+check does not establish that a particular workflow run produced the result;
+compare its timing with the scheduled run separately. Do not publish private
+report values or credentials in the verification receipt.
