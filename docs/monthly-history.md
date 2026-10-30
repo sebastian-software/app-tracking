@@ -127,6 +127,17 @@ The [additional-consent rollout](additional-consent-rollout.md) records the
 disclosure boundaries and release checks. Saved history choices carry their
 revision; missing/unknown affirmative revisions require a fresh explicit choice.
 
+## Verify a public month
+
+After the eighth day of the following UTC month, run
+`node scripts/check-public-month.ts YYYY-MM-01` to compare the selected month
+on the public source and both adapter hosts. The check requires fresh `no-store`
+responses with only the allowed fields and fails when cells differ or none are
+available. An empty or withheld month is not zero usage. A passing check shows
+matching public cells, not complete coverage or proof of the finalization job;
+inspect the actual coverage and screening state before recording a receipt.
+The first eligible month after the October 2026 activation is November 2026.
+
 ## Verify a scheduled month
 
 The deployment read check establishes reporting availability; it does not prove
