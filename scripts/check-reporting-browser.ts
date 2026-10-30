@@ -145,6 +145,15 @@ try {
   await mkdir("dist/reporting-evidence", { recursive: true });
   await page.screenshot({ path: "dist/reporting-evidence/desktop.png", fullPage: true });
   await page.getByLabel("Report", { exact: true }).selectOption("events");
+  await page.getByLabel("Tool", { exact: true }).selectOption("ardo");
+  await page.getByRole("button", { name: "Apply filters" }).click();
+  await page.locator("#commands").getByText("ardo", { exact: true }).waitFor();
+  assert.match(await page.locator("#commands").innerText(), /command: build/);
+  await page.screenshot({ path: "dist/reporting-evidence/ardo.png", fullPage: true });
+  await page.getByLabel("Report", { exact: true }).selectOption("legacy");
+  assert.equal(await page.locator("#tool").inputValue(), "all");
+  assert.notEqual(await page.locator("#ardo-option").getAttribute("disabled"), null);
+  await page.getByLabel("Report", { exact: true }).selectOption("events");
   await page.getByLabel("Metric", { exact: true }).selectOption("language.use");
   await page.getByText("source: dependency", { exact: false }).waitFor();
   await page.getByLabel("Tool", { exact: true }).selectOption("ferriki");

@@ -12,6 +12,16 @@ accepts host-authored `Metric` definitions using the same counter primitives.
 The receiver must already have matching definitions. Unknown tools, metric
 IDs, values, or mismatched collection routes are rejected by the service.
 
+Ardo is registered as `ardo` in both shipped client catalogs. Its opt-in
+`cli.invocation` metric accepts only `command=dev|build|preview|other`, with the
+same categorical system context and optional project hash as the other CLI
+clients. Use `other` for an unrecognized command; never send raw arguments,
+site URLs, page content, or filesystem paths. Ardo uses the generic event
+stream, not the legacy invocation protocol. Additional history, publication,
+and profile-linking permissions remain independent and disabled by default.
+Registration prepares the service and SDKs; the CLI integration belongs in the
+[Ardo repository](https://github.com/sebastian-software/ardo).
+
 ```rust
 use app_tracking::client::{Client, BACKGROUND_WORKER_ARGUMENT};
 use std::collections::BTreeMap;

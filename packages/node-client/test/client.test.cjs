@@ -1726,3 +1726,33 @@ test("profile missing files, stale choices, CI, and noninteractive modes fail cl
     await s.close();
   }
 });
+
+test("the shipped Ardo catalog gates and validates the shared invocation scenarios", async () => {
+  const scenarios = JSON.parse(
+    await fs.readFile(resolve(__dirname, "../../../contracts/ardo-invocations.json"), "utf8"),
+  );
+  const c = await client({ tool: scenarios.tool, version: scenarios.version });
+  assert.equal(
+    await c.record(scenarios.metric, () => {
+      throw new Error("Must not collect before consent");
+    }),
+    "suppressed",
+  );
+  assert.deepEqual(await c.preview(), { open: [], batches: [] });
+  await c.setOptIn(true);
+  for (const command of scenarios.commands)
+    assert.equal(await c.record(scenarios.metric, { command }), "counted");
+  for (const command of scenarios.invalid_commands)
+    await assert.rejects(c.record(scenarios.metric, { command }), { code: "Configuration" });
+  await assert.rejects(c.record(scenarios.metric, { command: "build", site: "private" }), {
+    code: "Configuration",
+  });
+  const preview = await c.preview();
+  assert.deepEqual(
+    preview.open.map((row) => row.dimensions.command).sort(),
+    [...scenarios.commands].sort(),
+  );
+  assert.ok(preview.open.every((row) => row.count === 1 && row.collection === "opt_in"));
+  await c.setOptIn(false);
+  assert.equal(await c.record(scenarios.metric, { command: "build" }), "suppressed");
+});

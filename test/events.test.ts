@@ -181,3 +181,37 @@ test("unknown fields, malformed envelopes and duplicate JSON keys fail before st
     400,
   );
 });
+
+test("Ardo scenario fixtures are included unchanged in the Rust crate", async () => {
+  assert.equal(
+    await readFile("contracts/ardo-invocations.json", "utf8"),
+    await readFile("crates/app-tracking/fixtures/ardo-invocations.json", "utf8"),
+  );
+});
+
+test("Ardo accepts only its finite opt-in invocation dimensions", async () => {
+  const fixture = JSON.parse(await readFile("contracts/ardo-invocations.json", "utf8"));
+  const sample = sampleEventBatch();
+  const batch = {
+    ...sample,
+    tool_id: fixture.tool,
+    rows: fixture.commands.map((command: string) => ({
+      ...sample.rows[0]!,
+      metric: fixture.metric,
+      tool_version: fixture.version,
+      dimensions: { command },
+    })),
+  };
+  assert.equal(eventBatch(batch).rows.length, fixture.commands.length);
+  for (const command of fixture.invalid_commands)
+    assert.throws(() =>
+      eventBatch({ ...batch, rows: [{ ...batch.rows[0], dimensions: { command } }] }),
+    );
+  assert.throws(() => eventBatch({ ...batch, collection: "opt_out" }));
+  assert.throws(() =>
+    eventBatch({
+      ...batch,
+      rows: [{ ...batch.rows[0], dimensions: { command: "build", site: "private" } }],
+    }),
+  );
+});

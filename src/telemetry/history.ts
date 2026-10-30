@@ -45,7 +45,8 @@ export function createHistoryPermissionHandler(
       token = /^Bearer ([0-9a-f]{64})$/.exec(request.headers.get("authorization") ?? "")?.[1];
     if (!token) return failure("unauthorized");
     if (
-      !["dalo", "palamedes", "ferriki"].includes(tool) ||
+      !["ardo", "dalo", "palamedes", "ferriki"].includes(tool) ||
+      (tool === "ardo" && stream === "legacy") ||
       (stream === "legacy" ? !uuid7.test(id!) : !/^[0-9a-f]{64}$/.test(id!))
     )
       return failure("invalid_request");

@@ -37,7 +37,7 @@ export function checkedProfiles(input: unknown, query: ProfileQuery): ProfileRes
     typeof period.snapshot_at !== "string" ||
     !Number.isFinite(Date.parse(period.snapshot_at)) ||
     !Array.isArray(value.combinations) ||
-    value.combinations.length > 7
+    value.combinations.length > 15
   )
     throw new Error("Invalid profile contract");
   const seen = new Set<string>();
@@ -47,8 +47,8 @@ export function checkedProfiles(input: unknown, query: ProfileQuery): ProfileRes
     if (
       !Array.isArray(tools) ||
       tools.length < 1 ||
-      tools.length > 3 ||
-      tools.some((tool) => !["dalo", "ferriki", "palamedes"].includes(tool)) ||
+      tools.length > 4 ||
+      tools.some((tool) => !["ardo", "dalo", "ferriki", "palamedes"].includes(tool)) ||
       new Set(tools).size !== tools.length ||
       tools.join(":") !== [...tools].sort().join(":")
     )

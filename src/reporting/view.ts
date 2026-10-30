@@ -11,7 +11,7 @@ export const adminHTML = `<!doctype html>
 <form id="filters" class="filters"><label>Report<select id="source" aria-label="Report"><option value="legacy">Legacy CLI invocations</option><option value="events">Generic events</option><option value="history">Monthly history</option><option value="profiles">Cross-tool profiles</option></select></label>
 <label id="history-stream-filter" hidden>History stream<select id="history-stream" aria-label="History stream"><option value="legacy">Legacy CLI invocations</option><option value="events">Generic events</option></select></label>
 <label id="metric-filter" hidden>Metric<select id="metric" aria-label="Metric"><option value="cli.invocation">CLI invocations</option><option value="resource.download">Verified resource downloads</option><option value="language.use">Language-use observations</option></select></label>
-<label id="tool-filter">Tool<select id="tool" aria-label="Tool"><option value="all">All tools</option><option value="palamedes">Palamedes</option><option value="dalo">Dalo</option><option id="ferriki-option" value="ferriki" hidden disabled>Ferriki</option></select></label>
+<label id="tool-filter">Tool<select id="tool" aria-label="Tool"><option value="all">All tools</option><option value="palamedes">Palamedes</option><option value="dalo">Dalo</option><option id="ardo-option" value="ardo" hidden disabled>Ardo</option><option id="ferriki-option" value="ferriki" hidden disabled>Ferriki</option></select></label>
 <label id="mode-filter">Context<select id="mode"><option value="local">Local CLI</option><option value="ci">CI · explicit opt-in</option></select></label>
 <label class="date-filter">From (UTC)<input id="from" type="date" required></label><label class="date-filter">Through (UTC)<input id="through" type="date" required></label><button class="primary" type="submit">Apply filters</button>
 <div id="day-presets" class="presets" aria-label="Quick date ranges"><button type="button" data-days="7">7 days</button><button type="button" data-days="30">30 days</button><button type="button" data-days="90">90 days</button></div><div id="month-presets" class="presets" aria-label="Quick month ranges" hidden><button type="button" data-months="12">12 months</button><button type="button" data-months="24">24 months</button></div></form>
@@ -127,8 +127,8 @@ export const adminJS = String.raw`
     $('detail-report').hidden=history||profiles;$('history-panel').hidden=!history;$('profiles-panel').hidden=!profiles;
     $('tool-filter').hidden=profiles;$('mode-filter').hidden=profiles;
     $('metric-filter').hidden=!events; $('metric').disabled=!events;
-    $('ferriki-option').hidden=!events; $('ferriki-option').disabled=!events;
-    if(!events && $('tool').value==='ferriki') $('tool').value='all';
+    for(const id of ['ardo-option','ferriki-option']) { $(id).hidden=!events; $(id).disabled=!events; }
+    if(!events && ['ardo','ferriki'].includes($('tool').value)) $('tool').value='all';
     $('systems-panel').hidden=!events;
   }
   function chart(data) {

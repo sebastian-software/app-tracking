@@ -413,3 +413,80 @@ fn integrity_redirect_offline_and_cancellation_fail_before_success_count() {
     ));
     assert!(!c.directory.exists());
 }
+
+#[test]
+fn shipped_ardo_catalog_gates_and_validates_shared_invocation_scenarios() {
+    let scenarios: serde_json::Value =
+        serde_json::from_str(include_str!("../../fixtures/ardo-invocations.json")).unwrap();
+    let directory = tempfile::tempdir().unwrap();
+    let c = Client::registered(
+        "https://tracking.example",
+        directory.path(),
+        scenarios["tool"].as_str().unwrap(),
+        scenarios["version"].as_str().unwrap(),
+    )
+    .unwrap();
+    let metric = scenarios["metric"].as_str().unwrap();
+    assert_eq!(
+        c.record(metric, || panic!("must not collect before consent"))
+            .unwrap(),
+        Recorded::Suppressed
+    );
+    assert!(!c.directory.exists());
+    c.set_opt_in(true).unwrap();
+    for command in scenarios["commands"].as_array().unwrap() {
+        assert_eq!(
+            c.record(metric, || [(
+                "command".into(),
+                command.as_str().unwrap().into()
+            )]
+            .into())
+                .unwrap(),
+            Recorded::Counted
+        );
+    }
+    for command in scenarios["invalid_commands"].as_array().unwrap() {
+        assert!(matches!(
+            c.record(metric, || [(
+                "command".into(),
+                command.as_str().unwrap().into()
+            )]
+            .into()),
+            Err(Error::Configuration)
+        ));
+    }
+    assert!(matches!(
+        c.record(metric, || [
+            ("command".into(), "build".into()),
+            ("site".into(), "private".into())
+        ]
+        .into()),
+        Err(Error::Configuration)
+    ));
+    let preview: serde_json::Value = serde_json::from_str(&c.preview().unwrap()).unwrap();
+    let mut commands: Vec<_> = preview["open"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| {
+            assert_eq!(row["count"], 1);
+            assert_eq!(row["collection"], "opt_in");
+            row["dimensions"]["command"].as_str().unwrap()
+        })
+        .collect();
+    commands.sort();
+    let mut expected: Vec<_> = scenarios["commands"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    expected.sort();
+    assert_eq!(commands, expected);
+    c.set_opt_in(false).unwrap();
+    assert_eq!(
+        c.record(metric, || [("command".into(), "build".into())].into())
+            .unwrap(),
+        Recorded::Suppressed
+    );
+}

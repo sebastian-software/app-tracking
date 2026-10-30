@@ -3,7 +3,7 @@ import { eventMetrics } from "./events.ts";
 export interface HistoryQuery {
   from: string;
   until: string;
-  tool: "all" | "dalo" | "palamedes" | "ferriki";
+  tool: "all" | "ardo" | "dalo" | "palamedes" | "ferriki";
   stream: "legacy" | "events";
   metric: (typeof eventMetrics)[number];
   mode: "local" | "ci";
@@ -76,11 +76,11 @@ export function historyQuery(url: URL): HistoryQuery {
     !until.endsWith("-01") ||
     months < 1 ||
     months > 24 ||
-    !["all", "dalo", "palamedes", "ferriki"].includes(tool) ||
+    !["all", "ardo", "dalo", "palamedes", "ferriki"].includes(tool) ||
     !["legacy", "events"].includes(stream) ||
     !["local", "ci"].includes(mode) ||
     !eventMetrics.some((m) => m === metric) ||
-    (stream === "legacy" && (tool === "ferriki" || metric !== "cli.invocation"))
+    (stream === "legacy" && (["ardo", "ferriki"].includes(tool) || metric !== "cli.invocation"))
   )
     throw new Error("invalid_request");
   return { from, until, tool, stream, metric, mode } as HistoryQuery;
@@ -111,7 +111,8 @@ const array = (input: unknown, max: number) => {
 };
 const tool = (input: unknown) => {
   const value = text(input, 32);
-  if (!["dalo", "palamedes", "ferriki"].includes(value)) throw new Error("Invalid history tool");
+  if (!["ardo", "dalo", "palamedes", "ferriki"].includes(value))
+    throw new Error("Invalid history tool");
   return value;
 };
 const timestamp = (input: unknown) => {
@@ -153,7 +154,7 @@ export function checkedHistory(input: unknown, query: HistoryQuery): HistoryResu
       coverage_from: period.coverage_from === null ? null : month(period.coverage_from),
     },
     scope: { tool: query.tool, stream: query.stream, metric: query.metric, mode: query.mode },
-    months: array(value.months, 72).map((input) => {
+    months: array(value.months, 96).map((input) => {
       const row = object(input),
         key = month(row.month) + ":" + tool(row.tool_id),
         state = text(row.state, 32),
@@ -233,7 +234,8 @@ export function checkedPublicUsage(input: unknown): PublicUsageResult {
     window: "complete_utc_months",
     count_rounding: 10,
     snapshot_at: timestamp(value.snapshot_at),
-    series: array(value.series, 300).map((input) => {
+    // Seven registered stream/metric pairs, two contexts, 24 retained months.
+    series: array(value.series, 336).map((input) => {
       const row = object(input),
         start = month(row.month),
         tool_id = tool(row.tool_id),

@@ -14,7 +14,7 @@ export const dimensionFields = ["command", "kind", "language", "source"] as cons
 export interface EventQuery {
   from: string;
   until: string;
-  tool: "all" | "dalo" | "palamedes" | "ferriki";
+  tool: "all" | "ardo" | "dalo" | "palamedes" | "ferriki";
   mode: "local" | "ci";
   metric: (typeof eventMetrics)[number];
 }
@@ -62,7 +62,7 @@ export function eventQuery(url: URL): EventQuery {
     !utcDay(until) ||
     days < 1 ||
     days > 90 ||
-    !["all", "dalo", "palamedes", "ferriki"].includes(tool) ||
+    !["all", "ardo", "dalo", "palamedes", "ferriki"].includes(tool) ||
     !["local", "ci"].includes(mode) ||
     !eventMetrics.some((value) => value === metric)
   )
@@ -103,7 +103,7 @@ export function checkedEvents(value: unknown, query: EventQuery): EventResult {
   const tool = (input: unknown) => {
     const result = text(input, 32);
     if (
-      !["dalo", "palamedes", "ferriki"].includes(result) ||
+      !["ardo", "dalo", "palamedes", "ferriki"].includes(result) ||
       (query.tool !== "all" && query.tool !== result)
     )
       throw new Error("Invalid event tool");

@@ -5,7 +5,7 @@ import { record } from "../telemetry/contract.ts";
 export interface ServiceQuery {
   from: string;
   until: string;
-  tool: "all" | "dalo" | "palamedes";
+  tool: "all" | "ardo" | "dalo" | "palamedes";
 }
 export interface ServiceRequestResult {
   schema_version: 1;
@@ -35,7 +35,7 @@ export function serviceQuery(url: URL): ServiceQuery {
     !utcDay(until) ||
     days < 1 ||
     days > 90 ||
-    !["all", "dalo", "palamedes"].includes(tool)
+    !["all", "ardo", "dalo", "palamedes"].includes(tool)
   )
     throw new Error("invalid_request");
   return { from, until, tool } as ServiceQuery;
@@ -63,7 +63,7 @@ export function checkedServiceRequests(value: unknown, query: ServiceQuery): Ser
       (query.from < value.coverage.retained_from ? value.coverage.retained_from : query.from) ||
     value.coverage.clipped !== (value.period.covered_from !== query.from) ||
     !Array.isArray(value.rows) ||
-    value.rows.length > 1350
+    value.rows.length > catalog.length * 90 * 3
   )
     throw invalid();
   const seen = new Set<string>();

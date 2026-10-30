@@ -70,7 +70,7 @@ upload daily while the tool is used. They have distinct payloads and state:
   embedded timestamp. See the [event-batch contract](docs/event-batches.md).
 
 The [current event catalog](contracts/event-catalog.json) defines CLI invocation
-counts for Dalo and Palamedes, verified resource-download counts by kind for
+counts for Ardo, Dalo, and Palamedes, verified resource-download counts by kind for
 Ferriki, and Ferriki language-use counts by language and explicit/dependency
 source. All shipped definitions use `opt_in`, full system context, and optional
 project context. Full system context includes OS family and normalized version,

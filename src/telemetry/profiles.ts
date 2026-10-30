@@ -46,7 +46,7 @@ export function createProfileHandler(storage: ProfileStorage, enabled = true) {
       let expected: Record<string, unknown>;
       if (link) {
         const tool = request.headers.get("App-Tracking-Tool");
-        if (!tool || !["dalo", "palamedes", "ferriki"].includes(tool))
+        if (!tool || !["ardo", "dalo", "palamedes", "ferriki"].includes(tool))
           return failure("invalid_request");
         if (
           !/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(
