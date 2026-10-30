@@ -33,6 +33,6 @@
     "test": "node --test test/*.test.cjs"
   },
   "engines": {
-    "node": ">=24.22.0 <25"
+    "node": "^22.0.0 || ^24.0.0 || ^26.0.0"
   }
 }

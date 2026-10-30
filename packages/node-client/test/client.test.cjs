@@ -39,14 +39,25 @@ before(async () => {
     }),
   );
   installed = join(fixture, "node_modules/@sebastian-software/app-tracking");
-  await fs.mkdir(installed, { recursive: true });
-  execFileSync("tar", [
-    "-xzf",
-    join(fixture, Object.values(packed)[0].filename),
-    "--strip-components=1",
-    "-C",
-    installed,
-  ]);
+  execFileSync(
+    "npm",
+    [
+      "install",
+      "--offline",
+      "--ignore-scripts",
+      "--engine-strict",
+      "--no-audit",
+      "--no-fund",
+      "--package-lock=false",
+      join(fixture, Object.values(packed)[0].filename),
+    ],
+    {
+      cwd: fixture,
+      encoding: "utf8",
+      shell: process.platform === "win32",
+      env: { ...process.env, npm_config_cache: join(fixture, "npm-cache") },
+    },
+  );
   ({ Client, TrackingError } = require(installed));
   const typeConsumer = join(fixture, "consumer.mts");
   await fs.writeFile(

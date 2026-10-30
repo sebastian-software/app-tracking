@@ -15,7 +15,7 @@ for (const format of ["cjs", "esm"] as const) {
     outfile: join(dist, format === "cjs" ? "index.cjs" : "index.mjs"),
     bundle: true,
     platform: "node",
-    target: "node24",
+    target: "node22",
     format,
     define: { __WORKER_PATH__: "__appWorkerPath" },
     banner: {
@@ -41,7 +41,7 @@ await build({
   outfile: join(dist, "worker.cjs"),
   bundle: true,
   platform: "node",
-  target: "node24",
+  target: "node22",
   format: "cjs",
   define: { __WORKER_PATH__: "''" },
 });
