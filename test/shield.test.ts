@@ -8,7 +8,7 @@ function fixture() {
     zone: undefined as Record<string, unknown> | undefined,
     rules: [] as Record<string, unknown>[],
     writes: [] as { method: string; path: string; body: unknown }[],
-    botMode: 0,
+    botMode: null as number | null,
     ignoreWrites: false,
   };
   const api: BunnyApi = async <T>(method: string, path: string, body?: unknown): Promise<T> => {
@@ -40,7 +40,7 @@ function fixture() {
         ? { data: state.rules, page: { nextPage: null } }
         : { data: null, page: null };
     } else if (method === "GET" && path === "/shield/shield-zone/7/bot-detection") {
-      result = { data: { executionMode: state.botMode } };
+      result = { data: state.botMode === null ? null : { executionMode: state.botMode } };
     } else if (method === "POST" && path === "/shield/rate-limit") {
       assert.equal((body as { shieldZoneId: number }).shieldZoneId, 7);
       state.rules.push({ id: 8, ...(body as object) });

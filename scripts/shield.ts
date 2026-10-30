@@ -84,7 +84,7 @@ function managedRule(rules: Rule[], zone: ShieldZone) {
 }
 function ruleMatches(rule: Rule | undefined) {
   return (
-    !!rule &&
+    !!rule?.ruleConfiguration &&
     Object.entries(API_WRITE_RULE).every(([key, expected]) =>
       isDeepStrictEqual(rule.ruleConfiguration[key], expected),
     )
@@ -115,11 +115,12 @@ export async function configureShield(api: BunnyApi, pullZoneId: number, apply =
   if (zone.planType !== 0) throw new Error("Existing paid Shield plan requires separate review");
   let rules = await list<Rule>(api, `/shield/rate-limits/${zone.shieldZoneId}`);
   let rule = managedRule(rules, zone);
-  const bot = await api<{ data: { executionMode: number } }>(
+  const bot = await api<{ data: { executionMode: number } | null }>(
     "GET",
     `/shield/shield-zone/${zone.shieldZoneId}/bot-detection`,
   );
-  if (bot.data.executionMode !== 0)
+  // Basic does not include bot mitigation; its endpoint returns null when unconfigured.
+  if (bot.data !== null && bot.data.executionMode !== 0)
     throw new Error("Unexpected browser bot challenge configuration");
   if (apply) {
     if (!rule && rules.length >= zone.rateLimitRulesLimit)
@@ -149,7 +150,18 @@ export async function configureShield(api: BunnyApi, pullZoneId: number, apply =
     rule = managedRule(rules, zone);
   }
   const verified = settingsMatch(zone) && zone.dDoSExecutionMode === 1 && ruleMatches(rule);
-  if (apply && !verified) throw new Error("Shield settings did not converge");
+  if (apply && !verified)
+    throw new Error(
+      `Shield settings did not converge: ${JSON.stringify({
+        settingsDiffer: Object.entries(SHIELD_SETTINGS)
+          .filter(([key, value]) => zone[key] !== value)
+          .map(([key]) => key),
+        ddosBlocking: zone.dDoSExecutionMode === 1,
+        rateFieldsDiffer: Object.entries(API_WRITE_RULE)
+          .filter(([key, value]) => !isDeepStrictEqual(rule?.ruleConfiguration?.[key], value))
+          .map(([key]) => key),
+      })}`,
+    );
   // Log only selected configuration values, never IDs, headers, payloads, or traffic.
   return {
     configured: true,
