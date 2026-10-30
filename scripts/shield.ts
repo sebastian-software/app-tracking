@@ -117,10 +117,6 @@ export async function configureShield(api: BunnyApi, pullZoneId: number, apply =
     await api("POST", "/shield/shield-zone", {
       pullZoneId,
       shieldZone: SHIELD_SETTINGS,
-      botDetectionExecutionMode: 0, // LogOnly; the consumers are non-browser clients.
-      csamScanningMode: 0,
-      antivirusScanningMode: 0,
-      accessLists: {},
     });
     changes++;
     zone = await readZone(api, pullZoneId);
@@ -130,13 +126,7 @@ export async function configureShield(api: BunnyApi, pullZoneId: number, apply =
   if (zone.planType !== 0) throw new Error("Existing paid Shield plan requires separate review");
   let rules = await list<Rule>(api, `/shield/rate-limits/${zone.shieldZoneId}`);
   let rule = managedRule(rules, zone);
-  const bot = await api<{ data: { executionMode: number } | null }>(
-    "GET",
-    `/shield/shield-zone/${zone.shieldZoneId}/bot-detection`,
-  );
-  // Basic does not include bot mitigation; its endpoint returns null when unconfigured.
-  if (bot.data !== null && bot.data.executionMode !== 0)
-    throw new Error("Unexpected browser bot challenge configuration");
+  // Basic does not include bot mitigation. Do not call paid-feature endpoints.
   if (apply) {
     if (!rule && rules.length >= zone.rateLimitRulesLimit)
       throw new Error("No free Shield rate limit slot; existing rules were preserved");

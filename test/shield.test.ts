@@ -8,7 +8,6 @@ function fixture() {
     zone: undefined as Record<string, unknown> | undefined,
     rules: [] as Record<string, unknown>[],
     writes: [] as { method: string; path: string; body: unknown }[],
-    botMode: null as number | null,
     ignoreWrites: false,
   };
   const api: BunnyApi = async <T>(method: string, path: string, body?: unknown): Promise<T> => {
@@ -46,8 +45,6 @@ function fixture() {
             page: { nextPage: null },
           }
         : { data: null, page: null };
-    } else if (method === "GET" && path === "/shield/shield-zone/7/bot-detection") {
-      result = { data: state.botMode === null ? null : { executionMode: state.botMode } };
     } else if (method === "POST" && path === "/shield/rate-limit") {
       assert.equal((body as { shieldZoneId: number }).shieldZoneId, 7);
       state.rules.push({ id: 8, ...(body as object) });
@@ -77,10 +74,6 @@ test("Shield inspection never writes; creation selects Basic and converges on th
   assert.deepEqual(state.writes[0].body, {
     pullZoneId: 2,
     shieldZone: SHIELD_SETTINGS,
-    botDetectionExecutionMode: 0,
-    csamScanningMode: 0,
-    antivirusScanningMode: 0,
-    accessLists: {},
   });
   assert.equal((await configureShield(api, 2, true)).changes, 0);
   assert.equal(state.writes.length, 2);
@@ -98,6 +91,7 @@ test("Shield repairs drift without modifying foreign rate limits or retaining pa
   await configureShield(api, 2, true);
   state.zone!.requestBodyLoggingEnabled = true;
   state.zone!.wafRequestHeaderLoggingEnabled = true;
+  state.zone!.dDoSShieldSensitivity = 4;
   state.rules[0].ruleConfiguration = { ...API_WRITE_RULE, requestCount: 999 };
   const foreign = { id: 9, shieldZoneId: 7, ruleName: "operator-owned", ruleConfiguration: {} };
   state.rules.push(structuredClone(foreign));
@@ -105,11 +99,12 @@ test("Shield repairs drift without modifying foreign rate limits or retaining pa
   assert.deepEqual(state.rules[1], foreign);
   assert.equal(state.zone!.requestBodyLoggingEnabled, false);
   assert.equal(state.zone!.wafRequestHeaderLoggingEnabled, false);
+  assert.equal(state.zone!.dDoSShieldSensitivity, 1);
   assert.equal((await configureShield(api, 2, true)).changes, 0);
 });
 
-test("Shield refuses paid-plan changes, duplicate ownership, exhausted slots, and browser challenges", async () => {
-  for (const scenario of ["paid", "duplicate", "full", "challenge"] as const) {
+test("Shield refuses paid-plan changes, duplicate ownership, and exhausted slots", async () => {
+  for (const scenario of ["paid", "duplicate", "full"] as const) {
     const { state, api } = fixture();
     await configureShield(api, 2, true);
     state.writes.length = 0;
@@ -122,7 +117,6 @@ test("Shield refuses paid-plan changes, duplicate ownership, exhausted slots, an
         ruleName: `foreign-${id}`,
         ruleConfiguration: {},
       }));
-    if (scenario === "challenge") state.botMode = 1;
     await assert.rejects(configureShield(api, 2, true));
     assert.equal(state.writes.length, 0, scenario);
   }
