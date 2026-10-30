@@ -11,10 +11,9 @@ scope of [#53](https://github.com/sebastian-software/app-tracking/issues/53).
 
 ### Additional permissions
 
-Rust supports separately permitted history, public usage totals, and cross-tool
-profile linking. The initial Node client does not expose these APIs, as recorded
-in its [README](../packages/node-client/README.md) and the remaining Node work in
-[#53](https://github.com/sebastian-software/app-tracking/issues/53).
+Rust and Node both support separately permitted history and public usage totals.
+Cross-tool profile linking remains unavailable in Node and is tracked by
+[#54](https://github.com/sebastian-software/app-tracking/issues/54).
 
 Closing these gaps requires the corresponding independent permission flows and
 equivalent authorization, withdrawal, and deletion behavior. A general usage

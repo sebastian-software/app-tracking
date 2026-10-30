@@ -51,7 +51,7 @@ const declarations = spawnSync(
   { cwd: root, stdio: "inherit" },
 );
 if (declarations.status !== 0) throw new Error("Node client declaration build failed");
-for (const name of ["index", "client", "types", "download"])
+for (const name of ["index", "client", "types", "download", "permissions"])
   await copyFile(
     join(dist, "declarations/packages/node-client/src", `${name}.d.ts`),
     join(dist, "types", `${name}.d.ts`),

@@ -35,7 +35,15 @@ export interface Job {
   created: number;
   batch: string;
 }
+export interface AdditionalChoice {
+  revision: string;
+  enabled: boolean;
+  changedAt: number;
+  confirmed: boolean;
+}
 export interface State {
+  history?: AdditionalChoice;
+  publicUsage?: AdditionalChoice;
   schemaVersion: 1;
   scope: string;
   optIn: boolean | null;
@@ -159,6 +167,29 @@ export async function load(
       )
     )
       fail("State");
+    for (const key of ["history", "publicUsage"]) {
+      const choice = value[key];
+      if (
+        choice !== undefined &&
+        (!record(choice) ||
+          Object.keys(choice).sort().join() !== "changedAt,confirmed,enabled,revision" ||
+          typeof choice.revision !== "string" ||
+          typeof choice.enabled !== "boolean" ||
+          typeof choice.confirmed !== "boolean" ||
+          !Number.isSafeInteger(choice.changedAt) ||
+          Number(choice.changedAt) < 0 ||
+          Number(choice.changedAt) > 253_402_300_799_999 ||
+          (key === "publicUsage" && Buffer.byteLength(choice.revision) > 64) ||
+          (choice.enabled &&
+            (value.identity === null ||
+              value.optIn !== true ||
+              value.disabled === true ||
+              value.deleting === true ||
+              (key === "publicUsage" &&
+                (!record(value.history) || value.history.enabled !== true)))))
+      )
+        fail("State");
+    }
     if (
       value.lastPermissionPromptAt !== undefined &&
       (!Number.isSafeInteger(value.lastPermissionPromptAt) ||

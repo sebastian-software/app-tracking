@@ -1,14 +1,21 @@
 import { spawn } from "node:child_process";
 import { isAbsolute, join } from "node:path";
 import { createInterface } from "node:readline";
-import { setTimeout as delay } from "node:timers/promises";
 import { isMainThread } from "node:worker_threads";
+import { setTimeout as delay } from "node:timers/promises";
 import catalog from "../../../contracts/event-catalog.json" with { type: "json" };
 import schema from "../../../contracts/telemetry-v1.schema.json" with { type: "json" };
 import { canonical, record as object } from "../../../src/telemetry/contract.ts";
 import { eventBatch, type EventCatalog } from "../../../src/telemetry/events.ts";
+import { strictJSON } from "../../../src/telemetry/json.ts";
 import { hash, projectIdentity, systemContext } from "./context.ts";
 import { download } from "./download.ts";
+import {
+  HISTORY_CONSENT_REVISION,
+  HISTORY_NOTICE,
+  PUBLIC_USAGE_CONSENT_REVISION,
+  PUBLIC_USAGE_NOTICE,
+} from "./permissions.ts";
 import { endpoint, readBody, request } from "./transport.ts";
 import {
   clear,
@@ -37,6 +44,7 @@ import {
   type Recorded,
   type Resource,
   type Status,
+  type AdditionalPermissionStatus,
 } from "./types.ts";
 
 declare const __WORKER_PATH__: string;
@@ -239,7 +247,10 @@ export class Client {
     state.job = null;
     if (enabled)
       state.identity ??= { id: random(), token: random(), consentedAt: now(), lastAcceptedAt: 0 };
-    else clear(state);
+    else {
+      this.#withdrawAdditional(state, "history");
+      clear(state);
+    }
   }
   /** Call only after an explicit informed human settings choice. */
   setOptIn(enabled: boolean): Promise<void> {
@@ -262,7 +273,10 @@ export class Client {
             state!.disabled = disabled;
             state!.generation++;
             state!.job = null;
-            if (disabled) clear(state!);
+            if (disabled) {
+              this.#withdrawAdditional(state!, "history");
+              clear(state!);
+            }
           }),
         undefined,
       );
@@ -275,6 +289,7 @@ export class Client {
         true,
         () =>
           this.#state(true, (state) => {
+            this.#withdrawAdditional(state!, "history");
             state!.optIn = false;
             state!.optInScope = null;
             state!.disabled = true;
@@ -323,6 +338,7 @@ export class Client {
     if (saved.answer) return saved.answer;
     if (
       this.#options.interaction === "never" ||
+      !isMainThread ||
       this.#options.policy!.ci ||
       !process.stdin.isTTY ||
       !process.stderr.isTTY
@@ -422,6 +438,260 @@ export class Client {
         "unavailable" as PermissionOutcome,
       ),
     );
+  }
+  #revision(kind: "history" | "publicUsage"): string {
+    return kind === "history" ? HISTORY_CONSENT_REVISION : PUBLIC_USAGE_CONSENT_REVISION;
+  }
+  #withdrawAdditional(state: State, kind: "history" | "publicUsage"): void {
+    if (kind === "history") this.#withdrawAdditional(state, "publicUsage");
+    const choice = state[kind];
+    if (choice?.enabled) {
+      choice.enabled = false;
+      choice.revision = this.#revision(kind);
+      choice.changedAt = Math.max(now(), choice.changedAt + 1);
+      choice.confirmed = false;
+    }
+  }
+  #additionalAllowed(state: State, kind: "history" | "publicUsage"): boolean {
+    return (
+      this.#allowed(state) &&
+      (kind === "history" ||
+        (state.history?.enabled === true && state.history.revision === HISTORY_CONSENT_REVISION))
+    );
+  }
+  #setAdditional(state: State, kind: "history" | "publicUsage", enabled: boolean): void {
+    if (enabled && !this.#additionalAllowed(state, kind)) fail("AdditionalPermission");
+    const choice = state[kind];
+    const timestamp = now();
+    if (
+      choice &&
+      choice.enabled === enabled &&
+      (!enabled || choice.revision === this.#revision(kind)) &&
+      (choice.confirmed || Math.max(0, timestamp - choice.changedAt) < 90 * DAY)
+    )
+      return;
+    if (!enabled && kind === "history") this.#withdrawAdditional(state, "publicUsage");
+    state[kind] = {
+      revision: this.#revision(kind),
+      enabled,
+      changedAt: Math.max(timestamp, (choice?.changedAt ?? -1) + 1),
+      confirmed: state.identity === null,
+    };
+    state.generation++;
+    state.job = null;
+  }
+  #setAdditionalPermission(kind: "history" | "publicUsage", enabled: boolean): Promise<void> {
+    bool(enabled);
+    return this.#queue(() =>
+      this.#network(
+        true,
+        () => this.#state(true, (state) => this.#setAdditional(state!, kind, enabled)),
+        undefined,
+      ),
+    );
+  }
+  setHistoryOptIn(enabled: boolean): Promise<void> {
+    return this.#setAdditionalPermission("history", enabled);
+  }
+  setPublicUsageOptIn(enabled: boolean): Promise<void> {
+    return this.#setAdditionalPermission("publicUsage", enabled);
+  }
+  #additionalStatus(kind: "history" | "publicUsage"): Promise<AdditionalPermissionStatus> {
+    return this.#queue(() =>
+      this.#state(false, (state) => {
+        const choice = state?.[kind];
+        return {
+          decision:
+            !choice || (choice.enabled && choice.revision !== this.#revision(kind))
+              ? "undecided"
+              : choice.enabled
+                ? "granted"
+                : "declined",
+          pending: !!choice && !choice.confirmed,
+        };
+      }),
+    );
+  }
+  historyStatus(): Promise<AdditionalPermissionStatus> {
+    return this.#additionalStatus("history");
+  }
+  publicUsageStatus(): Promise<AdditionalPermissionStatus> {
+    return this.#additionalStatus("publicUsage");
+  }
+  async #requestAdditional(
+    kind: "history" | "publicUsage",
+    reason: string,
+  ): Promise<PermissionOutcome> {
+    if (
+      typeof reason !== "string" ||
+      !reason.trim() ||
+      Buffer.byteLength(reason) > 4096 ||
+      /[\x00-\x08\x0b-\x1f\x7f]/.test(reason)
+    )
+      fail("Configuration");
+    const saved = await this.#queue(() =>
+      this.#state(false, (state) => {
+        if (!state || !this.#additionalAllowed(state, kind) || this.#worker || !isMainThread)
+          return { answer: "unavailable" as PermissionOutcome, generation: 0 };
+        const choice = state[kind];
+        const answer: PermissionOutcome | undefined = !choice
+          ? undefined
+          : !choice.enabled
+            ? "declined"
+            : choice.revision === this.#revision(kind) &&
+                (choice.confirmed || Math.max(0, now() - choice.changedAt) < 90 * DAY)
+              ? "granted"
+              : undefined;
+        return { answer, generation: state.generation };
+      }),
+    );
+    if (saved.answer) return saved.answer;
+    if (
+      this.#options.interaction === "never" ||
+      !isMainThread ||
+      this.#options.policy!.ci ||
+      !process.stdin.isTTY ||
+      !process.stderr.isTTY
+    )
+      return "unavailable";
+    const notice = kind === "history" ? HISTORY_NOTICE : PUBLIC_USAGE_NOTICE;
+    const prompt = `\nOptional ${kind === "history" ? "monthly summaries" : "public usage totals"} for ${this.#options.tool}\n\n${reason.trim()}\n\n${notice}\n\nAllow? [y/N] `;
+    const answer = await new Promise<boolean | undefined>((resolve) => {
+      const terminal = createInterface({ input: process.stdin, output: process.stderr });
+      terminal.once("close", () => resolve(undefined));
+      terminal.once("SIGINT", () => terminal.close());
+      terminal.question(prompt, (input) => {
+        const value = input.trim().toLowerCase();
+        resolve(
+          value === "y" || value === "yes"
+            ? true
+            : value === "" || value === "n" || value === "no"
+              ? false
+              : undefined,
+        );
+        terminal.close();
+      });
+    });
+    if (answer === undefined) return "unavailable";
+    return this.#queue(() =>
+      this.#network(
+        false,
+        () =>
+          this.#state(false, (state) => {
+            if (
+              !state ||
+              !this.#additionalAllowed(state, kind) ||
+              (answer && state.generation !== saved.generation)
+            )
+              return "unavailable";
+            this.#setAdditional(state, kind, answer);
+            return answer ? "granted" : "declined";
+          }),
+        "unavailable" as PermissionOutcome,
+      ),
+    );
+  }
+  requestHistoryOptIn(reason: string): Promise<PermissionOutcome> {
+    return this.#requestAdditional("history", reason);
+  }
+  requestPublicUsageOptIn(reason: string): Promise<PermissionOutcome> {
+    return this.#requestAdditional("publicUsage", reason);
+  }
+  #syncAdditional(kind: "history" | "publicUsage"): Promise<boolean> {
+    return this.#queue(async () => {
+      if (this.#options.policy!.offline) return false;
+      return this.#network(
+        false,
+        async (check) => {
+          const prepared = await this.#state(false, (state) => {
+            const choice = state?.[kind];
+            if (!state || !choice || (choice.enabled && choice.revision !== this.#revision(kind)))
+              return;
+            if (choice.confirmed) return { confirmed: true as const };
+            if (
+              (choice.enabled &&
+                (!this.#additionalAllowed(state, kind) ||
+                  Math.max(0, now() - choice.changedAt) >= 90 * DAY)) ||
+              !state.identity
+            )
+              return;
+            return {
+              confirmed: false as const,
+              choice: { ...choice },
+              identity: { ...state.identity },
+              generation: state.generation,
+            };
+          });
+          if (!prepared) return false;
+          if (prepared.confirmed) return true;
+          const body = JSON.stringify({
+            schema_version: 1,
+            revision: this.#revision(kind),
+            enabled: prepared.choice.enabled,
+            changed_at: prepared.choice.changedAt,
+          });
+          let accepted = false;
+          try {
+            check();
+            const path = kind === "history" ? "history-permissions" : "public-permissions";
+            const connection = await request(
+              new URL(`/v1/${path}/events/${prepared.identity.id}`, this.#options.origin),
+              "PUT",
+              {
+                Authorization: `Bearer ${prepared.identity.token}`,
+                "App-Tracking-Tool": this.#options.tool,
+                "Content-Type": "application/json",
+                "Accept-Encoding": "identity",
+              },
+              body,
+              5000,
+            );
+            try {
+              const response = connection.response;
+              const text = await readBody(response, 2048);
+              const receipt: unknown = strictJSON(text);
+              accepted =
+                response.statusCode === 200 &&
+                response.headers["cache-control"] === "no-store" &&
+                object(receipt) &&
+                Object.keys(receipt).sort().join() ===
+                  "changed_at,enabled,revision,schema_version" &&
+                receipt.schema_version === 1 &&
+                receipt.revision === this.#revision(kind) &&
+                receipt.enabled === prepared.choice.enabled &&
+                receipt.changed_at === prepared.choice.changedAt;
+            } finally {
+              connection.close();
+            }
+          } catch {
+            /* Keep pending on network or receipt failure. */
+          }
+          check();
+          if (!accepted) return false;
+          return this.#state(false, (state) => {
+            const choice = state?.[kind];
+            if (
+              !state ||
+              state.generation !== prepared.generation ||
+              !choice ||
+              choice.changedAt !== prepared.choice.changedAt ||
+              choice.enabled !== prepared.choice.enabled ||
+              choice.revision !== prepared.choice.revision
+            )
+              return false;
+            choice.confirmed = true;
+            return true;
+          });
+        },
+        false,
+      );
+    });
+  }
+  syncHistoryPermission(): Promise<boolean> {
+    return this.#syncAdditional("history");
+  }
+  syncPublicUsagePermission(): Promise<boolean> {
+    return this.#syncAdditional("publicUsage");
   }
   record(metric: string, dimensions: Dimensions = {}): Promise<Recorded> {
     return this.#queue(async () => {

@@ -8,9 +8,7 @@ Rust toolchain, native addon, platform package, or installation script.
 This package shares its version and release tag with the Rust client. It
 implements the shared Node-client portion of [issue #53](https://github.com/sebastian-software/app-tracking/issues/53).
 Ferriki adoption and separately registered runtime/host version fields still
-need their own delivery evidence. The Rust SDK's additional
-history, public-usage, and cross-tool profile permissions are not enabled by this
-client. This package currently targets the repository's Node.js 24 runtime.
+need their own delivery evidence. Cross-tool profile permissions are not yet enabled by this client. This package currently targets the repository's Node.js 24 runtime.
 
 ## Build and verify
 
@@ -191,3 +189,20 @@ package fallback; omitted origin means unavailable and blocks fallback.
 Normalization and hashes execute the same golden cases as Rust. Keep metadata
 lookup inside the callback. Raw URLs, paths, CPU model strings, and environment
 values are never event labels.
+
+## Additional permissions
+
+History and public usage require independent explicit choices. Call
+`requestHistoryOptIn(reason)` or `requestPublicUsageOptIn(reason)` only from an
+interactive consent command. For notice-only settings, show the exported
+`HISTORY_NOTICE` or `PUBLIC_USAGE_NOTICE`, then call `setHistoryOptIn(boolean)`
+or `setPublicUsageOptIn(boolean)` after the user's explicit choice. The exported
+revision constants identify each disclosure. Publication requires ordinary
+reporting and history grants; it does not follow automatically from either.
+
+Use `historyStatus()` and `publicUsageStatus()` to show the saved decision and
+whether it is pending. Explicitly call `syncHistoryPermission()` and
+`syncPublicUsagePermission()` from settings to send changes; offline or rejected
+changes stay pending. Acknowledgement starts eligibility on the following UTC
+date and does not mean a monthly summary exists. Withdrawing history also
+withdraws publication. Ordinary withdrawal, disabling, and deletion revoke both.
