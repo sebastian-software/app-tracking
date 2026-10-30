@@ -7,7 +7,7 @@ const { createServer } = require("node:http");
 const { tmpdir } = require("node:os");
 const { join, resolve } = require("node:path");
 const { pathToFileURL } = require("node:url");
-const { after, before, test } = require("node:test");
+const { after, beforeEach, test } = require("node:test");
 
 function bound(child) {
   const timer = setTimeout(() => child.kill(), 5000);
@@ -27,7 +27,7 @@ for (const name of [
 ])
   delete process.env[name];
 
-before(async () => {
+const installedFixture = (async () => {
   fixture = await fs.mkdtemp(join(tmpdir(), "app-tracking-node-test-"));
   const source = resolve(__dirname, "..");
   const packed = JSON.parse(
@@ -81,7 +81,11 @@ before(async () => {
     ],
     { cwd: fixture, encoding: "utf8" },
   );
-});
+})();
+
+// Node.js 22.0.0 does not await async before hooks (nodejs/node#52764).
+// Await the same initialization in each test; the package is installed once.
+beforeEach(() => installedFixture);
 
 after(async () => {
   if (fixture) await fs.rm(fixture, { recursive: true, force: true });
@@ -309,7 +313,7 @@ test(
         return;
       }
       event = JSON.parse(raw);
-      const { eventBatch } = await import("../../../src/telemetry/events.ts");
+      const { eventBatch } = await import("../../../dist/node-client-test/event-validator.mjs");
       eventBatch(event);
       assert.match(req.headers.authorization, /^Bearer [a-f0-9]{64}$/);
       res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });

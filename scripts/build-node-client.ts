@@ -45,6 +45,16 @@ await build({
   format: "cjs",
   define: { __WORKER_PATH__: "''" },
 });
+// Consumer tests use the real receiver contract without native TypeScript support.
+// Keep this fixture outside the published package.
+await build({
+  entryPoints: [join(root, "test/fixtures/node-event-validator.ts")],
+  outfile: join(root, "dist/node-client-test/event-validator.mjs"),
+  bundle: true,
+  platform: "node",
+  target: "node22",
+  format: "esm",
+});
 const declarations = spawnSync(
   process.execPath,
   [join(root, "node_modules/typescript/bin/tsc"), "-p", join(directory, "tsconfig.json")],
