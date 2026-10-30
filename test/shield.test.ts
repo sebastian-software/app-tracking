@@ -1,14 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { configureShield, SHIELD_SETTINGS, API_WRITE_RULE } from "../scripts/shield.ts";
+import { configureShield, SHIELD_SETTINGS } from "../scripts/shield.ts";
 import { bunnyApi, type BunnyApi } from "../scripts/bunny.ts";
 
 function fixture() {
   const state = {
     zone: undefined as Record<string, unknown> | undefined,
-    rules: [] as Record<string, unknown>[],
+    gateway: { RequestLimit: 20, BurstSize: 40, EnableLogging: false },
     writes: [] as { method: string; path: string; body: unknown }[],
     ignoreWrites: false,
+    duplicate: false,
   };
   const api: BunnyApi = async <T>(method: string, path: string, body?: unknown): Promise<T> => {
     let result: unknown;
@@ -18,6 +19,7 @@ function fixture() {
         data: [
           { shieldZoneId: 999, pullZoneId: 999, planType: 2 },
           ...(state.zone ? [state.zone] : []),
+          ...(state.duplicate ? [state.zone] : []),
         ],
         page: { nextPage: null },
       };
@@ -26,7 +28,6 @@ function fixture() {
       state.zone = {
         shieldZoneId: 7,
         pullZoneId: request.pullZoneId,
-        rateLimitRulesLimit: 2,
         dDoSExecutionMode: 1,
         ...request.shieldZone,
       };
@@ -34,91 +35,53 @@ function fixture() {
       assert.equal((body as { shieldZoneId: number }).shieldZoneId, 7);
       if (!state.ignoreWrites)
         Object.assign(state.zone!, (body as { shieldZone: object }).shieldZone);
-    } else if (method === "GET" && path.startsWith("/shield/rate-limits/7?")) {
-      result = state.rules.length
-        ? {
-            data: state.rules.map((rule) => ({
-              ...rule,
-              ruleConfiguration: null,
-              ruleJson: JSON.stringify(rule.ruleConfiguration),
-            })),
-            page: { nextPage: null },
-          }
-        : { data: null, page: null };
-    } else if (method === "POST" && path === "/shield/rate-limit") {
-      assert.equal((body as { shieldZoneId: number }).shieldZoneId, 7);
-      state.rules.push({ id: 8, ...(body as object) });
-    } else if (method === "PATCH" && path === "/shield/rate-limit/8") {
-      if (!state.ignoreWrites)
-        Object.assign(
-          state.rules.find((rule) => rule.id === 8)!,
-          body,
-        );
+    } else if (method === "GET" && path === "/pullzone/2") result = state.gateway;
+    else if (method === "POST" && path === "/pullzone/2") {
+      if (!state.ignoreWrites) Object.assign(state.gateway, body);
     } else assert.fail(`Unexpected fixture operation: ${method} ${path}`);
     return structuredClone(result) as T;
   };
   return { state, api };
 }
 
-test("Shield inspection never writes; creation selects Basic and converges on the owned zone", async () => {
+test("Shield inspection never writes; Basic-only creation converges without touching another zone", async () => {
   const { state, api } = fixture();
-  assert.deepEqual(await configureShield(api, 2), {
-    configured: false,
-    verified: false,
-    changes: 0,
-  });
+  assert.equal((await configureShield(api, 2)).configured, false);
   assert.equal(state.writes.length, 0);
-  const created = await configureShield(api, 2, true);
-  assert.equal(created.verified, true);
-  assert.equal(created.changes, 2);
-  assert.deepEqual(state.writes[0].body, {
-    pullZoneId: 2,
-    shieldZone: SHIELD_SETTINGS,
-  });
+  assert.equal((await configureShield(api, 2, true)).verified, true);
+  assert.deepEqual(state.writes[0].body, { pullZoneId: 2, shieldZone: SHIELD_SETTINGS });
   assert.equal((await configureShield(api, 2, true)).changes, 0);
-  assert.equal(state.writes.length, 2);
+  assert.equal(state.writes.length, 1);
   const observed = await configureShield(api, 2);
   assert.equal(observed.verified, true);
-  assert.ok("apiWritesPerMinutePerIp" in observed);
-  assert.equal(observed.apiWritesPerMinutePerIp, 120);
+  assert.equal(observed.gatewayRequestsPerSecondPerIp, 20);
   assert.ok(!JSON.stringify(observed).includes("shieldZoneId"));
-  const methods = API_WRITE_RULE.chainedRuleConditions[0].value.split(" ");
-  assert.deepEqual(methods, ["POST", "PUT"]);
 });
 
-test("Shield repairs drift without modifying foreign rate limits or retaining payload logging", async () => {
+test("Shield repairs owned settings without requesting add-ons or changing other gateway settings", async () => {
   const { state, api } = fixture();
   await configureShield(api, 2, true);
   state.zone!.requestBodyLoggingEnabled = true;
   state.zone!.wafRequestHeaderLoggingEnabled = true;
   state.zone!.dDoSShieldSensitivity = 4;
-  state.rules[0].ruleConfiguration = { ...API_WRITE_RULE, requestCount: 999 };
-  const foreign = { id: 9, shieldZoneId: 7, ruleName: "operator-owned", ruleConfiguration: {} };
-  state.rules.push(structuredClone(foreign));
+  state.gateway.RequestLimit = 10;
   assert.equal((await configureShield(api, 2, true)).changes, 2);
-  assert.deepEqual(state.rules[1], foreign);
   assert.equal(state.zone!.requestBodyLoggingEnabled, false);
   assert.equal(state.zone!.wafRequestHeaderLoggingEnabled, false);
   assert.equal(state.zone!.dDoSShieldSensitivity, 1);
+  assert.deepEqual(state.gateway, { RequestLimit: 20, BurstSize: 40, EnableLogging: false });
   assert.equal((await configureShield(api, 2, true)).changes, 0);
 });
 
-test("Shield refuses paid-plan changes, duplicate ownership, and exhausted slots", async () => {
-  for (const scenario of ["paid", "duplicate", "full"] as const) {
+test("Shield refuses paid-plan changes and ambiguous zone ownership", async () => {
+  for (const scenario of ["paid", "duplicate"] as const) {
     const { state, api } = fixture();
     await configureShield(api, 2, true);
     state.writes.length = 0;
     if (scenario === "paid") state.zone!.planType = 1;
-    if (scenario === "duplicate") state.rules.push({ ...state.rules[0], id: 10 });
-    if (scenario === "full")
-      state.rules = [1, 2].map((id) => ({
-        id,
-        shieldZoneId: 7,
-        ruleName: `foreign-${id}`,
-        ruleConfiguration: {},
-      }));
+    else state.duplicate = true;
     await assert.rejects(configureShield(api, 2, true));
-    assert.equal(state.writes.length, 0, scenario);
+    assert.equal(state.writes.length, 0);
   }
 });
 
@@ -130,6 +93,9 @@ test("Shield requires effective read-back instead of trusting successful writes"
   await assert.rejects(configureShield(api, 2, true), /did not converge/);
   state.zone!.wafEnabled = true;
   state.zone!.dDoSExecutionMode = 0;
+  await assert.rejects(configureShield(api, 2, true), /did not converge/);
+  state.zone!.dDoSExecutionMode = 1;
+  state.gateway.BurstSize = 0;
   await assert.rejects(configureShield(api, 2, true), /did not converge/);
 });
 

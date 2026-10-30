@@ -1,8 +1,8 @@
-import { isDeepStrictEqual } from "node:util";
 import { bunnyApi, required, type BunnyApi } from "./bunny.ts";
+import { SETTINGS } from "./provision.ts";
 
 // Bunny Shield v1 enums: https://api.bunny.net/shield/docs/v1/swagger.json
-// Explicit Basic avoids the provider's paid Advanced default.
+// Explicit Basic avoids the provider's paid Advanced default and browser challenges.
 export const SHIELD_SETTINGS = {
   planType: 0,
   learningMode: false,
@@ -12,182 +12,79 @@ export const SHIELD_SETTINGS = {
   requestBodyLoggingEnabled: false,
   dDoSShieldSensitivity: 1, // Low; never force a browser challenge for every request.
 };
-export const RULE_NAME = "app-tracking-api-writes-v1";
-export const API_WRITE_RULE = {
-  actionType: 1, // RateLimit, not Challenge.
-  variableTypes: { REQUEST_URI: "" },
-  operatorType: 0, // BEGINSWITH.
-  value: "/v1/",
-  isNegated: false,
-  isRegexVariable: false,
-  transformationTypes: [],
-  requestCount: 120,
-  counterKeyType: 0, // IP, shared across all matching paths.
-  timeframe: 60,
-  blockTime: 30,
-  chainedRuleConditions: [
-    {
-      variableTypes: { REQUEST_METHOD: "" },
-      operatorType: 12, // WITHIN; does not require Advanced's regex support.
-      value: "POST PUT",
-      isNegated: false,
-      isRegexVariable: false,
-    },
-  ],
-};
+const GATEWAY_LIMITS = { RequestLimit: SETTINGS.RequestLimit, BurstSize: SETTINGS.BurstSize };
 interface ShieldZone extends Record<string, unknown> {
   shieldZoneId: number;
   pullZoneId: number;
   planType: number;
-  rateLimitRulesLimit: number;
 }
-interface Rule {
-  id: number;
-  shieldZoneId: number;
-  ruleName: string;
-  ruleConfiguration: Record<string, unknown> | null;
-  ruleJson?: string | null;
-}
-interface Page<T> {
-  data: T[] | null;
-  page: { nextPage: number | null } | null;
-  error?: { success: boolean };
-}
-async function list<T>(api: BunnyApi, path: string): Promise<T[]> {
-  const entries: T[] = [];
+async function readZone(api: BunnyApi, pullZoneId: number) {
+  const matches: ShieldZone[] = [];
   for (let page = 1; page <= 100; page++) {
-    const result = await api<Page<T>>("GET", `${path}?perPage=100&page=${page}`);
-    if (result.error?.success === false) throw new Error("Shield listing failed");
+    const result = await api<{
+      data: ShieldZone[] | null;
+      page: { nextPage: number | null } | null;
+    }>("GET", `/shield/shield-zones?perPage=100&page=${page}`);
     if (result.data !== null && !Array.isArray(result.data))
       throw new Error("Invalid Shield listing");
-    const data = result.data ?? [];
-    entries.push(...data);
-    // Shield returns nullable data and no pagination for an empty rule list.
-    if (!data.length && !result.page) return entries;
-    if (!result.page) throw new Error("Missing Shield pagination");
-    if (result.page.nextPage === null) return entries;
-    if (result.page.nextPage !== page + 1) throw new Error("Invalid Shield pagination");
+    matches.push(...(result.data ?? []).filter((zone) => zone.pullZoneId === pullZoneId));
+    if (matches.length > 1) throw new Error("Ambiguous Shield zone");
+    if ((!result.data?.length && !result.page) || result.page?.nextPage === null)
+      return matches[0] as ShieldZone | undefined;
+    if (result.page?.nextPage !== page + 1) throw new Error("Invalid Shield pagination");
   }
   throw new Error("Shield discovery exceeded page limit");
 }
-async function readZone(api: BunnyApi, pullZoneId: number) {
-  const matches = (await list<ShieldZone>(api, "/shield/shield-zones")).filter(
-    (zone) => zone.pullZoneId === pullZoneId,
-  );
-  if (matches.length > 1) throw new Error("Ambiguous Shield zone");
-  return matches[0] as ShieldZone | undefined;
-}
-function managedRule(rules: Rule[], zone: ShieldZone) {
-  if (rules.some((rule) => rule.shieldZoneId !== zone.shieldZoneId))
-    throw new Error("Rate limit belongs to another Shield zone");
-  const matches = rules.filter((rule) => rule.ruleName === RULE_NAME);
-  if (matches.length > 1) throw new Error("Ambiguous managed Shield rate limit");
-  return matches[0] as Rule | undefined;
-}
-function ruleConfiguration(rule: Rule | undefined): Record<string, unknown> | undefined {
-  if (rule?.ruleConfiguration) return rule.ruleConfiguration;
-  if (!rule?.ruleJson) return;
-  try {
-    const configuration: unknown = JSON.parse(rule.ruleJson);
-    if (configuration && typeof configuration === "object" && !Array.isArray(configuration))
-      return configuration as Record<string, unknown>;
-  } catch {
-    /* Do not expose a provider response in an exception. */
-  }
-  throw new Error("Invalid managed rate limit configuration");
-}
-function ruleMatches(rule: Rule | undefined) {
-  const configuration = ruleConfiguration(rule);
-  return (
-    !!configuration &&
-    Object.entries(API_WRITE_RULE).every(([key, expected]) =>
-      isDeepStrictEqual(configuration[key], expected),
-    )
-  );
-}
-function settingsMatch(zone: ShieldZone) {
-  return Object.entries(SHIELD_SETTINGS).every(([key, value]) => zone[key] === value);
+function matches(actual: Record<string, unknown>, expected: Record<string, unknown>) {
+  return Object.entries(expected).every(([key, value]) => actual[key] === value);
 }
 
 export async function configureShield(api: BunnyApi, pullZoneId: number, apply = false) {
   if (!Number.isSafeInteger(pullZoneId) || pullZoneId < 1) throw new Error("Invalid pull zone");
   let zone = await readZone(api, pullZoneId);
+  let gateway = await api<Record<string, unknown>>("GET", `/pullzone/${pullZoneId}`);
   let changes = 0;
-  if (!zone && apply) {
-    await api("POST", "/shield/shield-zone", {
-      pullZoneId,
-      shieldZone: SHIELD_SETTINGS,
-    });
-    changes++;
-    zone = await readZone(api, pullZoneId);
-    if (!zone) throw new Error("Shield creation was not confirmed");
-  }
-  if (!zone) return { configured: false, verified: false, changes };
-  if (zone.planType !== 0) throw new Error("Existing paid Shield plan requires separate review");
-  let rules = await list<Rule>(api, `/shield/rate-limits/${zone.shieldZoneId}`);
-  let rule = managedRule(rules, zone);
-  // Basic does not include bot mitigation. Do not call paid-feature endpoints.
+  if (zone && zone.planType !== 0)
+    throw new Error("Existing paid Shield plan requires separate review");
   if (apply) {
-    if (!rule && rules.length >= zone.rateLimitRulesLimit)
-      throw new Error("No free Shield rate limit slot; existing rules were preserved");
-    if (!settingsMatch(zone)) {
+    if (!zone) {
+      // Do not request unavailable Basic add-ons such as bot detection or upload scanning.
+      await api("POST", "/shield/shield-zone", { pullZoneId, shieldZone: SHIELD_SETTINGS });
+      changes++;
+    } else if (!matches(zone, SHIELD_SETTINGS)) {
       await api("PATCH", "/shield/shield-zone", {
         shieldZoneId: zone.shieldZoneId,
         shieldZone: SHIELD_SETTINGS,
       });
       changes++;
     }
-    if (!ruleMatches(rule)) {
-      const body = {
-        ruleName: RULE_NAME,
-        ruleDescription:
-          "Bound POST/PUT API traffic per IP without browser challenges or limiting deletion.",
-        ruleConfiguration: API_WRITE_RULE,
-      };
-      if (rule) await api("PATCH", `/shield/rate-limit/${rule.id}`, body);
-      else await api("POST", "/shield/rate-limit", { shieldZoneId: zone.shieldZoneId, ...body });
+    if (!matches(gateway, GATEWAY_LIMITS)) {
+      await api("POST", `/pullzone/${pullZoneId}`, GATEWAY_LIMITS);
       changes++;
     }
-    // A successful write response is insufficient: read back the effective settings.
+    // Successful HTTP responses alone are insufficient; verify the effective configuration.
     zone = await readZone(api, pullZoneId);
-    if (!zone) throw new Error("Shield zone disappeared during verification");
-    rules = await list<Rule>(api, `/shield/rate-limits/${zone.shieldZoneId}`);
-    rule = managedRule(rules, zone);
+    gateway = await api<Record<string, unknown>>("GET", `/pullzone/${pullZoneId}`);
   }
-  const verified = settingsMatch(zone) && zone.dDoSExecutionMode === 1 && ruleMatches(rule);
-  if (apply && !verified)
-    throw new Error(
-      `Shield settings did not converge: ${JSON.stringify({
-        settingsDiffer: Object.entries(SHIELD_SETTINGS)
-          .filter(([key, value]) => zone[key] !== value)
-          .map(([key]) => key),
-        ddosBlocking: zone.dDoSExecutionMode === 1,
-        rateFieldsDiffer: Object.entries(API_WRITE_RULE)
-          .filter(([key, value]) => !isDeepStrictEqual(ruleConfiguration(rule)?.[key], value))
-          .map(([key]) => key),
-        managedRulePresent: !!rule,
-        configurationFields: Object.keys(ruleConfiguration(rule) ?? {}),
-      })}`,
-    );
-  // Log only selected configuration values, never IDs, headers, payloads, or traffic.
+  const verified =
+    !!zone &&
+    matches(zone, SHIELD_SETTINGS) &&
+    zone.dDoSExecutionMode === 1 &&
+    matches(gateway, GATEWAY_LIMITS);
+  if (apply && !verified) throw new Error("Shield or gateway settings did not converge");
+  // Only selected configuration is logged, never account IDs, request data, or credentials.
   return {
-    configured: true,
+    configured: !!zone,
     verified,
     changes,
-    configuration: Object.fromEntries(Object.keys(SHIELD_SETTINGS).map((key) => [key, zone[key]])),
-    ddosBlocking: zone.dDoSExecutionMode === 1,
-    apiWritesPerMinutePerIp: ruleMatches(rule) ? API_WRITE_RULE.requestCount : null,
-    botChallenges: false,
-    rateLimitCount: rules.length,
-    ...(!verified
-      ? {
-          managedRulePresent: !!rule,
-          configurationFields: Object.keys(ruleConfiguration(rule) ?? {}),
-        }
-      : {}),
+    configuration: Object.fromEntries(
+      Object.keys(SHIELD_SETTINGS).map((key) => [key, zone?.[key]]),
+    ),
+    ddosBlocking: zone?.dDoSExecutionMode === 1,
+    gatewayRequestsPerSecondPerIp: gateway.RequestLimit,
+    gatewayBurst: gateway.BurstSize,
   };
 }
-
 async function productionPullZone(api: BunnyApi) {
   const scripts = await api<{ Items: { Id: number; Name: string }[] }>(
     "GET",
