@@ -1,6 +1,6 @@
 {
   "name": "@sebastian-software/app-tracking",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "private": true,
   "description": "Shared version delivery and opt-in usage tracking for developer tools",
   "license": "MIT OR Apache-2.0",
