@@ -1193,3 +1193,533 @@ test("reminder timestamp rejects values beyond the supported clock range", async
   await fs.writeFile(file, JSON.stringify(state));
   await assert.rejects(c.requestOptInReminder("Purpose"), { code: "State" });
 });
+
+test("v2 profile shares one file across Rust and installed Node with separate choices", async () => {
+  const root = resolve(__dirname, "../../..");
+  execFileSync("cargo", ["build", "--locked", "--example", "unified-client-fixture"], {
+    cwd: root,
+    stdio: "pipe",
+  });
+  const binary = join(
+    root,
+    "target",
+    "debug",
+    "examples",
+    `unified-client-fixture${process.platform === "win32" ? ".exe" : ""}`,
+  );
+  const origin = "http://127.0.0.1:1";
+  for (const rustFirst of [true, false]) {
+    const dir = await fs.mkdtemp(join(fixture, "profile-"));
+    const shared = join(dir, "shared");
+    const node = await client({ stateRoot: join(dir, "node"), sharedProfileRoot: shared, origin });
+    const env = {
+      ...process.env,
+      APP_TRACKING_FIXTURE_ORIGIN: origin,
+      APP_TRACKING_FIXTURE_ROOT: join(dir, "rust"),
+      APP_TRACKING_FIXTURE_SHARED: shared,
+    };
+    const rust = (op) => execFileSync(binary, [op], { cwd: root, env, encoding: "utf8" });
+    await node.setOptIn(true);
+    assert.equal((await node.profileStatus()).decision, "undecided");
+    if (rustFirst) rust("profile-enable");
+    else await node.setProfileLinking(true);
+    const file = join(
+      shared,
+      "profiles-v2",
+      createHash("sha256").update(origin).digest("hex"),
+      "profile.json",
+    );
+    const first = JSON.parse(await fs.readFile(file, "utf8"));
+    assert.notEqual(first.profile_id, first.token);
+    if (rustFirst) await node.setProfileLinking(true);
+    else rust("profile-enable");
+    assert.deepEqual(JSON.parse(await fs.readFile(file, "utf8")), first);
+    assert.equal((await node.profileStatus()).decision, "granted");
+    assert.match(rust("profile-status"), /Granted/);
+    const nodeState = JSON.parse(
+      await fs.readFile(
+        resolve(
+          dir,
+          "node",
+          createHash("sha256").update(origin).digest("hex"),
+          "ferriki",
+          "node-events-v1",
+          "state.json",
+        ),
+        "utf8",
+      ),
+    );
+    assert.equal(nodeState.schemaVersion, 2);
+    assert.notEqual(nodeState.identity.id, first.profile_id);
+    assert.notEqual(nodeState.identity.token, first.token);
+    rust("profile-reset");
+    assert.equal(await node.profileResetPending(), true);
+    assert.equal(await node.syncProfileReset(), false);
+    assert.equal((await node.profileStatus()).decision, "undecided");
+    assert.equal(JSON.parse(await fs.readFile(file, "utf8")).profile_id, first.profile_id);
+  }
+});
+
+test("v2 profile lock fails closed until explicit recovery after all processes stop", async () => {
+  const root = await fs.mkdtemp(join(fixture, "profile-lock-"));
+  const shared = join(root, "shared");
+  const origin = "http://127.0.0.1:1";
+  const c = await client({ stateRoot: join(root, "state"), sharedProfileRoot: shared, origin });
+  await c.setOptIn(true);
+  await c.setProfileLinking(true);
+  const dir = join(shared, "profiles-v2", createHash("sha256").update(origin).digest("hex"));
+  await fs.mkdir(join(dir, "profile.lock"));
+  await assert.rejects(c.profileStatus(), { code: "Busy" });
+  await fs.rmdir(join(dir, "profile.lock"));
+  assert.equal((await c.profileStatus()).decision, "granted");
+});
+
+test("profile sync requires exact acknowledgements and never rotates on missing or wrong reset", async () => {
+  let mode = "mismatch";
+  let seen = [];
+  const s = await server(async (req, res) => {
+    let body = "";
+    for await (const part of req) body += part;
+    seen.push({ path: req.url, auth: req.headers.authorization, body: body && JSON.parse(body) });
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Content-Type", "application/json");
+    if (mode === "unauthorized") {
+      res.statusCode = 401;
+      res.end(JSON.stringify({ error: { code: "unauthorized" } }));
+      return;
+    }
+    if (req.method === "PUT") {
+      const value = JSON.parse(body);
+      delete value.profile_token;
+      if (mode === "mismatch") value.profile_id = "0".repeat(64);
+      res.end(JSON.stringify(value));
+    } else if (mode === "missing") {
+      res.statusCode = 404;
+      res.end(JSON.stringify({ schema_version: 1, error: { code: "installation_not_found" } }));
+    } else {
+      const id = req.url.split("/").pop();
+      res.end(
+        JSON.stringify({
+          schema_version: 1,
+          revision: "profile-linking-v1",
+          profile_id: mode === "mismatch" ? "0".repeat(64) : id,
+          status: "deleted",
+        }),
+      );
+    }
+  });
+  try {
+    const root = await fs.mkdtemp(join(fixture, "profile-sync-"));
+    const c = await client({
+      origin: s.origin,
+      stateRoot: join(root, "state"),
+      sharedProfileRoot: join(root, "shared"),
+    });
+    await assert.rejects(c.setProfileLinking(true), { code: "AdditionalPermission" });
+    await c.setOptIn(true);
+    await c.setProfileLinking(true);
+    assert.equal((await c.profileStatus()).pending, true);
+    assert.equal(await c.syncProfileLinking(), false);
+    mode = "ok";
+    assert.equal(await c.syncProfileLinking(), true);
+    assert.notEqual(seen[0].auth, `Bearer ${seen[0].body.profile_token}`);
+    const previous = seen[0].body.profile_id;
+    await c.requestProfileReset();
+    mode = "missing";
+    assert.equal(await c.syncProfileReset(), false);
+    mode = "mismatch";
+    assert.equal(await c.syncProfileReset(), false);
+    mode = "unauthorized";
+    assert.equal(await c.syncProfileReset(), false);
+    assert.equal(await c.profileResetPending(), true);
+    mode = "ok";
+    assert.equal(await c.syncProfileReset(), true);
+    assert.equal((await c.profileStatus()).decision, "undecided");
+    const shared = join(
+      root,
+      "shared",
+      "profiles-v2",
+      createHash("sha256").update(s.origin).digest("hex"),
+      "profile.json",
+    );
+    assert.notEqual(JSON.parse(await fs.readFile(shared, "utf8")).profile_id, previous);
+  } finally {
+    await s.close();
+  }
+});
+
+test("Rust and Node contend on the same v2 lock in both runtime orders", async () => {
+  const repo = resolve(__dirname, "../../..");
+  const binary = join(
+    repo,
+    "target",
+    "debug",
+    "examples",
+    `unified-client-fixture${process.platform === "win32" ? ".exe" : ""}`,
+  );
+  for (const rustFirst of [false, true]) {
+    let arrive;
+    const arrived = new Promise((resolve) => {
+      arrive = resolve;
+    });
+    let release;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    const s = await server(async (req, res) => {
+      let body = "";
+      for await (const part of req) body += part;
+      arrive();
+      await gate;
+      const value = JSON.parse(body);
+      delete value.profile_token;
+      res.setHeader("Cache-Control", "no-store");
+      res.end(JSON.stringify(value));
+    });
+    try {
+      const root = await fs.mkdtemp(join(fixture, "profile-contention-"));
+      const shared = join(root, "shared");
+      const c = await client({
+        origin: s.origin,
+        stateRoot: join(root, "node"),
+        sharedProfileRoot: shared,
+      });
+      const env = {
+        ...process.env,
+        APP_TRACKING_FIXTURE_ORIGIN: s.origin,
+        APP_TRACKING_FIXTURE_ROOT: join(root, "rust"),
+        APP_TRACKING_FIXTURE_SHARED: shared,
+      };
+      const run = (op) => execFileSync(binary, [op], { cwd: repo, env, encoding: "utf8" });
+      await c.setOptIn(true);
+      await c.setProfileLinking(true);
+      run("profile-enable");
+      if (rustFirst) {
+        const child = bound(spawn(binary, ["profile-sync"], { cwd: repo, env, stdio: "ignore" }));
+        await arrived;
+        await assert.rejects(c.profileStatus(), { code: "Busy" });
+        await assert.rejects(c.requestProfileReset(), { code: "Busy" });
+        release();
+        const [code] = await once(child, "exit");
+        assert.equal(code, 0);
+      } else {
+        const syncing = c.syncProfileLinking();
+        await arrived;
+        assert.throws(() => run("profile-status"));
+        assert.throws(() => run("profile-reset"));
+        release();
+        assert.equal(await syncing, true);
+      }
+    } finally {
+      release();
+      await s.close();
+    }
+  }
+});
+
+test("a delayed first link cannot make a missing-profile reset rotate", async () => {
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  let arrived;
+  const waiting = new Promise((resolve) => {
+    arrived = resolve;
+  });
+  let lateApplied = false;
+  const s = await server(async (req, res) => {
+    if (req.method === "PUT") {
+      let data = "";
+      for await (const part of req) data += part;
+      arrived();
+      await gate;
+      lateApplied = true;
+      const body = JSON.parse(data);
+      delete body.profile_token;
+      res.setHeader("Cache-Control", "no-store");
+      res.end(JSON.stringify(body));
+    } else {
+      res.statusCode = 404;
+      res.setHeader("Cache-Control", "no-store");
+      res.end(JSON.stringify({ schema_version: 1, error: { code: "installation_not_found" } }));
+    }
+  });
+  try {
+    const root = await fs.mkdtemp(join(fixture, "profile-late-"));
+    const c = await client({
+      origin: s.origin,
+      stateRoot: join(root, "state"),
+      sharedProfileRoot: join(root, "shared"),
+    });
+    await c.setOptIn(true);
+    await c.setProfileLinking(true);
+    const file = join(
+      root,
+      "shared",
+      "profiles-v2",
+      createHash("sha256").update(s.origin).digest("hex"),
+      "profile.json",
+    );
+    const id = JSON.parse(await fs.readFile(file, "utf8")).profile_id;
+    const pending = c.syncProfileLinking();
+    await waiting;
+    assert.equal(await pending, false);
+    await c.requestProfileReset();
+    assert.equal(await c.syncProfileReset(), false);
+    release();
+    await eventually(async () => lateApplied);
+    const after = JSON.parse(await fs.readFile(file, "utf8"));
+    assert.equal(after.profile_id, id);
+    assert.equal(after.reset_pending, true);
+    assert.equal((await c.profileStatus()).decision, "undecided");
+    assert.equal(await c.syncProfileLinking(), false);
+  } finally {
+    release();
+    await s.close();
+  }
+});
+
+test("simultaneous Rust and Node creation converges or reports retryable contention", async () => {
+  const repo = resolve(__dirname, "../../..");
+  const binary = join(
+    repo,
+    "target",
+    "debug",
+    "examples",
+    `unified-client-fixture${process.platform === "win32" ? ".exe" : ""}`,
+  );
+  const root = await fs.mkdtemp(join(fixture, "profile-race-"));
+  const origin = "http://127.0.0.1:1";
+  const shared = join(root, "shared");
+  const c = await client({ origin, stateRoot: join(root, "node"), sharedProfileRoot: shared });
+  await c.setOptIn(true);
+  const env = {
+    ...process.env,
+    APP_TRACKING_FIXTURE_ORIGIN: origin,
+    APP_TRACKING_FIXTURE_ROOT: join(root, "rust"),
+    APP_TRACKING_FIXTURE_SHARED: shared,
+  };
+  const child = bound(spawn(binary, ["profile-enable"], { cwd: repo, env, stdio: "pipe" }));
+  let stderr = "";
+  child.stderr.setEncoding("utf8");
+  child.stderr.on("data", (chunk) => {
+    stderr += chunk;
+  });
+  const attempt = c.setProfileLinking(true).then(
+    () => "ok",
+    (error) => error.code,
+  );
+  const [code] = await once(child, "close");
+  const nodeResult = await attempt;
+  assert.ok(nodeResult === "ok" || nodeResult === "Busy");
+  assert.ok(
+    code === 0 || (code === 1 && /^Error: Busy\s*$/.test(stderr)),
+    `unexpected Rust failure: ${stderr}`,
+  );
+  if (nodeResult === "Busy") await c.setProfileLinking(true);
+  if (code !== 0) execFileSync(binary, ["profile-enable"], { cwd: repo, env, stdio: "pipe" });
+  assert.equal((await c.profileStatus()).decision, "granted");
+  assert.match(
+    execFileSync(binary, ["profile-status"], { cwd: repo, env, encoding: "utf8" }),
+    /Granted/,
+  );
+});
+
+test("a never-registered profile remains pending while offline", async () => {
+  const root = await fs.mkdtemp(join(fixture, "profile-offline-reset-"));
+  const c = await client({
+    stateRoot: join(root, "state"),
+    sharedProfileRoot: join(root, "shared"),
+    policy: { offline: true },
+  });
+  await c.setOptIn(true);
+  await c.setProfileLinking(true);
+  await c.requestProfileReset();
+  assert.equal(await c.syncProfileReset(), false);
+  assert.equal((await c.profileStatus()).decision, "undecided");
+  assert.equal(await c.profileResetPending(), true);
+});
+
+test("a killed Rust holder leaves the v2 lock busy until explicit recovery", async () => {
+  const repo = resolve(__dirname, "../../..");
+  const binary = join(
+    repo,
+    "target",
+    "debug",
+    "examples",
+    `unified-client-fixture${process.platform === "win32" ? ".exe" : ""}`,
+  );
+  let arrived;
+  const waiting = new Promise((resolve) => {
+    arrived = resolve;
+  });
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  const s = await server(async (req, res) => {
+    for await (const _ of req) {
+      /* consume request */
+    }
+    arrived();
+    await gate;
+    res.setHeader("Cache-Control", "no-store");
+    res.end("{}");
+  });
+  try {
+    const root = await fs.mkdtemp(join(fixture, "profile-crash-"));
+    const shared = join(root, "shared");
+    const c = await client({
+      origin: s.origin,
+      stateRoot: join(root, "node"),
+      sharedProfileRoot: shared,
+    });
+    const env = {
+      ...process.env,
+      APP_TRACKING_FIXTURE_ORIGIN: s.origin,
+      APP_TRACKING_FIXTURE_ROOT: join(root, "rust"),
+      APP_TRACKING_FIXTURE_SHARED: shared,
+    };
+    await c.setOptIn(true);
+    await c.setProfileLinking(true);
+    execFileSync(binary, ["profile-enable"], { cwd: repo, env, stdio: "pipe" });
+    const child = bound(spawn(binary, ["profile-sync"], { cwd: repo, env, stdio: "ignore" }));
+    await waiting;
+    const exit = once(child, "exit");
+    child.kill();
+    await exit;
+    await assert.rejects(c.profileStatus(), { code: "Busy" });
+    const lock = join(
+      shared,
+      "profiles-v2",
+      createHash("sha256").update(s.origin).digest("hex"),
+      "profile.lock",
+    );
+    await fs.rmdir(lock);
+    assert.equal((await c.profileStatus()).decision, "granted");
+  } finally {
+    release();
+    await s.close();
+  }
+});
+
+test("profile refusal persists and ordinary withdrawal queues an unlink", async () => {
+  const root = await fs.mkdtemp(join(fixture, "profile-withdrawal-"));
+  const shared = join(root, "shared");
+  const c = await client({
+    stateRoot: join(root, "state"),
+    sharedProfileRoot: shared,
+    policy: { offline: true },
+  });
+  await c.setOptIn(true);
+  await c.setProfileLinking(false);
+  assert.equal(await c.requestProfileLinking("Explain linking"), "declined");
+  await assert.rejects(fs.access(shared), { code: "ENOENT" });
+  await c.setProfileLinking(true);
+  await c.setOptIn(false);
+  assert.deepEqual(await c.profileStatus(), {
+    decision: "declined",
+    pending: true,
+    resetPending: false,
+  });
+  assert.equal(await c.syncProfileLinking(), false);
+  assert.equal((await c.status()).optIn, false);
+});
+
+test("a stale copied profile cannot claim a reset after another copy links", async () => {
+  const s = await server(async (req, res) => {
+    let body = "";
+    for await (const part of req) body += part;
+    const receipt = JSON.parse(body);
+    delete receipt.profile_token;
+    res.setHeader("Cache-Control", "no-store");
+    res.end(JSON.stringify(receipt));
+  });
+  try {
+    const root = await fs.mkdtemp(join(fixture, "profile-copy-reset-"));
+    const originalRoot = join(root, "original"),
+      copyRoot = join(root, "copy");
+    const original = await client({
+      origin: s.origin,
+      stateRoot: join(root, "one"),
+      sharedProfileRoot: originalRoot,
+    });
+    const copy = await client({
+      origin: s.origin,
+      stateRoot: join(root, "two"),
+      sharedProfileRoot: copyRoot,
+      policy: { offline: true },
+    });
+    await original.setOptIn(true);
+    await original.setProfileLinking(true);
+    await fs.cp(originalRoot, copyRoot, { recursive: true });
+    const file = join(
+      copyRoot,
+      "profiles-v2",
+      createHash("sha256").update(s.origin).digest("hex"),
+      "profile.json",
+    );
+    const before = JSON.parse(await fs.readFile(file, "utf8"));
+    assert.equal(await original.syncProfileLinking(), true);
+    await copy.requestProfileReset();
+    assert.equal(await copy.syncProfileReset(), false);
+    const after = JSON.parse(await fs.readFile(file, "utf8"));
+    assert.equal(after.profile_id, before.profile_id);
+    assert.equal(after.token, before.token);
+    assert.equal(after.reset_pending, true);
+  } finally {
+    await s.close();
+  }
+});
+
+test("profile missing files, stale choices, CI, and noninteractive modes fail closed", async () => {
+  let requests = 0;
+  const s = await server(async (req, res) => {
+    let body = "";
+    for await (const part of req) body += part;
+    requests++;
+    const value = JSON.parse(body);
+    delete value.profile_token;
+    res.setHeader("Cache-Control", "no-store");
+    res.end(JSON.stringify(value));
+  });
+  try {
+    const root = await fs.mkdtemp(join(fixture, "profile-negatives-"));
+    const stateRoot = join(root, "state"),
+      shared = join(root, "shared");
+    const c = await client({ origin: s.origin, stateRoot, sharedProfileRoot: shared });
+    await c.setOptIn(true);
+    assert.equal(await c.requestProfileLinking("Explain linking"), "unavailable");
+    await c.setProfileLinking(true);
+    const hash = createHash("sha256").update(s.origin).digest("hex");
+    const state = join(stateRoot, hash, "ferriki", "node-events-v1", "state.json");
+    const profile = join(shared, "profiles-v2", hash, "profile.json");
+    let saved = JSON.parse(await fs.readFile(state, "utf8"));
+    saved.profile.revision = "unknown";
+    await fs.writeFile(state, JSON.stringify(saved));
+    assert.equal(await c.syncProfileLinking(), false);
+    assert.equal((await c.profileStatus()).decision, "undecided");
+    await c.setProfileLinking(true);
+    saved = JSON.parse(await fs.readFile(state, "utf8"));
+    saved.profile.changedAt = Date.now() - 91 * 86400000;
+    await fs.writeFile(state, JSON.stringify(saved));
+    assert.equal(await c.syncProfileLinking(), false);
+    await c.setProfileLinking(true);
+    await fs.rm(profile);
+    assert.equal(await c.syncProfileLinking(), false);
+    assert.equal((await c.profileStatus()).decision, "undecided");
+    assert.equal(requests, 0);
+    const ciRoot = join(root, "ci-shared");
+    const ci = await client({
+      origin: s.origin,
+      stateRoot: join(root, "ci"),
+      sharedProfileRoot: ciRoot,
+      policy: { ci: true, isolatedCiState: true, ciRevision: "telemetry-v1" },
+    });
+    assert.equal(await ci.requestProfileLinking("Explain linking"), "unavailable");
+    await assert.rejects(ci.setProfileLinking(true), { code: "AdditionalPermission" });
+    await assert.rejects(fs.access(ciRoot), { code: "ENOENT" });
+  } finally {
+    await s.close();
+  }
+});

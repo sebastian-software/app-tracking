@@ -11,7 +11,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
@@ -23,5 +23,12 @@ jobs:
       - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa
         with:
           run_install: false
+      - name: Install Rust MSRV for cross-runtime fixtures
+        shell: bash
+        run: |
+          version=$(node --input-type=module -e "import { readFileSync } from 'node:fs'; process.stdout.write(/^rust-version = \"([^\"]+)\"$/m.exec(readFileSync('Cargo.toml', 'utf8'))[1])")
+          rustup toolchain install "$version" --profile minimal
+          rustup override set "$version"
+      - run: cargo build --locked --example unified-client-fixture
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm test:node-client

@@ -42,9 +42,10 @@ export interface AdditionalChoice {
   confirmed: boolean;
 }
 export interface State {
+  profile?: import("./profile.ts").ProfileChoice;
   history?: AdditionalChoice;
   publicUsage?: AdditionalChoice;
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   scope: string;
   optIn: boolean | null;
   optInScope: string | null;
@@ -149,7 +150,7 @@ export async function load(
     const value: unknown = JSON.parse(await file.readFile("utf8"));
     if (
       !record(value) ||
-      value.schemaVersion !== 1 ||
+      (value.schemaVersion !== 1 && value.schemaVersion !== 2) ||
       value.scope !== scope ||
       ![null, true, false].includes(value.optIn as null | boolean) ||
       typeof value.disabled !== "boolean" ||
@@ -167,6 +168,30 @@ export async function load(
       )
     )
       fail("State");
+    if (value.profile !== undefined) {
+      const p = value.profile;
+      if (
+        !record(p) ||
+        Object.keys(p).sort().join() !== "changedAt,confirmed,enabled,profileId,revision" ||
+        typeof p.revision !== "string" ||
+        !p.revision ||
+        p.revision.length > 64 ||
+        typeof p.enabled !== "boolean" ||
+        typeof p.confirmed !== "boolean" ||
+        !Number.isSafeInteger(p.changedAt) ||
+        Number(p.changedAt) < 0 ||
+        Number(p.changedAt) >= 253402300800000 ||
+        (p.enabled
+          ? typeof p.profileId !== "string" ||
+            !hex.test(p.profileId) ||
+            value.identity === null ||
+            value.optIn !== true ||
+            value.disabled ||
+            value.deleting
+          : p.profileId !== null)
+      )
+        fail("State");
+    }
     for (const key of ["history", "publicUsage"]) {
       const choice = value[key];
       if (
@@ -267,6 +292,7 @@ export async function load(
 }
 
 export async function save(path: string, state: State): Promise<void> {
+  if (state.profile || state.history || state.publicUsage) state.schemaVersion = 2;
   const body = JSON.stringify(state);
   if (Buffer.byteLength(body) > MAX_STATE) fail("State");
   const temporary = `${path}.${random()}.tmp`;
