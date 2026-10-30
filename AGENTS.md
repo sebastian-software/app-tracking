@@ -27,6 +27,11 @@ contracts. Shared versions alone do not establish feature parity.
   matching version numbers or documentation alone do not close the gap.
 - Review existing parity gaps when touching related code. Report Rust and Node
   implementation and validation status separately in the PR description.
+- Keep the [README capability comparison](README.md#rust-and-nodejs-side-by-side)
+  and [paired integration examples](docs/client-comparison.md) current in the
+  same PR as a client capability or API change. Add or update both language
+  examples for the same task; label intentional differences and link their
+  rationale in the parity notes. Verify snippets against both current APIs.
 
 Keep both clients on one product version, release PR, tag, and changelog using
 the existing `standards` release pattern. See [the release guide](docs/releasing.md).

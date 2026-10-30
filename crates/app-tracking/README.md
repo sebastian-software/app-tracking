@@ -6,6 +6,9 @@ of telemetry and never read project metadata or create reporting state. The
 library prints only when explicitly asked to show its permission dialog and
 never installs or executes an update.
 
+For the same tasks in both languages, start with the
+[Rust/Node.js comparison](https://github.com/sebastian-software/app-tracking/blob/main/docs/client-comparison.md).
+
 ## Unified counters and resource downloads
 
 `app_tracking::client::Client` provides `record`, `download`, and a saved

@@ -5,6 +5,12 @@ repository's [agent instructions](../AGENTS.md) require both implementations to
 be checked, equivalent behavior to be verified, and any exception to be visible.
 A shared release version alone does not establish feature parity.
 
+The [README comparison](../README.md#rust-and-nodejs-side-by-side) lists client
+capabilities in both languages. The [paired integration guide](client-comparison.md)
+shows the same tasks in Rust and Node.js, including runtime differences. Keep
+both examples current in the feature's PR so a missing implementation is visible
+at the integration entry point, as well as in its tests.
+
 ## Current baseline
 
 Rust and Node support independent update checks, ordinary reporting, reminders, verified downloads, and
