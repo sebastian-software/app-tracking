@@ -5,6 +5,9 @@ The package contains ESM, CommonJS, TypeScript declarations, and its background
 worker. It uses Node.js built-ins and bundled JavaScript; consumers need no
 Rust toolchain, native addon, platform package, or installation script.
 
+For the same tasks in both languages, start with the
+[Rust/Node.js comparison](https://github.com/sebastian-software/app-tracking/blob/main/docs/client-comparison.md).
+
 This package shares its version and release tag with the Rust client. It supports
 consent reminders ([#53](https://github.com/sebastian-software/app-tracking/issues/53)),
 separate history and publication permissions, and optional shared v2 profile

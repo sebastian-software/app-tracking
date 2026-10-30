@@ -4,6 +4,9 @@
 dimensions, shared system context, verified resource downloads, and background
 reporting. The legacy update and invocation clients remain compatible.
 
+For the same integration tasks in Rust and Node.js, use the
+[paired client examples](client-comparison.md).
+
 ## Integration
 
 Create one client per reporting tool/service/profile. Construction performs no
@@ -253,8 +256,10 @@ runtime function grants before adopting the new endpoint. New generic counters
 are separate from legacy invocation statistics. The private dashboard keeps these separate from legacy invocations and reads
 fixed metric, version, language/resource, and system aggregates through migration
 0009; its source view is `app_tracking.reporting_events_v1`.
-Node support, cross-tool device identity, and Ferriki consumer adoption remain under [issue #48](https://github.com/sebastian-software/app-tracking/issues/48).
-This client implementation does not claim those integrations are complete.
+Node supports the maintained event contract and optional shared v2 profiles;
+see the [comparison](client-comparison.md) for matching APIs and deliberate
+differences. Ferriki consumer adoption remains separate from SDK capability.
+This client implementation does not claim a consumer rollout is complete.
 
 The [deployment runbook](deployment.md#published-unified-client-verification)
 defines service-first rollout, old-artifact rollback behavior, and the live
