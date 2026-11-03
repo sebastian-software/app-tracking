@@ -30,7 +30,7 @@
     "axe-core": "4.13.0",
     "esbuild": "0.28.2",
     "jose": "6.2.13",
-    "oxfmt": "0.74.0",
+    "oxfmt": "0.75.0",
     "playwright": "1.62.1",
     "proper-lockfile": "4.1.2",
     "typescript": "7.0.2"
