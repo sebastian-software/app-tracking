@@ -179,8 +179,8 @@ importers:
         specifier: 4.1.4
         version: 4.1.4
       '@workos-inc/node':
-        specifier: 12.0.0
-        version: 12.0.0
+        specifier: 12.1.0
+        version: 12.1.0
       ajv:
         specifier: 8.20.0
         version: 8.20.0
@@ -631,8 +631,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@workos-inc/node@12.0.0':
-    resolution: {integrity: sha512-ujB+xdaOHUrfHe5oMnNOrHV/g+AzZ+5VPCGayDLC4mHWTBHCZg6U5e9X8EDCmKSir8pSXAmJaJylTJNRZ+BSew==}
+  '@workos-inc/node@12.1.0':
+    resolution: {integrity: sha512-qT/RpDHti/MDR1r5Jkngg6gS7cpwzrRTB0DA4H/5UMD27t8qOcLqOkIrxVX4AOIzUQ0oJXn7l+c0kZZC/mrGiQ==}
     engines: {node: '>=22.11.0'}
 
   ajv-formats@3.0.1:
@@ -949,7 +949,7 @@ snapshots:
   '@typescript/typescript-win32-x64@7.0.2':
     optional: true
 
-  '@workos-inc/node@12.0.0': {}
+  '@workos-inc/node@12.1.0': {}
 
   ajv-formats@3.0.1(ajv@8.20.0):
     optionalDependencies:
