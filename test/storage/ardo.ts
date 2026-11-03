@@ -35,6 +35,8 @@ export async function ardoIntegration(admin: string) {
     })),
   };
   const contentHash = await sha256(canonical(batch));
+  // Stay outside the seven-day late-arrival window at the start of each month.
+  const month = "(date_trunc('month',CURRENT_DATE)-interval '2 months')::date";
   // Invalid rows need only a distinct immutable payload hash for the DB validator.
   const submit = (rows = batch.rows, batchId = batch.batch_id) =>
     `app_tracking.accept_events_v1('ardo','opt_in',${q(id)},${q(tokenHash)},${at},'local',${q(batchId)},${q(rows === batch.rows ? contentHash : "f".repeat(64))},${q(JSON.stringify(rows))}::jsonb)`;
@@ -55,8 +57,8 @@ export async function ardoIntegration(admin: string) {
     `SELECT app_tracking.set_history_permission_v1('ardo','legacy',${q(id)},${q(tokenHash)},true,${at});`,
     `SELECT app_tracking.set_public_permission_v1('ardo','legacy',${q(id)},${q(tokenHash)},true,${at});`,
     "SELECT app_tracking.admin_events_v1(CURRENT_DATE,CURRENT_DATE+1,'ardo','local','cli.invocation');",
-    "SELECT to_jsonb(app_tracking.finalize_history_v1((date_trunc('month',CURRENT_DATE)-interval '1 month')::date,'ardo','events','cli.invocation','local'));",
-    "SELECT app_tracking.admin_history_v1((date_trunc('month',CURRENT_DATE)-interval '1 month')::date,date_trunc('month',CURRENT_DATE)::date,'ardo','events','cli.invocation','local');",
+    `SELECT to_jsonb(app_tracking.finalize_history_v1(${month},'ardo','events','cli.invocation','local'));`,
+    `SELECT app_tracking.admin_history_v1(${month},(${month}+interval '1 month')::date,'ardo','events','cli.invocation','local');`,
     "SELECT jsonb_build_object('private',count(*),'public',(SELECT count(*) FROM app_tracking.public_periods_v1 WHERE tool_id='ardo')) FROM app_tracking.history_periods_v1 WHERE tool_id='ardo';",
     "SELECT app_tracking.count_version_request_v1('ardo','github','stable',200);",
     "SELECT app_tracking.count_version_request_v1('ardo','npm','stable',304);",
