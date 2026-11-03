@@ -358,6 +358,97 @@ async function eventually(check) {
 }
 
 test(
+  "installed workers persist upload and deletion acknowledgements after brief state contention",
+  { timeout: 15_000 },
+  async () => {
+    for (const deleting of [false, true]) {
+      let file, held, arrived;
+      const acknowledged = new Promise((resolve) => {
+        arrived = resolve;
+      });
+      let requests = 0;
+      const s = await server(async (req, res) => {
+        requests++;
+        let body = "";
+        for await (const chunk of req) body += chunk;
+        assert.equal(req.method, deleting ? "DELETE" : "POST");
+        assert.match(req.headers.authorization, /^Bearer [a-f0-9]{64}$/);
+        held = `${file}.lock`;
+        await fs.mkdir(held, { mode: 0o700 });
+        res.setHeader("cache-control", "no-store");
+        if (deleting) res.writeHead(204).end();
+        else {
+          const batch = JSON.parse(body);
+          assert.equal(batch.rows[0].count, 1);
+          res.writeHead(200).end(
+            JSON.stringify({
+              batch_id: batch.batch_id,
+              payload_sha256: createHash("sha256").update(body).digest("hex"),
+            }),
+          );
+        }
+        arrived();
+      });
+      try {
+        const stateRoot = join(
+          await fs.mkdtemp(join(fixture, "worker-state-contention-")),
+          "private",
+        );
+        const c = await client({ origin: s.origin, stateRoot });
+        await c.setOptIn(true);
+        if (deleting) await c.delete();
+        else await c.record("language.use", dimensions);
+        file = stateFile(stateRoot, s.origin);
+        assert.equal(await c.flushInBackground(), true);
+        await acknowledged;
+        // A foreground read remains nonblocking while the package worker waits
+        // to persist the real HTTP acknowledgement behind the same state lease.
+        await assert.rejects(c.status(), { code: "Busy" });
+        const pending = JSON.parse(await fs.readFile(file, "utf8"));
+        assert.equal(deleting ? pending.deleting : pending.batches.length === 1, true);
+        await fs.rmdir(held);
+        held = undefined;
+        await eventually(async () => {
+          const status = await c.status();
+          return deleting ? !status.deletionPending : status.queuedBatches === 0;
+        });
+        assert.equal(requests, 1);
+      } finally {
+        if (held) await fs.rm(held, { recursive: true, force: true });
+        await s.close();
+      }
+    }
+  },
+);
+
+test(
+  "prolonged worker state contention keeps deletion and its handoff pending",
+  { timeout: 5000 },
+  async () => {
+    const stateRoot = join(await fs.mkdtemp(join(fixture, "worker-state-busy-")), "private");
+    const c = await client({ stateRoot });
+    await c.setOptIn(true);
+    await c.delete();
+    const file = stateFile(stateRoot);
+    const state = JSON.parse(await fs.readFile(file, "utf8"));
+    const nonce = "a".repeat(64);
+    state.job = { nonce, generation: state.generation, created: Date.now(), batch: "delete" };
+    await fs.writeFile(file, JSON.stringify(state));
+    const held = `${file}.lock`;
+    await fs.mkdir(held, { mode: 0o700 });
+    try {
+      await assert.rejects(c.runBackgroundWorker(nonce), { code: "Busy" });
+      const pending = JSON.parse(await fs.readFile(file, "utf8"));
+      assert.equal(pending.job.nonce, nonce);
+      assert.equal(pending.deleting, true);
+    } finally {
+      await fs.rmdir(held);
+    }
+    assert.equal((await c.status()).deletionPending, true);
+  },
+);
+
+test(
   "parallel installed-package processes preserve counts or return explicit bounded contention",
   { timeout: 15_000 },
   async () => {

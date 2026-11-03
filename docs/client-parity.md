@@ -54,6 +54,23 @@ in both runtimes; the Node wrapper additionally verifies acknowledged delivery,
 unchanged command output/exit status, and completion on success/failure/interruption.
 The wrapper does not add a new consent, identity, reporting, or server contract.
 
+## Background worker state contention
+
+Both clients briefly retry a busy private-state lock in the background worker,
+including when persisting upload and deletion acknowledgements. Foreground
+status/settings calls remain nonblocking. Rust uses the legacy worker's 100 ms
+retry window; Node retains its existing 500 ms window for asynchronous leases.
+These runtime-specific bounds do not extend the update-check network deadline.
+If contention outlasts the bound, the worker returns `Busy` and leaves the
+unacknowledged operation pending. Network exclusion, consent checks, and
+generation-safe acknowledgements remain unchanged.
+
+Rust regression tests use a real subprocess, OS state locks, and loopback HTTP
+for upload and deletion at initial claim and acknowledgement. Installed Node
+package tests cover the same acknowledgement contention and pending deletion
+after its retry window. Node's existing retry implementation already satisfies
+this behavior; the production fix is in the Rust worker.
+
 ## Intentional legacy v1 exception
 
 Rust retains its legacy v1 profile controls and files. That format uses an OS
