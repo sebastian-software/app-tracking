@@ -1,6 +1,6 @@
 use super::{Client, Collection, Error, Store, hash, now, random, state::Job};
 use serde::Deserialize;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub const BACKGROUND_WORKER_ARGUMENT: &str = "--app-tracking-events-worker-v1";
 
@@ -9,6 +9,23 @@ pub const BACKGROUND_WORKER_ARGUMENT: &str = "--app-tracking-events-worker-v1";
 struct Receipt {
     batch_id: String,
     payload_sha256: String,
+}
+
+#[cfg(test)]
+mod tests;
+
+// Only the worker waits for brief foreground state writes. Scheduling and
+// foreground controls keep their nonblocking state/network-lock behavior.
+fn claim_store(client: &Client) -> Result<Option<Store>, Error> {
+    let deadline = Instant::now() + Duration::from_millis(100);
+    loop {
+        match Store::open(client, false) {
+            Err(Error::Busy) if Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            result => return result,
+        }
+    }
 }
 
 impl Client {
@@ -129,7 +146,7 @@ impl Client {
         if self.policy.offline {
             return Ok(false);
         }
-        let Some(mut store) = Store::open(self, false)? else {
+        let Some(mut store) = claim_store(self)? else {
             return Ok(false);
         };
         let _network = store.network_guard()?;
@@ -166,7 +183,7 @@ impl Client {
             .header("Authorization", format!("Bearer {}", identity.token))
             .header("App-Tracking-Tool", &self.tool)
             .call();
-        let mut store = Store::open(self, false)?.ok_or(Error::State)?;
+        let mut store = claim_store(self)?.ok_or(Error::State)?;
         let complete = response.is_ok_and(|mut r| {
             if r.headers()
                 .get("cache-control")
@@ -226,7 +243,7 @@ impl Client {
         {
             return Err(Error::Configuration);
         }
-        let Some(mut store) = Store::open(self, false)? else {
+        let Some(mut store) = claim_store(self)? else {
             return Ok(false);
         };
         let network = store.network_guard()?;
@@ -281,7 +298,7 @@ impl Client {
             .is_some_and(|r| {
                 r.batch_id == batch.id && r.payload_sha256 == hash(batch.body.as_bytes())
             });
-        let mut store = Store::open(self, false)?.ok_or(Error::State)?;
+        let mut store = claim_store(self)?.ok_or(Error::State)?;
         if store.state.generation == generation {
             if accepted {
                 if batch.collection == Collection::OptIn
