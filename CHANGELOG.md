@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.1](https://github.com/sebastian-software/app-tracking/compare/app-tracking-v0.7.0...app-tracking-v0.7.1) (2026-11-03)
+
+
+### Bug Fixes
+
+* **deps:** update dependency @workos-inc/node to v12.1.0 ([35bc6cb](https://github.com/sebastian-software/app-tracking/commit/35bc6cbe0a2b2032f0548eeb24fc8d9b7b5273f4))
+* **deps:** update pnpm/action-setup digest to 73e4699 ([a6e57e5](https://github.com/sebastian-software/app-tracking/commit/a6e57e512c14bc7243776d2a7f2344e22d16df6f))
+* **deps:** update postgres:18.6-alpine docker digest to 10a5c69 ([8a95120](https://github.com/sebastian-software/app-tracking/commit/8a95120e75758fe0cf3c30ecdb0bea0172de3693))
+* **rust:** retry transient worker state contention ([b43832f](https://github.com/sebastian-software/app-tracking/commit/b43832fbd598b4ab7c2c92eda3d5de38e7bc6402))
+
 ## [0.7.0](https://github.com/sebastian-software/app-tracking/compare/app-tracking-v0.6.1...app-tracking-v0.7.0) (2026-10-30)
 
 
