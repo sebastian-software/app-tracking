@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/sebastian-software/app-tracking/compare/app-tracking-v0.7.1...app-tracking-v0.7.2) (2026-11-04)
+
+
+### Bug Fixes
+
+* **deps:** update dependency oxfmt to v0.75.0 ([290b2ab](https://github.com/sebastian-software/app-tracking/commit/290b2ab6c11b449f6a1997745081586df6edc6f6))
+
 ## [0.7.1](https://github.com/sebastian-software/app-tracking/compare/app-tracking-v0.7.0...app-tracking-v0.7.1) (2026-11-03)
 
 
