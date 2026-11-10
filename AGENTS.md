@@ -34,4 +34,5 @@ contracts. Shared versions alone do not establish feature parity.
   rationale in the parity notes. Verify snippets against both current APIs.
 
 Keep both clients on one product version, release PR, tag, and changelog using
-the existing `standards` release pattern. See [the release guide](docs/releasing.md).
+the project-owned release configuration. See [the release guide](docs/releasing.md)
+and `sebastian-software/project-infra` for shared infrastructure guidance.

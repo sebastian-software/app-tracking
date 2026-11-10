@@ -6,8 +6,9 @@ and one GitHub release. The Bunny service continues to deploy main-branch
 commits through its deployment workflow. The private root Node package contains
 build tooling and follows the product version without being published.
 
-The configuration follows the `rust-node-product-release-config.json` reference
-in [standards](https://github.com/sebastian-software/standards/tree/main/reference/release-please).
+The project owns its [Release Please configuration](../release-please-config.json)
+and [publication workflow](../.github/workflows/publish.yml). Shared infrastructure
+guidance lives in [project-infra](https://github.com/sebastian-software/project-infra).
 The native Rust strategy owns the real root Cargo package and `Cargo.lock`.
 Rust source stays in `crates/app-tracking` through explicit library and example
 paths. Typed JSON extra-file updaters synchronize `package.json` and
