@@ -1,9 +1,9 @@
 # ADR 0011: Separately permitted monthly history
 
 - Status: Accepted
-- Activation: Pending disclosure review
+- Activation: Production gates enabled October 28, 2026; see the [October 28 activation receipt](../evidence/2026-10-28-additional-permissions.md)
 - Date: 2026-10-28
-- Last updated: 2026-10-28
+- Last updated: 2026-11-10
 
 ## Context
 
@@ -23,7 +23,17 @@ finalization, unavailable-period, and deletion behavior in the
 
 No claim of anonymity follows from removing IDs, screening populations, or
 rounding counts. Public publication requires the concrete disclosure assessment
-and accurate released notices. Deployment leaves both new gates disabled.
+and accurate released notices. Both gates are disabled by default; schema deployment
+alone does not enable them. The [October 28 activation receipt](../evidence/2026-10-28-additional-permissions.md)
+records their production enablement, released notices, and scoped acknowledgements.
+It is implementation and release evidence, not legal certification or proof of
+consumer rollout.
+
+Coverage starts November 1, 2026. First complete-month history and public receipts
+remain tracked by [#13](https://github.com/sebastian-software/app-tracking/issues/13)
+and [#14](https://github.com/sebastian-software/app-tracking/issues/14).
+They cannot be obtained before December 8, 2026 UTC; screening may still suppress
+the eligible month. No earlier usage or ordinary grants are backfilled.
 
 ## Consequences
 
@@ -33,7 +43,10 @@ contribution ledger survives the detail window. Recovery invalidates restored
 summaries before reporting reopens. The tradeoff preserves bounded attributable
 data at the expense of complete long-term series.
 
-## Change notes
+## Change history
 
 - 2026-10-28: Select 24 months instead of RFC 0004's five-year proposal; implement
   additional permission and default-disabled persistence/public gates.
+
+- 2026-11-10: Reconcile activation with the October 28 receipt; preserve
+  default-disabled gates and the date-blocked first-month evidence.
