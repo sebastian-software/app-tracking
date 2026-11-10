@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.2](https://github.com/sebastian-software/app-tracking/compare/app-tracking-v0.7.1...app-tracking-v0.7.2) (2026-11-10)
+
+
+### Bug Fixes
+
+* **deps:** update dependency axe-core to v4.14.0 ([#111](https://github.com/sebastian-software/app-tracking/issues/111)) ([01a9163](https://github.com/sebastian-software/app-tracking/commit/01a9163cea2d0b25120233132c006f57b9c2edc4))
+* **deps:** update dependency jose to v6.2.15 ([#110](https://github.com/sebastian-software/app-tracking/issues/110)) ([f22ef7f](https://github.com/sebastian-software/app-tracking/commit/f22ef7fa9a163602ee59bfb5f6fdec4bed9490af))
+* **deps:** update dependency oxfmt to v0.75.0 ([290b2ab](https://github.com/sebastian-software/app-tracking/commit/290b2ab6c11b449f6a1997745081586df6edc6f6))
+* **deps:** update dependency oxfmt to v0.77.0 ([#114](https://github.com/sebastian-software/app-tracking/issues/114)) ([8ee9411](https://github.com/sebastian-software/app-tracking/commit/8ee9411ac8a2e0866c8a8d6b7474c20beb7baa30))
+
 ## [0.7.1](https://github.com/sebastian-software/app-tracking/compare/app-tracking-v0.7.0...app-tracking-v0.7.1) (2026-11-03)
 
 
