@@ -2,8 +2,8 @@
 
 - Status: Accepted
 - Date: 2026-10-28
-- Last updated: 2026-10-30
-- Activation: Pending released disclosure and review
+- Last updated: 2026-11-10
+- Activation: Production gate enabled October 28, 2026; see the [October 28 activation receipt](../evidence/2026-10-28-additional-permissions.md)
 
 ## Context
 
@@ -19,7 +19,17 @@ and independent credentials for tool reporting and shared-profile reset. Start
 link eligibility after server acknowledgement, exclude CI, retain the 90-day
 detail window, and expose only fixed authenticated whole-period overlap counts.
 Keep profiles out of public exports. Implement the lifecycle and default-disabled
-activation in the [profile contract](../profile-linking.md).
+activation in the [profile contract](../profile-linking.md). The
+[October 28 activation receipt](../evidence/2026-10-28-additional-permissions.md) records production enablement,
+released disclosure, and scoped acknowledgements. The default remains disabled;
+a deployment alone does not authorize enrollment. Review references document
+scope and limits rather than automatic legal approval.
+
+That receipt does not establish released consumer adoption or Rust/Node lifecycle
+interoperability. First complete-month history and public evidence remains in
+[#13](https://github.com/sebastian-software/app-tracking/issues/13) and
+[#14](https://github.com/sebastian-software/app-tracking/issues/14), no earlier than
+December 8, 2026 UTC; it is separate from profile activation.
 
 ## Consequences
 
@@ -32,9 +42,12 @@ each format. A crashed lock requires explicit recovery after all tools stop.
 This keeps the Node package pure JavaScript without incompatible locks or an
 implicit migration of consent.
 
-## Change notes
+## Change history
 
 - 2026-10-28: Select separately permitted, random local profile linking and
   independent reset authority; leave production enrollment disabled.
 
 - 2026-10-30: Select a separate shared v2 format for Rust and pure-JavaScript Node clients; preserve legacy v1 controls and require a fresh choice.
+
+- 2026-11-10: Reconcile activation with the October 28 receipt while preserving
+  separate consent, default-disabled enrollment, and outstanding rollout evidence.

@@ -13,6 +13,15 @@ assert.deepEqual(
   JSON.parse(await readFile("crates/app-tracking/fixtures/version.json", "utf8")),
   fixture,
 );
+// Prepare the local service before measuring the client's 200 ms network budget.
+// First-use Request/Response and WebCrypto initialization can exceed it on hosted Windows.
+// Use a separate resolver so the measured handler still proves its own cold fetch and cache.
+const warmup = await createHandler({
+  fetch: async () => Response.json(metricsDocument("1.2.3", new Date().toISOString())),
+})(new Request("http://127.0.0.1/v1/versions/dalo/npm/stable"));
+assert.equal(warmup.status, 200);
+await warmup.arrayBuffer();
+
 let requests = 0;
 let upstreams = 0;
 const handle = createHandler({
