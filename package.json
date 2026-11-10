@@ -29,7 +29,7 @@
     "ajv-formats": "3.0.1",
     "axe-core": "4.14.0",
     "esbuild": "0.28.2",
-    "jose": "6.2.13",
+    "jose": "6.2.15",
     "oxfmt": "0.75.0",
     "playwright": "1.62.1",
     "proper-lockfile": "4.1.2",
