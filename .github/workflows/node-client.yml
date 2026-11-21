@@ -5,8 +5,18 @@ on:
     branches: [main]
 permissions:
   contents: read
+  pull-requests: read
 jobs:
+  preflight:
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/pr-head-preflight.yml
+    permissions:
+      pull-requests: read
   check:
+    needs: preflight
+    if: ${{ !cancelled() && needs.preflight.outputs.obsolete != 'true' }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:

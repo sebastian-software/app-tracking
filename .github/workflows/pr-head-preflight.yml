@@ -1,0 +1,33 @@
+name: PR head preflight
+on:
+  workflow_call:
+    outputs:
+      obsolete:
+        description: Whether the PR head is confirmed to have changed
+        value: ${{ jobs.preflight.outputs.obsolete }}
+permissions:
+  pull-requests: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      obsolete: ${{ steps.head.outputs.obsolete }}
+    steps:
+      - id: head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          obsolete=false
+          if [[ "$EVENT_NAME" == pull_request && "$REPOSITORY" =~ ^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$ && "$PR_NUMBER" =~ ^[1-9][0-9]*$ && "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            if head=$(timeout 10s gh api "repos/$REPOSITORY/pulls/$PR_NUMBER" --jq '.head.sha' 2>/dev/null) && [[ "$head" =~ ^[0-9a-f]{40}$ && "$head" != "$EXPECTED_SHA" ]]; then
+              obsolete=true
+              echo "A newer PR head exists. Skip validation for this run."
+            fi
+          fi
+          echo "obsolete=$obsolete" >> "$GITHUB_OUTPUT"
