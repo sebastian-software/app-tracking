@@ -11,7 +11,7 @@ import { strictJSON } from "../../../src/telemetry/json.ts";
 import { hash, projectIdentity, systemContext } from "./context.ts";
 import { download } from "./download.ts";
 import { withProfile } from "./profile.ts";
-import { resolvePolicy } from "./policy.ts";
+import { reportingVeto, resolvePolicy } from "./policy.ts";
 import { PROFILE_CONSENT_REVISION, PROFILE_NOTICE } from "./permissions.ts";
 import {
   HISTORY_CONSENT_REVISION,
@@ -102,13 +102,7 @@ export class Client {
   }
 
   #veto(): boolean {
-    const p = this.#options.policy!;
-    return !!(
-      p.doNotTrack ||
-      p.hostDisabled ||
-      (p.telemetry !== undefined && p.telemetry !== "on") ||
-      (p.ci && (!p.isolatedCiState || p.ciRevision !== "telemetry-v1"))
-    );
+    return reportingVeto(this.#options.policy!);
   }
   #allowed(state: State): boolean {
     const id = state.identity;
@@ -252,7 +246,11 @@ export class Client {
       bool(enabled);
       await this.#network(
         true,
-        () => this.#state(true, (state) => this.#choice(state!, enabled)),
+        () =>
+          this.#state(true, (state) => {
+            if (enabled || state!.deleting) this.#choice(state!, enabled);
+            else this.#settingsChoice(state!, false);
+          }),
         undefined,
       );
     });
@@ -284,6 +282,7 @@ export class Client {
         true,
         () =>
           this.#state(true, (state) => {
+            if (state!.deleting) return;
             this.#withdrawAdditional(state!, "history");
             this.#withdrawProfile(state!);
             state!.optIn = false;
@@ -298,21 +297,31 @@ export class Client {
       ),
     );
   }
-  #permission(state: State | undefined): PermissionOutcome | undefined {
+  #permission(state: State | undefined, reconsider = false): PermissionOutcome | undefined {
     if (!state) return;
-    if (state.disabled || state.deleting) return "unavailable";
-    if (state.optIn === false) return "declined";
+    if (state.deleting) return "unavailable";
+    if (state.disabled) return reconsider ? undefined : "unavailable";
+    if (state.optIn === false) return reconsider ? undefined : "declined";
     if (state.optIn === true && state.optInScope === this.#metricScope)
       return this.#allowed(state) ? "granted" : "unavailable";
   }
   async requestOptIn(reason: string): Promise<PermissionOutcome> {
-    return this.#requestOptIn(reason, false);
+    return this.#requestOptIn(reason, "once");
+  }
+  /** Reconsider a saved refusal or disabled setting after a fresh terminal answer. */
+  async requestOptInInSettings(reason: string): Promise<PermissionOutcome> {
+    return this.#requestOptIn(reason, "settings");
   }
   /** Offer yes, later (default), or never, at most once every 14 days. */
   async requestOptInReminder(reason: string): Promise<PermissionOutcome> {
-    return this.#requestOptIn(reason, true);
+    return this.#requestOptIn(reason, "reminder");
   }
-  async #requestOptIn(reason: string, reminder: boolean): Promise<PermissionOutcome> {
+  async #requestOptIn(
+    reason: string,
+    mode: "once" | "reminder" | "settings",
+  ): Promise<PermissionOutcome> {
+    const reminder = mode === "reminder";
+    const reconsider = mode === "settings";
     if (
       typeof reason !== "string" ||
       !reason.trim() ||
@@ -325,7 +334,7 @@ export class Client {
       this.#state(
         false,
         (state) => ({
-          answer: this.#permission(state),
+          answer: this.#permission(state, reconsider),
           generation: state?.generation ?? 0,
         }),
         reminder,
@@ -364,63 +373,83 @@ export class Client {
       .map(([id, definition]) => `  ${id} (${Object.keys(definition.dimensions).join(", ")})`)
       .join("\n");
     const prompt = `${reminder ? `\nIs ${this.#options.tool} working well for you?\nYou can help shape its next improvements by sharing optional usage statistics.\n` : ""}\nOptional usage reporting for ${this.#options.tool}\n\n${reason.trim()}\n\nData: usage counts, tool version, and a random reporting ID for this tool/profile.\n${metrics}\nAlso: bounded OS/version, executable architecture, and CPU family.\nWhen supplied: SHA-256 of the normalized repository URL, which can be guessed from a known URL.\nYour answer is saved for this tool/profile and can be changed in settings.\n\n${reminder ? "Your choice does not affect how you use the tool. You can change it in settings.\n\nWould you like to share optional usage statistics?\n  yes    Allow optional usage reporting\n  later  Ask again in 14 days (default: later)\n  never  Do not ask again\n\nYour choice [later]:" : "Allow optional usage reporting? [y/N]"} `;
-    const answer = reminder
-      ? await new Promise<boolean | undefined>((resolve) => {
-          let buffer = Buffer.alloc(0);
-          const finish = (answer: boolean | undefined) => {
-            process.stdin.off("data", onData);
-            process.stdin.off("end", onEnd);
-            process.stdin.pause();
-            resolve(answer);
-          };
-          const onEnd = () => finish(undefined);
-          const onData = (chunk: Buffer | string) => {
-            buffer = Buffer.concat([buffer, Buffer.from(chunk)]);
-            for (;;) {
-              const newline = buffer.indexOf(10);
-              if (newline < 0) {
-                if (buffer.length > 256) finish(undefined);
-                return;
+    const answer =
+      reminder || reconsider
+        ? await new Promise<boolean | undefined>((resolve, reject) => {
+            let buffer = Buffer.alloc(0);
+            const finish = (answer: boolean | undefined, invalid = false) => {
+              process.stdin.off("data", onData);
+              process.stdin.off("end", onEnd);
+              process.stdin.pause();
+              if (invalid && reconsider) reject(new TrackingError("Interaction"));
+              else resolve(answer);
+            };
+            const onEnd = () => finish(undefined);
+            const onData = (chunk: Buffer | string) => {
+              buffer = Buffer.concat([buffer, Buffer.from(chunk)]);
+              for (;;) {
+                const newline = buffer.indexOf(10);
+                if (newline < 0) {
+                  if (buffer.length > 256) finish(undefined, true);
+                  return;
+                }
+                if (newline + 1 > 256) {
+                  finish(undefined, true);
+                  return;
+                }
+                const line = buffer.subarray(0, newline);
+                let value: string;
+                try {
+                  value = reconsider
+                    ? new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(line)
+                    : line.toString("utf8");
+                } catch {
+                  finish(undefined, true);
+                  return;
+                }
+                value = value.trim().toLowerCase();
+                buffer = buffer.subarray(newline + 1);
+                if (value === "y" || value === "yes") return finish(true);
+                if (value === "n" || value === "no" || (reminder && value === "never"))
+                  return finish(false);
+                if (reconsider) return finish(value === "" ? false : undefined);
+                if (value === "" || value === "l" || value === "later") return finish(undefined);
+                process.stderr.write("Please choose yes, later, or never: ");
               }
-              if (newline + 1 > 256) {
-                finish(undefined);
-                return;
-              }
-              const value = buffer.subarray(0, newline).toString("utf8").trim().toLowerCase();
-              buffer = buffer.subarray(newline + 1);
-              if (value === "y" || value === "yes") return finish(true);
-              if (value === "n" || value === "no" || value === "never") return finish(false);
-              if (value === "" || value === "l" || value === "later") return finish(undefined);
-              process.stderr.write("Please choose yes, later, or never: ");
-            }
-          };
-          process.stdin.on("data", onData);
-          process.stdin.once("end", onEnd);
-          process.stderr.write(prompt);
-          process.stdin.resume();
-        })
-      : await new Promise<boolean | undefined>((resolve) => {
-          const terminal = createInterface({ input: process.stdin, output: process.stderr });
-          terminal.once("close", () => resolve(undefined));
-          terminal.once("SIGINT", () => terminal.close());
-          terminal.question(prompt, (input) => {
-            const value = input.trim().toLowerCase();
-            resolve(
-              value === "y" || value === "yes"
-                ? true
-                : value === "" || value === "n" || value === "no"
-                  ? false
-                  : undefined,
-            );
-            terminal.close();
+            };
+            process.stdin.on("data", onData);
+            process.stdin.once("end", onEnd);
+            process.stderr.write(prompt);
+            process.stdin.resume();
+          })
+        : await new Promise<boolean | undefined>((resolve) => {
+            const terminal = createInterface({ input: process.stdin, output: process.stderr });
+            terminal.once("close", () => resolve(undefined));
+            terminal.once("SIGINT", () => terminal.close());
+            terminal.question(prompt, (input) => {
+              const value = input.trim().toLowerCase();
+              resolve(
+                value === "y" || value === "yes"
+                  ? true
+                  : value === "" || value === "n" || value === "no"
+                    ? false
+                    : undefined,
+              );
+              terminal.close();
+            });
           });
-        });
     if (answer === undefined) return "unavailable";
     return this.#queue(() =>
       this.#network(
         true,
         () =>
           this.#state(true, (state) => {
+            if (reconsider) {
+              if (state!.deleting || (answer && state!.generation !== saved.generation))
+                return "unavailable";
+              this.#settingsChoice(state!, answer);
+              return answer ? "granted" : "declined";
+            }
             if (!answer && !state!.disabled && !state!.deleting) {
               this.#choice(state!, false);
               return "declined";
@@ -434,6 +463,33 @@ export class Client {
         "unavailable" as PermissionOutcome,
       ),
     );
+  }
+  #settingsChoice(state: State, enabled: boolean): void {
+    const generation = state.generation;
+    this.#choice(state, enabled);
+    if (state.generation === generation) {
+      state.generation++;
+      state.job = null;
+    }
+    if (enabled) state.disabled = false;
+  }
+  /** Apply an explicit informed operator choice to an isolated CI client. */
+  enableCiReporting(choice: { consent: "informed" }): Promise<void> {
+    return this.#queue(async () => {
+      if (
+        choice?.consent !== "informed" ||
+        !this.#options.policy!.ci ||
+        this.#veto() ||
+        this.#worker ||
+        !isMainThread
+      )
+        fail("Configuration");
+      await this.#network(
+        true,
+        () => this.#state(true, (state) => this.#settingsChoice(state!, true)),
+        undefined,
+      );
+    });
   }
   #revision(kind: "history" | "publicUsage"): string {
     return kind === "history" ? HISTORY_CONSENT_REVISION : PUBLIC_USAGE_CONSENT_REVISION;

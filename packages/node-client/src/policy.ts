@@ -19,3 +19,12 @@ export function resolvePolicy(input: ClientOptions["policy"] = {}) {
   policy.ciRevision = process.env.APP_TRACKING_CI ?? policy.ciRevision;
   return policy;
 }
+
+export function reportingVeto(policy: NonNullable<ClientOptions["policy"]>): boolean {
+  return !!(
+    policy.doNotTrack ||
+    policy.hostDisabled ||
+    (policy.telemetry !== undefined && policy.telemetry !== "on") ||
+    (policy.ci && (!policy.isolatedCiState || policy.ciRevision !== "telemetry-v1"))
+  );
+}

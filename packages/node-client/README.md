@@ -305,6 +305,14 @@ observe commands automatically, display an automatic dialog, or install process
 signal handlers. The packed package includes an executable synthetic example in
 `examples/cli.mjs`; its TypeScript declarations need no host-side mirror types.
 
+Use `requestReportingOptInInSettings(reason)` when the user explicitly wants
+to reconsider a refusal, and `enableCiReporting({ consent: "informed" })`
+for an operator's separate CI choice. Shared helpers resolve a default root,
+validate a private per-job CI directory, read the raw Git origin lazily, and
+provide the hosted-service disclosure. The
+[paired integration guide](../../docs/client-comparison.md#reporting-settings-and-project-context)
+shows these methods alongside the Rust equivalents.
+
 An Ardo integration can replace its local transport/cache/SemVer module and
 reporting/service sequencing with SDK calls:
 

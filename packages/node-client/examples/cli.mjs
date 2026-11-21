@@ -20,7 +20,7 @@ else if (command === "disable") console.log(JSON.stringify(await services.disabl
 else if (command === "delete") console.log(JSON.stringify(await services.deleteReporting()));
 else if (command === "permission") {
   // Change interaction to terminal only at an eligible interactive host boundary.
-  await services.requestReportingOptIn(
+  await services.requestReportingOptInInSettings(
     "Help prioritize Ardo maintenance. Privacy: https://example.com/privacy",
   );
 } else if (command === "build") {

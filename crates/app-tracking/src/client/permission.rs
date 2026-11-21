@@ -58,17 +58,33 @@ impl Client {
 
     /// Explain the tool's purpose, ask yes/no, and persist the answer once.
     ///
-    /// Reuses both saved grants and refusals without asking again. Only this
-    /// explicit method can display a dialog; `record` and `download` never ask.
+    /// Reuses both saved grants and refusals without asking again.
+    /// `record` and `download` never ask.
     /// No dialog opens in CI, a worker, or without terminal stdin and stderr.
     /// An empty submitted answer declines; EOF leaves the decision unchanged.
     /// Use `Interaction::Never` for tool-specific JSON/agent output modes.
     pub fn request_opt_in(&self, message: &str) -> Result<PermissionOutcome, Error> {
+        self.request_in_terminal(message, false)
+    }
+
+    /// Ask from an explicit settings action. A saved refusal or disabled
+    /// setting can be reconsidered with a fresh affirmative terminal answer.
+    /// Pending deletion, current vetoes, and unattended modes still block the
+    /// dialog. An existing effective grant is reused.
+    pub fn request_opt_in_in_settings(&self, message: &str) -> Result<PermissionOutcome, Error> {
+        self.request_in_terminal(message, true)
+    }
+
+    fn request_in_terminal(
+        &self,
+        message: &str,
+        reconsider: bool,
+    ) -> Result<PermissionOutcome, Error> {
         let interactive = self.interaction == Interaction::Terminal
             && !self.policy.ci
             && std::io::stdin().is_terminal()
             && std::io::stderr().is_terminal();
-        self.request_with(message, interactive, |prompt| {
+        self.request_with_mode(message, interactive, reconsider, |prompt| {
             ask(
                 &mut std::io::stdin().lock(),
                 &mut std::io::stderr().lock(),
@@ -154,7 +170,7 @@ impl Client {
     }
 
     pub(super) fn is_background_worker(&self) -> bool {
-        std::env::args().nth(1).is_some_and(|argument| {
+        std::env::args_os().nth(1).is_some_and(|argument| {
             argument == super::BACKGROUND_WORKER_ARGUMENT
                 || argument == crate::telemetry::BACKGROUND_WORKER_ARGUMENT
         })
@@ -182,6 +198,16 @@ impl Client {
         interactive: bool,
         answer: impl FnOnce(&str) -> Result<Option<bool>, Error>,
     ) -> Result<PermissionOutcome, Error> {
+        self.request_with_mode(message, interactive, false, answer)
+    }
+
+    fn request_with_mode(
+        &self,
+        message: &str,
+        interactive: bool,
+        reconsider: bool,
+        answer: impl FnOnce(&str) -> Result<Option<bool>, Error>,
+    ) -> Result<PermissionOutcome, Error> {
         validate_message(message)?;
         if self.veto()
             || self.is_background_worker()
@@ -195,6 +221,9 @@ impl Client {
         let generation = {
             let store = Store::open(self, false)?;
             if let Some(store) = &store
+                && !(reconsider
+                    && !store.state.deleting
+                    && (store.state.disabled || store.state.opt_in == Some(false)))
                 && let Some(outcome) = self.permission(&store.state)
             {
                 return Ok(outcome);
@@ -209,6 +238,17 @@ impl Client {
         };
         let mut store = Store::open(self, true)?.ok_or(Error::State)?;
         let _network = store.network_guard()?;
+        if reconsider {
+            if store.state.deleting || (enabled && store.state.generation != generation) {
+                return Ok(PermissionOutcome::Unavailable);
+            }
+            self.save_settings_choice(&mut store, enabled)?;
+            return Ok(if enabled {
+                PermissionOutcome::Granted
+            } else {
+                PermissionOutcome::Declined
+            });
+        }
         // Refusal wins in either completion order when two dialogs race.
         if !enabled && !store.state.disabled && !store.state.deleting {
             self.save_choice(&mut store, false)?;
@@ -371,6 +411,65 @@ pub(super) fn ask(
 mod tests {
     use super::*;
     use std::io::Cursor;
+
+    #[test]
+    fn explicit_settings_reconsideration_requires_a_fresh_answer() {
+        let directory = tempfile::tempdir().unwrap();
+        let client = super::super::tests::client(directory.path());
+        client.set_opt_in(false).unwrap();
+        assert_eq!(
+            client
+                .request_with("Purpose", true, |_| panic!("saved refusal"))
+                .unwrap(),
+            PermissionOutcome::Declined
+        );
+        assert_eq!(
+            client
+                .request_with_mode("Purpose", false, true, |_| panic!("no terminal"))
+                .unwrap(),
+            PermissionOutcome::Unavailable
+        );
+
+        // A fresh refusal must invalidate an affirmative answer already in progress.
+        let stale = client
+            .request_with_mode("Purpose", true, true, |_| {
+                assert_eq!(
+                    client.request_with_mode("Purpose", true, true, |_| Ok(Some(false)))?,
+                    PermissionOutcome::Declined
+                );
+                Ok(Some(true))
+            })
+            .unwrap();
+        let withdrawn = client
+            .request_with_mode("Purpose", true, true, |_| {
+                client.set_opt_in(false)?;
+                Ok(Some(true))
+            })
+            .unwrap();
+        assert_eq!(withdrawn, PermissionOutcome::Unavailable);
+        assert_eq!(stale, PermissionOutcome::Unavailable);
+        assert_eq!(client.status().unwrap().decision, OptInDecision::Declined);
+
+        client.set_disabled(true).unwrap();
+        assert_eq!(
+            client
+                .request_with_mode("Purpose", true, true, |prompt| {
+                    assert!(prompt.contains("Purpose"));
+                    Ok(Some(true))
+                })
+                .unwrap(),
+            PermissionOutcome::Granted
+        );
+        assert!(client.status().unwrap().collect_opt_in);
+        assert!(!client.status().unwrap().disabled);
+        client.delete().unwrap();
+        assert_eq!(
+            client
+                .request_with_mode("Purpose", true, true, |_| panic!("pending deletion"))
+                .unwrap(),
+            PermissionOutcome::Unavailable
+        );
+    }
 
     #[test]
     fn reminder_deferrals_are_private_and_recur_only_after_fourteen_days() {

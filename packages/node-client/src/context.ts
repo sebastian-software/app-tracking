@@ -1,7 +1,57 @@
+import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { open } from "node:fs/promises";
 import * as os from "node:os";
 import type { ProjectContext } from "./types.ts";
+
+/** Read one raw local Git origin inside the consent-gated project callback. */
+export function gitOrigin(directory: string): Promise<ProjectContext["origin"]> {
+  const env = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
+  for (const key of [
+    "GIT_DIR",
+    "GIT_COMMON_DIR",
+    "GIT_WORK_TREE",
+    "GIT_CONFIG",
+    "GIT_CONFIG_COUNT",
+    "GIT_CONFIG_PARAMETERS",
+  ] as const)
+    delete (env as NodeJS.ProcessEnv)[key];
+  return new Promise((resolve) => {
+    execFile(
+      "git",
+      ["config", "--local", "--includes", "--null", "--get-all", "remote.origin.url"],
+      {
+        cwd: directory,
+        env,
+        timeout: 200,
+        maxBuffer: 8193,
+        killSignal: "SIGKILL",
+        encoding: "buffer",
+      },
+      (error, stdout, stderr) => {
+        if (error) {
+          resolve(
+            error.code === 1 && stdout.length === 0 && stderr.length === 0 ? null : undefined,
+          );
+          return;
+        }
+        if (stdout.length <= 1 || stdout.indexOf(0) !== stdout.length - 1) {
+          resolve(undefined);
+          return;
+        }
+        try {
+          resolve(
+            new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
+              stdout.subarray(0, -1),
+            ),
+          );
+        } catch {
+          resolve(undefined);
+        }
+      },
+    );
+  });
+}
 
 export const hash = (value: string | Uint8Array) =>
   createHash("sha256").update(value).digest("hex");
