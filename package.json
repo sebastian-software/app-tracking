@@ -21,22 +21,22 @@
   },
   "devDependencies": {
     "@bunny.net/edgescript-sdk": "0.13.0",
-    "@neondatabase/serverless": "1.2.0",
-    "@types/node": "24.19.2",
+    "@neondatabase/serverless": "1.2.1",
+    "@types/node": "26.6.6",
     "@types/proper-lockfile": "4.1.4",
-    "@workos-inc/node": "12.3.0",
+    "@workos-inc/node": "12.4.0",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
-    "axe-core": "4.14.0",
+    "axe-core": "4.14.1",
     "esbuild": "0.28.2",
-    "jose": "6.2.17",
-    "oxfmt": "0.77.0",
+    "jose": "6.2.18",
+    "oxfmt": "0.79.0",
     "playwright": "1.65.1",
     "proper-lockfile": "4.1.2",
     "typescript": "7.0.2"
   },
   "engines": {
-    "node": ">=24.22.0 <25"
+    "node": ">=26.13.0 <27"
   },
-  "packageManager": "pnpm@12.16.1"
+  "packageManager": "pnpm@12.21.0"
 }
