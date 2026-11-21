@@ -14,6 +14,7 @@ jobs:
       pull-requests: read
   check:
     needs: preflight
+    # Keep validation running if the lookup fails or the preflight was skipped on a push.
     if: ${{ !cancelled() && needs.preflight.outputs.obsolete != 'true' }}
     permissions:
       contents: read
