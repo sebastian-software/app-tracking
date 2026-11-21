@@ -41,22 +41,24 @@ implement the same cadence, but do not coordinate a notice between runtimes.
 Hosts must designate one update-check owner when exposing both entry points.
 This is a runtime-specific persistence boundary, not a shared cache format.
 
-[#98](https://github.com/sebastian-software/app-tracking/issues/98) adds Node's
-optional `CliClient` convenience surface. Its promise ownership, AbortSignal,
-one-command deduplication, and async disposal fit Node's lifecycle. Rust already
-offers synchronous operations and a reserved host-worker entry; adding the same
-async wrapper would not remove those host responsibilities. No Rust convenience
-class is planned or required for acceptance. The compiling
-[`cli-integration` example](../crates/app-tracking/examples/cli-integration.rs)
-shows equivalent composition with the existing APIs. The Node guide includes
-the host/SDK boundary and an Ardo integration example; adoption remains in Ardo.
+[#98](https://github.com/sebastian-software/app-tracking/issues/98) introduced
+Node's optional `CliClient`. Both SDKs now provide optional CLI composition
+with a single observation and completion per command. Rust uses synchronous
+calls and a helper for its reserved host worker argument. Node retains its
+package-owned worker, promise ownership, AbortSignal, and async disposal.
+Neither API implicitly asks for permission or attaches itself to the host
+command lifecycle. Update checks remain independent of reporting.
 
 Both clients execute `contracts/cli-settings.json` for explicit choices,
 withdrawal/discard, disabling, pending offline deletion, policy vetoes, and
-independent CI grants. Existing low-level authenticated-deletion tests remain
-in both runtimes; the Node wrapper additionally verifies acknowledged delivery,
-unchanged command output/exit status, and completion on success/failure/interruption.
-The wrapper does not add a new consent, identity, reporting, or server contract.
+independent CI grants. Both also test interactive reconsideration of a saved
+refusal, a fresh affirmative answer after disabling, and generation-safe
+refusals. An explicit CI action requires the current disclosure revision,
+isolated state, and a real operator grant. Repeating deletion preserves the
+pending retry schedule. The same hosted-service notice is packaged in both SDKs.
+The Git helpers read a single raw local origin and distinguish verified absence
+from failed or ambiguous lookup. Existing consent, identity, reporting,
+persistence, and server contracts continue to apply.
 
 ## Background worker state contention
 

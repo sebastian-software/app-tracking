@@ -191,7 +191,7 @@ each task shows Rust followed by Node.js, including deliberate differences.
 | [Verified downloads](docs/client-comparison.md#download-and-dispose-of-a-verified-resource)                        | `download`; shared resource ID grammar, temporary file removed on drop | `download`; same ID grammar, `close` or async disposal |
 | [Monthly history and public usage](docs/client-comparison.md#request-separate-history-and-publication-permissions) | Separate request/status/sync methods for each                          | Separate request/status/sync methods for each          |
 | [Shared v2 profile linking and reset](docs/client-comparison.md#link-and-reset-a-shared-v2-profile)                | Explicit `_v2` methods                                                 | Explicit linking/reset methods                         |
-| [CLI lifecycle composition](docs/client-comparison.md#compose-the-command-lifecycle)                               | Compose synchronous APIs in the host                                   | Optional `CliClient` convenience API                   |
+| [CLI lifecycle composition](docs/client-comparison.md#compose-the-command-lifecycle)                               | Optional synchronous `cli::CliClient`                                  | Optional asynchronous `CliClient`                      |
 
 ### Updates without reporting
 

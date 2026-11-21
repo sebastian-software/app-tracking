@@ -1,3 +1,8 @@
+import notice from "../../../contracts/hosted-reporting-notice.json" with { type: "json" };
+
+/** Disclosure for consumers of the hosted Sebastian Software service. */
+export const HOSTED_REPORTING_NOTICE = notice.notice;
+
 export const HISTORY_CONSENT_REVISION = "monthly-history-v1";
 export const HISTORY_NOTICE =
   "Sebastian Software GmbH uses monthly summaries to understand usage trends and plan product maintenance. Detailed reports remain limited to 90 days. With this separate permission, screened monthly counts and monthly installation/project totals may be retained for 24 months after the month ends. These are not counts of people or a guarantee of anonymity. Only reports from the UTC date after acknowledgement are eligible. This choice does not authorize public release or cross-tool profile linking. You can withdraw this permission separately in the tool's settings. Acknowledged withdrawal invalidates affected monthly summaries; offline changes remain pending. Declining does not limit the tool or update checks. Privacy and rights: https://sebastian-software.com/privacy#tool-usage-history (contact: info@sebastian-software.de).";

@@ -62,7 +62,7 @@ const installedFixture = (async () => {
   const typeConsumer = join(fixture, "consumer.mts");
   await fs.writeFile(
     typeConsumer,
-    `import { Client, TrackingError, UpdateClient, CliClient, type Update, type CliStatus, type Status, type VerifiedDownload } from '@sebastian-software/app-tracking';\nconst c = new Client({origin:'https://example.com',stateRoot:'/synthetic/private',tool:'ferriki',version:'1.2.3'});\nconst s: Promise<Status> = c.status();\nconst d: Promise<VerifiedDownload> = c.download({id:'grammar',url:'https://example.com/grammar',bytes:0,sha256:'0'.repeat(64)});\nconst code: string = new TrackingError('Busy').code;\nconst updates = new UpdateClient({origin:'https://example.com',cacheRoot:'/synthetic/cache',tool:'ardo',version:'1.0.0',distribution:'github'});\nconst update: Promise<Update | undefined> = updates.check('enabled');\nconst cli = new CliClient({origin:'https://example.com',stateRoot:'/synthetic/private',tool:'ardo',version:'1.0.0',invocation:{metric:'cli.invocation',categories:{build:{command:'build'}}}});\nconst status: Promise<CliStatus> = cli.status();\n`,
+    `import { Client, TrackingError, UpdateClient, CliClient, gitOrigin, policyFromEnvironment, HOSTED_REPORTING_NOTICE, type Update, type CliStatus, type Status, type VerifiedDownload } from '@sebastian-software/app-tracking';\nconst c = new Client({origin:'https://example.com',stateRoot:'/synthetic/private',tool:'ferriki',version:'1.2.3'});\nconst s: Promise<Status> = c.status();\nconst d: Promise<VerifiedDownload> = c.download({id:'grammar',url:'https://example.com/grammar',bytes:0,sha256:'0'.repeat(64)});\nconst code: string = new TrackingError('Busy').code;\nconst updates = new UpdateClient({origin:'https://example.com',cacheRoot:'/synthetic/cache',tool:'ardo',version:'1.0.0',distribution:'github'});\nconst update: Promise<Update | undefined> = updates.check('enabled');\nconst cli = new CliClient({origin:'https://example.com',stateRoot:'/synthetic/private',tool:'ardo',version:'1.0.0',invocation:{metric:'cli.invocation',categories:{build:{command:'build'}}}});\nconst status: Promise<CliStatus> = cli.status();\nconst raw: Promise<string | null | undefined> = gitOrigin('.');\nconst policy = policyFromEnvironment({offline: true});\nconst notice: string = HOSTED_REPORTING_NOTICE;\nconst choice: Promise<'granted' | 'declined' | 'unavailable'> = cli.requestReportingOptInInSettings(notice);\n`,
   );
   const root = resolve(__dirname, "../../..");
   execFileSync(
@@ -2389,6 +2389,107 @@ test("shared CLI settings scenarios preserve Rust decisions and privacy boundari
     assert.equal(status.publicUsage.decision, "undecided");
     assert.equal(status.profile.decision, "undecided");
   }
+});
+
+test("explicit settings can reconsider a refusal and reject a stale or unsubmitted answer", async () => {
+  const stateRoot = join(fixture, "reporting-settings-prompt");
+  const options = cliOptions("http://127.0.0.1:1", stateRoot, { interaction: "terminal" });
+  const cli = new CliClient(options);
+  await cli.withdrawReporting();
+  assert.equal(await cli.requestReportingOptIn("Purpose"), "declined");
+
+  async function answer(input, beforeAnswer = async () => {}) {
+    const script = `Object.defineProperty(process.stdin,'isTTY',{value:true});Object.defineProperty(process.stderr,'isTTY',{value:true});const {CliClient}=require(${JSON.stringify(installed)});new CliClient(${JSON.stringify(options)}).requestReportingOptInInSettings('Purpose').then(v=>console.log(v)).catch(e=>{console.error(e);process.exitCode=1});`;
+    const child = bound(
+      spawn(process.execPath, ["-e", script], { stdio: ["pipe", "pipe", "pipe"] }),
+    );
+    let output = "";
+    child.stdout.on("data", (chunk) => (output += chunk));
+    const exited = once(child, "exit");
+    try {
+      await new Promise((resolve, reject) => {
+        let prompt = "";
+        child.stderr.on("data", (chunk) => {
+          prompt += chunk;
+          if (prompt.includes("Allow optional usage reporting?")) resolve();
+        });
+        child.once("error", reject);
+        child.once("exit", () => reject(new Error(`Prompt exited early: ${prompt}`)));
+      });
+      await beforeAnswer();
+      child.stdin.end(input);
+      const [code] = await exited;
+      assert.equal(code, 0);
+      return output.trim();
+    } finally {
+      child.kill();
+    }
+  }
+
+  assert.equal(await answer("yes"), "unavailable"); // EOF with no submitted line.
+  assert.equal(
+    await answer("yes\n", async () => assert.equal(await answer("no\n"), "declined")),
+    "unavailable",
+  );
+  assert.equal(await answer("yes\n", () => cli.withdrawReporting()), "unavailable");
+  assert.equal((await cli.status()).reporting.decision, "declined");
+  await cli.disableReporting();
+  assert.equal(await answer("yes\n"), "granted");
+  const { reporting } = await cli.status();
+  assert.equal(reporting.collectOptIn, true);
+  assert.equal(reporting.disabled, false);
+  await cli.deleteReporting();
+  assert.equal(await cli.requestReportingOptInInSettings("Purpose"), "unavailable");
+});
+
+test("CI root validation and explicit authorization are independent of local reporting", async () => {
+  const { validateCiStateRoot, policyFromEnvironment, defaultReportingStateRoot } = require(
+    installed,
+  );
+  const privateJob = await fs.mkdtemp(join(fixture, "cli-private-job-"));
+  const personal = join(privateJob, "personal");
+  assert.equal(defaultReportingStateRoot("../other"), undefined);
+  await assert.rejects(validateCiStateRoot(privateJob, personal), { code: "Configuration" });
+  await assert.rejects(validateCiStateRoot("relative"), { code: "Configuration" });
+  if (process.platform !== "win32") {
+    const alias = join(fixture, "ci-root-symlink");
+    await fs.symlink(privateJob, alias);
+    await assert.rejects(validateCiStateRoot(alias + "/"), { code: "State" });
+  }
+  const root = await validateCiStateRoot(privateJob, join(fixture, "personal"));
+  const options = cliOptions("http://127.0.0.1:1", root, {
+    policy: policyFromEnvironment({
+      ci: true,
+      offline: true,
+      isolatedCiState: true,
+      ciRevision: "telemetry-v1",
+    }),
+  });
+  const cli = new CliClient(options);
+  assert.deepEqual(await cli.recordInvocation("build"), { ok: true, value: "suppressed" });
+  await assert.rejects(cli.enableCiReporting(), { code: "Configuration" });
+  assert.equal(
+    (await cli.enableCiReporting({ consent: "informed" })).reporting.decision,
+    "granted",
+  );
+  const local = new CliClient(cliOptions("http://127.0.0.1:1", join(fixture, "personal")));
+  await assert.rejects(local.enableCiReporting({ consent: "informed" }), { code: "Configuration" });
+  assert.equal((await local.status()).reporting.decision, "undecided");
+});
+
+test("Git origin lookup returns a single raw local origin or distinguishes absence and uncertainty", async () => {
+  const { gitOrigin } = require(installed);
+  const root = await fs.mkdtemp(join(fixture, "git-origin-"));
+  const git = (...args) => execFileSync("git", args, { cwd: root, stdio: "pipe" });
+  assert.equal(await gitOrigin(root), undefined);
+  git("init", "--quiet");
+  assert.equal(await gitOrigin(root), null);
+  const raw = "alias:example/project.git";
+  git("config", "--local", "remote.origin.url", raw);
+  git("config", "--local", "url.https://example.com/.insteadOf", "alias:");
+  assert.equal(await gitOrigin(root), raw);
+  git("config", "--local", "--add", "remote.origin.url", "alias:example/other.git");
+  assert.equal(await gitOrigin(root), undefined);
 });
 
 test("CLI counts only the explicit invocation boundary, once across wrappers/watch calls", async () => {

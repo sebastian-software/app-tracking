@@ -7,6 +7,7 @@
 //! Import/construction never collects information or creates state. Reporting
 //! uses the event-batch contract, independently of the legacy CLI-only API.
 
+pub mod cli;
 mod download;
 mod history;
 mod permission;
@@ -412,13 +413,24 @@ impl Client {
     pub fn set_opt_in(&self, enabled: bool) -> Result<(), Error> {
         let mut store = Store::open(self, true)?.ok_or(Error::State)?;
         let _network = store.network_guard()?;
-        self.save_choice(&mut store, enabled)
+        if enabled || store.state.deleting {
+            self.save_choice(&mut store, enabled)
+        } else {
+            self.save_settings_choice(&mut store, false)
+        }
     }
 
     fn save_choice(&self, store: &mut Store, enabled: bool) -> Result<(), Error> {
+        if self.apply_choice(&mut store.state, enabled)? {
+            store.save()?;
+        }
+        Ok(())
+    }
+
+    fn apply_choice(&self, state: &mut State, enabled: bool) -> Result<bool, Error> {
         if enabled
-            && (store.state.deleting
-                || store.state.identity.as_ref().is_some_and(|id| {
+            && (state.deleting
+                || state.identity.as_ref().is_some_and(|id| {
                     now().is_ok_and(|at| {
                         at.saturating_sub(id.consented_at.max(id.last_accepted_at)) >= 7_776_000_000
                     })
@@ -426,18 +438,18 @@ impl Client {
         {
             return Err(Error::PreviousIdentity);
         }
-        if store.state.opt_in == Some(enabled)
-            && (!enabled || store.state.opt_in_scope.as_ref() == Some(&self.opt_in_scope))
+        if state.opt_in == Some(enabled)
+            && (!enabled || state.opt_in_scope.as_ref() == Some(&self.opt_in_scope))
         {
-            return Ok(());
+            return Ok(false);
         }
-        store.state.opt_in = Some(enabled);
-        store.state.opt_in_scope = enabled.then(|| self.opt_in_scope.clone());
-        store.state.generation = store.state.generation.saturating_add(1);
-        store.state.job = None;
+        state.opt_in = Some(enabled);
+        state.opt_in_scope = enabled.then(|| self.opt_in_scope.clone());
+        state.generation = state.generation.saturating_add(1);
+        state.job = None;
         if enabled {
-            if store.state.identity.is_none() {
-                store.state.identity = Some(state::Identity {
+            if state.identity.is_none() {
+                state.identity = Some(state::Identity {
                     id: random()?,
                     token: random()?,
                     consented_at: now()?,
@@ -445,18 +457,35 @@ impl Client {
                 });
             }
         } else {
-            store.state.withdraw_history()?;
-            store.state.withdraw_profile()?;
-            store.state.retain(Collection::OptOut);
+            state.withdraw_history()?;
+            state.withdraw_profile()?;
+            state.retain(Collection::OptOut);
+        }
+        Ok(true)
+    }
+
+    fn save_settings_choice(&self, store: &mut Store, enabled: bool) -> Result<(), Error> {
+        if !self.apply_choice(&mut store.state, enabled)? {
+            // An explicit setting supersedes an unanswered dialog even when
+            // the user reaffirms the saved decision.
+            store.state.generation = store.state.generation.saturating_add(1);
+            store.state.job = None;
+        }
+        if enabled {
+            store.state.disabled = false;
         }
         store.save()
     }
 
     /// Stop collection and request authenticated deletion. The background worker
-    /// retries bounded deletion pages; settings remain disabled afterward.
+    /// retries bounded deletion pages; settings remain disabled afterward. A
+    /// pending request keeps its current retry schedule.
     pub fn delete(&self) -> Result<(), Error> {
         let mut store = Store::open(self, true)?.ok_or(Error::State)?;
         let _network = store.network_guard()?;
+        if store.state.deleting {
+            return Ok(());
+        }
         store.state.opt_in = Some(false);
         store.state.withdraw_history()?;
         store.state.withdraw_profile()?;

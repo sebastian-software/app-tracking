@@ -370,9 +370,23 @@ and clean up optional work when the command finishes or is interrupted.
 
 **Rust**
 
-Compose `record`, `UpdateClient::check`, and `flush_in_background` at those
-boundaries, with the reserved worker entry from setup. The synchronous update
-check finishes before returning, so no detached update task needs cancellation.
+Use `cli::CliClient` for one command. Dispatch the reserved worker before
+parsing host flags with `cli::handle_worker` and a factory for the same
+configured reporting client. The synchronous `UpdateClient` still checks
+independently.
+
+```rust
+use app_tracking::cli::CliClient;
+
+let mut services = CliClient::new(reporting);
+let _ = services.record_invocation(
+    "cli.invocation",
+    [("command".into(), "build".into())].into(),
+);
+// Run the host command here and check for updates when its output policy allows.
+let _ = services.complete();
+```
+
 The complete [Rust example](../crates/app-tracking/examples/cli-integration.rs)
 includes settings and preserves a deliberately nonzero command exit code.
 
@@ -402,24 +416,49 @@ try {
 The offline host policy still vetoes checks. No check or observation runs on
 construction. Completion joins local work and cancels any unfinished update;
 it does not wait for report delivery. If an update should finish, await it before
-completion. Settings use `status`, `preview`, `requestReportingOptIn`, explicit
-`enableReporting({ consent: "informed" })`, `withdrawReporting`, `disableReporting`,
-and `deleteReporting`; enabling still requires a real informed human choice.
+completion. The JavaScript worker is package-owned, so the host has no worker
+arguments to handle.
 The [Node guide](../packages/node-client/README.md#optional-cli-composition) and
 [packed example](../packages/node-client/examples/cli.mjs) show the full surface.
+
+### Reporting settings and project context
+
+| Task                                                       | Rust                                                          | Node.js                                                        |
+| ---------------------------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------- |
+| Inspect state and redacted data                            | `status`, `preview`                                           | `status`, `preview`                                            |
+| Reconsider a saved refusal from explicit settings          | `request_reporting_opt_in_in_settings(reason)`                | `requestReportingOptInInSettings(reason)`                      |
+| Apply an informed operator choice on CI                    | `enable_ci_reporting()`                                       | `enableCiReporting({ consent: "informed" })`                   |
+| Withdraw, disable, or request deletion                     | `withdraw_reporting`, `disable_reporting`, `delete_reporting` | `withdrawReporting`, `disableReporting`, `deleteReporting`     |
+| Resolve the standard reporting root                        | `cli::default_state_root(tool)`                               | `defaultReportingStateRoot(tool)`                              |
+| Check an isolated job directory                            | `cli::validate_ci_state_root(root, personal)`                 | `validateCiStateRoot(root, personal)`                          |
+| Apply environment vetoes                                   | `cli::policy_from_environment(policy)`                        | `policyFromEnvironment(policy)` (automatic in the Node client) |
+| Read one raw Git origin                                    | `project::git_origin(directory)`                              | `gitOrigin(directory)`                                         |
+| Append the hosted service disclosure to the tool's purpose | `cli::hosted_reporting_notice()`                              | `HOSTED_REPORTING_NOTICE`                                      |
+
+Keep an existing reporting root to preserve decisions and credentials.
+Supply the personal root to the CI validator when available and pass the
+validated directory into the client before marking it isolated. On Windows,
+the operator must give the job directory a private ACL. Ask for informed
+authorization in a dedicated CI settings action. The consent revision
+environment variable identifies the disclosure and does not express consent.
+
+Call the Git helper within the lazy project context callback, with the directory
+that the command actually operates on. Missing, ambiguous, or unsafe lookup
+results produce no project identity unless the SDK can use a confirmed absence
+for an independently supplied package fallback.
 
 ## Differences to keep visible
 
 | Boundary                   | Rust                                                                                      | Node.js                                                                           |
 | -------------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | Execution and cleanup      | Synchronous `Result`; RAII disposes downloads                                             | Promises and `AbortSignal`; explicitly close or async-dispose downloads           |
-| Reporting worker           | Host handles the reserved worker argument                                                 | Package-owned worker                                                              |
+| Reporting worker           | Host dispatches the reserved argument with `cli::handle_worker`                           | Package-owned worker                                                              |
 | Metric definitions         | Shipped catalog via `Client::registered`; additional low-level `Client::new`/`Metric` API | Shipped catalog only; no custom-definition API                                    |
-| Policy resolution          | Host supplies the complete `Policy`                                                       | Host options plus documented environment vetoes                                   |
+| Policy resolution          | Host policy with optional environment veto helper                                         | Host options plus documented environment vetoes                                   |
 | Reporting and update state | Rust namespaces and OS locks                                                              | Separate Node namespaces and JavaScript leases                                    |
 | Shared profile             | v2 interoperates; legacy v1 remains Rust-only                                             | v2 only; no legacy grant migration                                                |
 | System context             | Native collectors                                                                         | macOS product version currently `unknown`; Node exposes the Darwin kernel version |
-| Convenience layer          | Host composition example                                                                  | Optional `CliClient`                                                              |
+| Convenience layer          | Optional synchronous `cli::CliClient`                                                     | Optional `CliClient`                                                              |
 
 The common integration uses the centrally maintained event catalog in both
 languages. Rust's additional metric-definition API does not register a tool or

@@ -25,6 +25,7 @@
 //! ```
 mod cache;
 pub mod client;
+pub use client::cli;
 pub mod project;
 pub mod telemetry;
 mod wire;

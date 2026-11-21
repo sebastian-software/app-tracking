@@ -75,6 +75,8 @@ for (const name of [
   "types",
   "download",
   "permissions",
+  "context",
+  "policy",
   "update",
   "update-contract",
   "cli",
