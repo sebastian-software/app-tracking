@@ -106,7 +106,7 @@ calls and never accepts caller-selected SQL or a database destination.
 
 ## Reproducible database tests
 
-CI starts pinned PostgreSQL 18.6 in a disposable service container, creates an
+CI starts pinned PostgreSQL 19.0 in a disposable service container, creates an
 app-scoped database owner/migrator and an unprivileged runtime role, and runs:
 
 ```sh

@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { psql } from "../../scripts/storage/psql.ts";
 
 export async function reportingQueryPlan(admin: string) {
+  const version = Number(await psql(admin, "SHOW server_version_num;"));
+  assert.ok(Number.isSafeInteger(version) && version >= 100000);
   // Disposable synthetic rows stay inside one rolled-back transaction. No raw
   // plan (which can contain parameters) is exported as evidence.
   const sql = `BEGIN;
@@ -39,7 +41,7 @@ export async function reportingQueryPlan(admin: string) {
       SELECT app_tracking.admin_events_v1(CURRENT_DATE-89,CURRENT_DATE+1,'all','local','language.use');
     ROLLBACK;`;
   const text = await psql(admin, sql);
-  // psql emits two independent JSON arrays, separated by a newline.
+  // psql emits three independent JSON arrays, separated by newlines.
   const plans = JSON.parse("[" + text.replace(/\]\s*\[/g, "],[") + "]") as Record<
     string,
     unknown
@@ -61,7 +63,7 @@ export async function reportingQueryPlan(admin: string) {
     events = Number(plans[2]![0]!["Execution Time"]);
   assert.ok(Number.isFinite(narrow) && Number.isFinite(full) && Number.isFinite(events));
   return {
-    engine: "PostgreSQL 18.6",
+    engine: `PostgreSQL ${Math.floor(version / 10000)}.${version % 10000}`,
     synthetic_rows: 10000,
     synthetic_installations: 100,
     narrow_period_days: 7,

@@ -100,8 +100,8 @@ That is the documented recovery boundary, not a stronger historical-erasure
 claim. Handle known deletion requests through the normal DELETE operation after
 recovery and report the recovery-point gap in coverage.
 
-The automated recovery proof uses PostgreSQL 18.6 in an isolated local/CI
-container. It dumps only synthetic test data into memory, deletes the source
+The automated recovery proof runs against the isolated PostgreSQL service used
+by the storage integration tests. It dumps only synthetic test data into memory, deletes the source
 installation, and restores into a separate logical test database. It verifies
 that the later deletion rolls back in the restored copy, the restored receipt
 prevents a second contribution, expiry filtering applies immediately, and a
