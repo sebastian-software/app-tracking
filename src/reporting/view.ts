@@ -1,3 +1,5 @@
+import catalog from "../../contracts/event-catalog.json" with { type: "json" };
+
 export const adminHTML = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tool usage · app-tracking</title><link rel="stylesheet" href="/admin/style.css"><script src="/admin/app.js" defer></script></head>
@@ -39,6 +41,7 @@ export const adminCSS = `
 export const adminJS = String.raw`
 (() => {
   const $ = (id) => document.getElementById(id);
+  const registeredMetrics = ${JSON.stringify(Object.fromEntries(Object.entries(catalog.tools).map(([tool, metrics]) => [tool, Object.keys(metrics)])))};
   let latest, pending;
   const format = (value) => new Intl.NumberFormat('en-US').format(BigInt(value));
   const day = (date) => date.toISOString().slice(0,10);
@@ -46,7 +49,7 @@ export const adminJS = String.raw`
   function range(days) { const today = day(new Date()); $('from').value = addDay(today, 1-days); $('through').value = today; }
   function status(message, error = false) { $('status').textContent = message; $('status').classList.toggle('error', error); $('retry').hidden = !error; }
   function clear() {
-    latest = undefined; historyResult = undefined;
+    latest = undefined; historyResult = undefined; $('period').textContent = 'Usage overview';
     for (const name of ['invocations','installations','projects','unknown']) $(name).textContent = '—';
     for (const name of ['chart','commands','versions','systems','months','history-breakdowns','history-month','profiles']) $(name).replaceChildren();
     $('profiles-total').textContent='';$('history-suppressed').textContent=''; $('snapshot').textContent = ''; $('command-count').textContent = ''; $('version-count').textContent = '';
@@ -145,6 +148,7 @@ export const adminJS = String.raw`
     }
     const points=data.map((item,index) => (left+index*plot/Math.max(1,data.length-1))+','+(170-Number(BigInt(item.invocations)*1500n/max)/10)).join(' ');
     const line=document.createElementNS(ns,'polyline'); line.setAttribute('points',points); line.setAttribute('class','chart-line'); svg.append(line);
+    if(data.length===1) { const marker=document.createElementNS(ns,'circle'), [x,y]=points.split(','); marker.setAttribute('cx',x); marker.setAttribute('cy',y); marker.setAttribute('r','4'); marker.setAttribute('fill','var(--accent)'); svg.append(marker); }
     for (const index of [...new Set(width<600?[0,data.length-1]:[0,Math.floor((data.length-1)/2),data.length-1])]) {
       if(index<0) continue;
       const text=document.createElementNS(ns,'text'); text.setAttribute('x',String(left+index*plot/Math.max(1,data.length-1))); text.setAttribute('y','204'); text.setAttribute('text-anchor',index===0?'start':index===data.length-1?'end':'middle'); text.setAttribute('class','chart-axis'); text.textContent=data[index].day; svg.append(text);
@@ -186,15 +190,22 @@ export const adminJS = String.raw`
     status('Loaded. Recent seven days are provisional; today may be partial.');
   }
   async function load() {
-    pending?.abort(); const controller=new AbortController(); pending=controller;
+    pending?.abort(); pending=undefined;
     const profiles=$('source').value==='profiles';
     const history=$('source').value==='history';
     const events=$('source').value==='events'||(history&&$('history-stream').value==='events');
+    clear(); $('workspace').removeAttribute('aria-busy');
+    const invalidDate = ['from','through'].find(id => !$(id).validity.valid);
+    if(invalidDate) { status('Enter a valid '+(invalidDate==='from'?'From':'Through')+' '+(history?'month':'date')+'.',true); $('retry').hidden=true; $(invalidDate).focus(); return; }
+    if(events && $('tool').value!=='all' && !registeredMetrics[$('tool').value]?.includes($('metric').value)) {
+      status('This tool has no registered measurements for the selected metric. Choose another tool or metric.',true); $('retry').hidden=true; return;
+    }
     const params=new URLSearchParams({from:$('from').value,until:history?shiftMonth($('through').value,1)+'-01':addDay($('through').value,1),tool:$('tool').value,mode:$('mode').value});
     if(events)params.set('metric',$('metric').value);
     if(profiles){params.delete('tool');params.delete('mode');}
     if(history){params.set('from',$('from').value+'-01');params.set('until',shiftMonth($('through').value,1)+'-01');params.set('stream',$('history-stream').value);params.set('metric',events?$('metric').value:'cli.invocation');}
-    clear(); status('Loading statistics…');
+    const controller=new AbortController(); pending=controller;
+    status('Loading statistics…');
     $('workspace').setAttribute('aria-busy','true');
     try {
       const response=await fetch((profiles?'/v1/admin/profiles?':history?'/v1/admin/history?':events?'/v1/admin/events?':'/v1/admin/usage?')+params,{cache:'no-store',credentials:'same-origin',signal:controller.signal});

@@ -156,6 +156,29 @@ try {
   await page.getByLabel("Report", { exact: true }).selectOption("events");
   await page.getByLabel("Metric", { exact: true }).selectOption("language.use");
   await page.getByText("source: dependency", { exact: false }).waitFor();
+  await page.locator("#through").fill("");
+  const beforeInvalidDay = requests;
+  await page.getByLabel("Metric", { exact: true }).selectOption("resource.download");
+  await page.getByText("Enter a valid Through date.").waitFor();
+  assert.equal(requests, beforeInvalidDay);
+  assert.equal(await page.locator("#invocations").innerText(), "—");
+  await page.getByRole("button", { name: "30 days" }).click();
+  await page
+    .getByText("Loaded. Recent seven days are provisional; today may be partial.")
+    .waitFor();
+  await page.getByLabel("Tool", { exact: true }).selectOption("dalo");
+  const beforeUnsupported = requests;
+  await page.getByRole("button", { name: "Apply filters" }).click();
+  await page
+    .getByText(
+      "This tool has no registered measurements for the selected metric. Choose another tool or metric.",
+    )
+    .waitFor();
+  assert.equal(requests, beforeUnsupported);
+  assert.equal(await page.locator("#invocations").innerText(), "—");
+  await page.getByLabel("Tool", { exact: true }).selectOption("all");
+  await page.getByLabel("Metric", { exact: true }).selectOption("language.use");
+  await page.getByText("source: dependency", { exact: false }).waitFor();
   await page.getByLabel("Tool", { exact: true }).selectOption("ferriki");
   await page.getByRole("button", { name: "Apply filters" }).click();
   await page.getByText("source: explicit", { exact: false }).waitFor();
@@ -204,6 +227,20 @@ try {
     .waitFor();
   assert.equal(await page.locator("#detail-report").isVisible(), false);
   assert.equal(await page.locator("#from").getAttribute("type"), "month");
+  await page.getByLabel("History stream", { exact: true }).selectOption("events");
+  await page
+    .getByText("Monthly summaries loaded. Gaps and withheld groups are not zeroes.")
+    .waitFor();
+  await page.locator("#through").fill("");
+  const beforeInvalidMonth = requests;
+  await page.getByLabel("Metric", { exact: true }).selectOption("resource.download");
+  await page.getByText("Enter a valid Through month.").waitFor();
+  assert.equal(requests, beforeInvalidMonth);
+  assert.equal(await page.locator("#months").innerText(), "");
+  await page.getByRole("button", { name: "12 months" }).click();
+  await page
+    .getByText("Monthly summaries loaded. Gaps and withheld groups are not zeroes.")
+    .waitFor();
   assert.ok((await page.locator("#months").innerText()).includes("Incomplete"));
   assert.ok((await page.locator("#months").innerText()).includes("Withheld"));
   assert.ok(
@@ -303,6 +340,7 @@ try {
     for (const key of Object.keys(body.totals)) body.totals[key] = "0";
     for (const row of body.daily)
       for (const key of ["invocations", "active_installations", "active_projects"]) row[key] = "0";
+    body.daily = body.daily.slice(0, 1);
     body.commands = [];
     body.versions = [];
     await route.fulfill({ response, json: body });
@@ -311,6 +349,9 @@ try {
   await page.getByText("No reports have been received for this period.").waitFor();
   assert.equal(await page.locator("#invocations").innerText(), "0");
   assert.equal(await page.locator("#unknown").innerText(), "—");
+  assert.equal(await page.locator("#chart circle").count(), 1);
+  assert.equal(await page.locator("#chart circle").getAttribute("cy"), "170");
+  assert.equal(await page.locator("#chart tbody tr").count(), 1);
   await page.unroute("**/v1/admin/usage?**");
   await page.route("**/admin/logout", (route) =>
     route.fulfill({
