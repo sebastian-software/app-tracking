@@ -20,6 +20,10 @@ exercise actual Rust and installed Node clients, including both creation orders
 and concurrent access. See [#54](https://github.com/sebastian-software/app-tracking/issues/54)
 and the [profile guide](profile-linking.md) for the contract and evidence.
 
+Both clients validate download resource IDs against the same grammar before
+transfer. `contracts/download-resource-ids.json` covers their shared boundaries;
+its Rust fixture copy is checked for equality.
+
 ## Update and CLI integration contracts
 
 [#97](https://github.com/sebastian-software/app-tracking/issues/97) closes the

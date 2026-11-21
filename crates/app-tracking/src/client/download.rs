@@ -41,6 +41,15 @@ impl Default for DownloadOptions {
     }
 }
 
+fn resource_id(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 128
+        && value.as_bytes()[0].is_ascii_alphanumeric()
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b"._-".contains(&b))
+}
+
 /// Caller-owned resource descriptor. No identity/credential is sent to its URL.
 /// Redirects, userinfo, query strings, and fragments are deliberately unsupported.
 pub struct Resource {
@@ -57,7 +66,7 @@ impl std::fmt::Debug for Resource {
 }
 impl Resource {
     pub fn new(id: &str, url: &str, bytes: u64, sha256: &str) -> Result<Self, Error> {
-        if !super::label(id, 128)
+        if !resource_id(id)
             || !endpoint(url, false)
             || sha256.len() != 64
             || !sha256

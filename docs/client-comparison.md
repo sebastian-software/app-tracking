@@ -250,6 +250,8 @@ need their explicit synchronization or completed authenticated deletion.
 Both clients verify exact byte length and SHA-256 before returning a temporary
 artifact. Supply real descriptor values from a trusted manifest. This example
 uses a zero-byte synthetic resource and its actual digest; the URL is a placeholder.
+Both clients accept IDs of 1–128 ASCII characters, starting with a lowercase
+letter or digit and continuing with lowercase letters, digits, `.`, `_`, or `-`.
 
 **Rust**
 
@@ -257,7 +259,7 @@ uses a zero-byte synthetic resource and its actual digest; the URL is a placehol
 use app_tracking::client::{DownloadOptions, Resource};
 
 let resource = Resource::new(
-    "example-data", "https://cdn.example.com/example-data.bin", 0,
+    "2d-grammar", "https://cdn.example.com/example-data.bin", 0,
     "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 )?;
 let artifact = client.download(&resource, &DownloadOptions::default())?;
@@ -269,7 +271,7 @@ drop(artifact);
 
 ```ts
 const artifact = await client.download({
-  id: "example-data",
+  id: "2d-grammar",
   url: "https://cdn.example.com/example-data.bin",
   bytes: 0,
   sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
