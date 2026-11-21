@@ -179,8 +179,8 @@ importers:
         specifier: 4.1.4
         version: 4.1.4
       '@workos-inc/node':
-        specifier: 12.1.0
-        version: 12.1.0
+        specifier: 12.3.0
+        version: 12.3.0
       ajv:
         specifier: 8.20.0
         version: 8.20.0
@@ -194,8 +194,8 @@ importers:
         specifier: 0.28.2
         version: 0.28.2
       jose:
-        specifier: 6.2.15
-        version: 6.2.15
+        specifier: 6.2.17
+        version: 6.2.17
       oxfmt:
         specifier: 0.77.0
         version: 0.77.0
@@ -631,8 +631,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@workos-inc/node@12.1.0':
-    resolution: {integrity: sha512-qT/RpDHti/MDR1r5Jkngg6gS7cpwzrRTB0DA4H/5UMD27t8qOcLqOkIrxVX4AOIzUQ0oJXn7l+c0kZZC/mrGiQ==}
+  '@workos-inc/node@12.3.0':
+    resolution: {integrity: sha512-BuPP/5Zkh4Xjvs6x0qLUsCQzKVIrvacLLuCGhaai9fI/vzKd4JX9OUQoXrbsIqkPY8HWC6uIgCWYZaJxIvXxpA==}
     engines: {node: '>=22.11.0'}
 
   ajv-formats@3.0.1:
@@ -668,8 +668,8 @@ packages:
     resolution: {integrity: sha512-CQ46U0ZkAGmbT/4UxdzzGJpacP2IeKgY4a5/tOI9AABbpOMfK739wfDXmv1usCk+3RkKj1hQy4/fjhiwa2xlrA==}
     engines: {node: '>=16.9.0'}
 
-  jose@6.2.15:
-    resolution: {integrity: sha512-qdF6ewcZARtef63fJ9AKKZPgxw+t7USH6HLXYcD4CrdmSvDp79rpJSPFEKc90QBeGS63u1KQtN2MZQHC0yDIzA==}
+  jose@6.2.17:
+    resolution: {integrity: sha512-wOuK9V1yujQFH5S0ZWmLcDZN7+IKh9bUCC2ZPCf2HDlol3WWHy+PPyNjEI75FXRLMp3vDKQcupP59xhVU95hcg==}
 
   json-schema-traverse@1.0.0:
     resolution: {integrity: sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug==}
@@ -944,7 +944,7 @@ snapshots:
   '@typescript/typescript-win32-x64@7.0.2':
     optional: true
 
-  '@workos-inc/node@12.1.0': {}
+  '@workos-inc/node@12.3.0': {}
 
   ajv-formats@3.0.1(ajv@8.20.0):
     optionalDependencies:
@@ -996,7 +996,7 @@ snapshots:
 
   hono@4.13.13: {}
 
-  jose@6.2.15: {}
+  jose@6.2.17: {}
 
   json-schema-traverse@1.0.0: {}
 
