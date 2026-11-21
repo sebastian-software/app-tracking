@@ -1,0 +1,70 @@
+[
+  {
+    "id": "2d-grammar",
+    "valid": true
+  },
+  {
+    "id": "grammar.rust",
+    "valid": true
+  },
+  {
+    "id": "a",
+    "valid": true
+  },
+  {
+    "id": "0",
+    "valid": true
+  },
+  {
+    "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": true
+  },
+  {
+    "id": "2aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": true
+  },
+  {
+    "id": "",
+    "valid": false
+  },
+  {
+    "id": ".grammar",
+    "valid": false
+  },
+  {
+    "id": "-grammar",
+    "valid": false
+  },
+  {
+    "id": "Grammar",
+    "valid": false
+  },
+  {
+    "id": "grammar/name",
+    "valid": false
+  },
+  {
+    "id": "grammar\n",
+    "valid": false
+  },
+  {
+    "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "valid": false
+  },
+  {
+    "id": "grammar\r",
+    "valid": false
+  },
+  {
+    "id": "grammar ",
+    "valid": false
+  },
+  {
+    "id": "grammar ",
+    "valid": false
+  },
+  {
+    "id": "grammar\r\n",
+    "valid": false
+  }
+]

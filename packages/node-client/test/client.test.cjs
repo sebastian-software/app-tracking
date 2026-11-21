@@ -239,6 +239,32 @@ test("download verifies streaming bytes, exposes a temporary file, and never for
   }
 });
 
+test("shared download resource IDs are validated before transfer", async () => {
+  const cases = require("../../../contracts/download-resource-ids.json");
+  let requests = 0;
+  const s = await server((_req, res) => {
+    requests++;
+    res.end(body);
+  });
+  try {
+    const c = await client();
+    for (const { id, valid } of cases) {
+      const before = requests;
+      if (valid) {
+        const result = await c.download({ ...resource(s.origin), id });
+        assert.equal(result.id, id);
+        await result.close();
+        assert.equal(requests, before + 1, JSON.stringify(id));
+      } else {
+        await assert.rejects(c.download({ ...resource(s.origin), id }), { code: "Configuration" });
+        assert.equal(requests, before, JSON.stringify(id));
+      }
+    }
+  } finally {
+    await s.close();
+  }
+});
+
 test("invalid downloads, redirects, cancellation, and offline mode do not return artifacts", async () => {
   const s = await server((req, res) => {
     if (req.url === "/redirect") {

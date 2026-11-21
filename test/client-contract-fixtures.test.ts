@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 
-for (const name of ["update-client", "cli-settings"]) {
+for (const name of ["update-client", "cli-settings", "download-resource-ids"]) {
   test(`${name} fixtures are included unchanged in the Rust crate`, async () => {
     assert.equal(
       await readFile(`contracts/${name}.json`, "utf8"),

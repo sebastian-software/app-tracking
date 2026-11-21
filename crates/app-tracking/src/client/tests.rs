@@ -542,3 +542,17 @@ fn shipped_ardo_catalog_gates_and_validates_shared_invocation_scenarios() {
         Recorded::Suppressed
     );
 }
+
+#[test]
+fn shared_download_resource_ids_are_validated_before_transfer() {
+    let cases: serde_json::Value =
+        serde_json::from_str(include_str!("../../fixtures/download-resource-ids.json")).unwrap();
+    for case in cases.as_array().unwrap() {
+        let id = case["id"].as_str().unwrap();
+        let result = Resource::new(id, "http://127.0.0.1:1/resource", 0, &hash(b""));
+        assert_eq!(result.is_ok(), case["valid"].as_bool().unwrap(), "{id:?}");
+        if !case["valid"].as_bool().unwrap() {
+            assert!(matches!(result, Err(Error::Configuration)));
+        }
+    }
+}

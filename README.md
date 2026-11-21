@@ -180,18 +180,18 @@ Both clients implement the same product contracts. This table and the
 [paired examples](docs/client-comparison.md) are the integration entry point:
 each task shows Rust followed by Node.js, including deliberate differences.
 
-| Task                                                                                                               | Rust                                                       | Node.js                                            |
-| ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- | -------------------------------------------------- |
-| [Independent update checks](docs/client-comparison.md#check-for-updates)                                           | `UpdateClient::check`                                      | `UpdateClient.check`                               |
-| [Ordinary consent and 14-day reminders](docs/client-comparison.md#ask-for-reporting-permission)                    | `request_opt_in`, `request_opt_in_reminder`                | `requestOptIn`, `requestOptInReminder`             |
-| [Consent-gated repository context](docs/client-comparison.md#supply-optional-repository-context-lazily)            | `with_project_context`                                     | Lazy `projectContext` option                       |
-| [Registered counters and background handoff](docs/client-comparison.md#record-an-actual-invocation)                | `record`, `flush_in_background`; host handles worker entry | `record`, `flushInBackground`; package owns worker |
-| [Status and redacted preview](docs/client-comparison.md#inspect-and-change-settings)                               | `status`, `preview`                                        | `status`, `preview`                                |
-| [Withdrawal, disable, and deletion](docs/client-comparison.md#inspect-and-change-settings)                         | `set_opt_in`, `set_disabled`, `delete`                     | `setOptIn`, `setDisabled`, `delete`                |
-| [Verified downloads](docs/client-comparison.md#download-and-dispose-of-a-verified-resource)                        | `download`; temporary file removed on drop                 | `download`; `close` or async disposal              |
-| [Monthly history and public usage](docs/client-comparison.md#request-separate-history-and-publication-permissions) | Separate request/status/sync methods for each              | Separate request/status/sync methods for each      |
-| [Shared v2 profile linking and reset](docs/client-comparison.md#link-and-reset-a-shared-v2-profile)                | Explicit `_v2` methods                                     | Explicit linking/reset methods                     |
-| [CLI lifecycle composition](docs/client-comparison.md#compose-the-command-lifecycle)                               | Compose synchronous APIs in the host                       | Optional `CliClient` convenience API               |
+| Task                                                                                                               | Rust                                                                   | Node.js                                                |
+| ------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- | ------------------------------------------------------ |
+| [Independent update checks](docs/client-comparison.md#check-for-updates)                                           | `UpdateClient::check`                                                  | `UpdateClient.check`                                   |
+| [Ordinary consent and 14-day reminders](docs/client-comparison.md#ask-for-reporting-permission)                    | `request_opt_in`, `request_opt_in_reminder`                            | `requestOptIn`, `requestOptInReminder`                 |
+| [Consent-gated repository context](docs/client-comparison.md#supply-optional-repository-context-lazily)            | `with_project_context`                                                 | Lazy `projectContext` option                           |
+| [Registered counters and background handoff](docs/client-comparison.md#record-an-actual-invocation)                | `record`, `flush_in_background`; host handles worker entry             | `record`, `flushInBackground`; package owns worker     |
+| [Status and redacted preview](docs/client-comparison.md#inspect-and-change-settings)                               | `status`, `preview`                                                    | `status`, `preview`                                    |
+| [Withdrawal, disable, and deletion](docs/client-comparison.md#inspect-and-change-settings)                         | `set_opt_in`, `set_disabled`, `delete`                                 | `setOptIn`, `setDisabled`, `delete`                    |
+| [Verified downloads](docs/client-comparison.md#download-and-dispose-of-a-verified-resource)                        | `download`; shared resource ID grammar, temporary file removed on drop | `download`; same ID grammar, `close` or async disposal |
+| [Monthly history and public usage](docs/client-comparison.md#request-separate-history-and-publication-permissions) | Separate request/status/sync methods for each                          | Separate request/status/sync methods for each          |
+| [Shared v2 profile linking and reset](docs/client-comparison.md#link-and-reset-a-shared-v2-profile)                | Explicit `_v2` methods                                                 | Explicit linking/reset methods                         |
+| [CLI lifecycle composition](docs/client-comparison.md#compose-the-command-lifecycle)                               | Compose synchronous APIs in the host                                   | Optional `CliClient` convenience API                   |
 
 ### Updates without reporting
 
