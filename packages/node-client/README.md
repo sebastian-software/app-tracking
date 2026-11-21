@@ -32,7 +32,7 @@ profiles across both runtimes. The three-platform
 Node-client workflow installs the pinned Rust toolchain for these tests and
 checks Node.js 22, 24, and 26 on Linux, macOS, and Windows. It also tests each
 major's initial release on Linux. Package builds use the repository's pinned
-Node.js 24 toolchain and emit JavaScript compatible with Node.js 22; consumers
+Node.js 26 toolchain and emit JavaScript compatible with Node.js 22; consumers
 do not need the build toolchain.
 
 `pnpm build:node-client` builds only the package. To create a local tarball, run
