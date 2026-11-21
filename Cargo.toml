@@ -15,6 +15,7 @@ include = [
   "crates/app-tracking/examples/**",
   "crates/app-tracking/fixtures/**",
   "crates/app-tracking/README.md",
+  "contracts/hosted-reporting-notice.json",
   "/LICENSE-MIT",
   "/LICENSE-APACHE",
 ]
@@ -55,6 +56,9 @@ tempfile = "3"
 thiserror = "2"
 time = { version = "0.3", default-features = false, features = ["parsing"] }
 ureq = { version = "3.4.2", default-features = false, features = ["rustls"] }
+
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "1", features = ["process"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 sysctl = "0.7.1"

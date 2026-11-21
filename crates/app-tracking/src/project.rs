@@ -1,8 +1,8 @@
-//! Consent-gated, local project identity. No filesystem, environment, Git command,
-//! network, logging, or persistence is performed by this module.
+//! Consent-gated, local project identity. Normalization is pure. The optional
+//! [`git_origin`] helper reads Git configuration for a host-selected checkout.
 //!
-//! The host supplies raw context lazily, after resolving its effective telemetry
-//! policy. Update checks never invoke this module. Unknown context is `None`.
+//! Supply context lazily, after resolving the effective reporting policy.
+//! Update checks never request project context. Unknown identity is `None`.
 //!
 //! ```
 //! use app_tracking::project::{identify, Origin, RepositoryContext};
@@ -16,6 +16,10 @@
 //! ```
 
 use std::fmt;
+use std::io::{Read, Seek, SeekFrom};
+use std::path::Path;
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
 
 use sha2::{Digest, Sha256};
 
@@ -24,6 +28,89 @@ use sha2::{Digest, Sha256};
 pub const NORMALIZATION_VERSION: u8 = 1;
 const MAX_URL_BYTES: usize = 8_192;
 const MAX_PACKAGE_BYTES: usize = 1_048_576;
+const GIT_ORIGIN_BUDGET: Duration = Duration::from_millis(200);
+
+/// Read one raw local Git origin for a host-selected project directory.
+/// Call inside the consent-gated project callback. Git URL rewrites are not
+/// applied. Ambiguous origins, invalid output, and failed lookups are unknown.
+pub fn git_origin(directory: &Path) -> Origin {
+    read_git_origin(directory).unwrap_or(Origin::Unavailable)
+}
+
+fn read_git_origin(directory: &Path) -> Option<Origin> {
+    let mut output = tempfile::tempfile().ok()?;
+    let stderr = tempfile::tempfile().ok()?;
+    let mut command = Command::new("git");
+    command
+        .args([
+            "config",
+            "--local",
+            "--includes",
+            "--null",
+            "--get-all",
+            "remote.origin.url",
+        ])
+        .current_dir(directory)
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .stdin(Stdio::null())
+        .stdout(Stdio::from(output.try_clone().ok()?))
+        .stderr(Stdio::from(stderr.try_clone().ok()?));
+    for key in [
+        "GIT_DIR",
+        "GIT_COMMON_DIR",
+        "GIT_WORK_TREE",
+        "GIT_CONFIG",
+        "GIT_CONFIG_COUNT",
+        "GIT_CONFIG_PARAMETERS",
+    ] {
+        command.env_remove(key);
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        command.process_group(0);
+    }
+    let mut child = command.spawn().ok()?;
+    let start = Instant::now();
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) if start.elapsed() < GIT_ORIGIN_BUDGET => {
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            _ => {
+                #[cfg(unix)]
+                if let Ok(pid) = i32::try_from(child.id())
+                    && let Some(group) = rustix::process::Pid::from_raw(pid)
+                {
+                    let _ =
+                        rustix::process::kill_process_group(group, rustix::process::Signal::KILL);
+                }
+                let _ = child.kill();
+                let _ = child.wait();
+                return None;
+            }
+        }
+    };
+    let length = output.metadata().ok()?.len();
+    if status.code() == Some(1) && length == 0 && stderr.metadata().ok()?.len() == 0 {
+        return Some(Origin::Absent);
+    }
+    if !status.success() || length > (MAX_URL_BYTES + 1) as u64 {
+        return None;
+    }
+    output.seek(SeekFrom::Start(0)).ok()?;
+    let mut bytes = Vec::new();
+    output
+        .take((MAX_URL_BYTES + 2) as u64)
+        .read_to_end(&mut bytes)
+        .ok()?;
+    let raw = bytes.strip_suffix(&[0])?;
+    if raw.is_empty() || raw.len() > MAX_URL_BYTES || raw.contains(&0) {
+        return None;
+    }
+    Some(Origin::Present(std::str::from_utf8(raw).ok()?.to_owned()))
+}
 
 /// Result of the host's Git-origin lookup. Lookup failure or multiple origins
 /// must be `Unavailable`, never `Absent`; package fallback is allowed only for

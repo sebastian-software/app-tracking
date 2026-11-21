@@ -52,6 +52,12 @@ The [`unified-client-fixture`](../crates/app-tracking/examples/unified-client-fi
 is an executable consumer used by the PostgreSQL integration suite. It has
 only explicit synthetic endpoint/state configuration and no production default.
 
+## CLI lifecycle
+
+The optional [CLI integration](client-comparison.md#compose-the-command-lifecycle)
+provides a once-per-command reporting lifecycle, settings methods, and a
+worker dispatcher. Keep update policy and command output in the host.
+
 ## Permission request and settings
 
 `request_opt_in(message)` owns the complete permission flow. The host supplies
@@ -75,8 +81,11 @@ worker, and respect process-level disabling. Configure
 `with_interaction(Interaction::Never)` for JSON output, editor integrations,
 and other unattended host modes. That option still reuses eligible saved
 answers. Construction, `record`, and `download` never prompt automatically.
-A declined request is not repeated; explicit settings changes use
-`set_opt_in(bool)`. An internal fingerprint ties grants to the opt-in metric
+A declined request is saved. An explicit settings command can call
+`request_opt_in_in_settings(reason)` to ask again on a terminal. A fresh
+affirmative answer can also clear a saved disable. Embedded settings can
+use `set_opt_in(bool)` after obtaining the user's choice. An internal
+fingerprint ties grants to the opt-in metric
 definitions and context. A changed scope stops opt-in collection and requires
 a fresh explicit permission request and discards unsent opt-in observations;
 it does not silently expand a saved grant.

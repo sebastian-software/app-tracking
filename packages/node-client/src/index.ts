@@ -5,7 +5,9 @@ export type { VerifiedDownload } from "./download.ts";
 export * from "./permissions.ts";
 export { UpdateClient, UpdateError, UPDATE_NETWORK_BUDGET_MS } from "./update.ts";
 export type { Update, UpdateClientOptions, UpdateMode, UpdateErrorCode } from "./update.ts";
-export { CliClient } from "./cli.ts";
+export { CliClient, defaultReportingStateRoot, validateCiStateRoot } from "./cli.ts";
+export { gitOrigin } from "./context.ts";
+export { resolvePolicy as policyFromEnvironment } from "./policy.ts";
 export type {
   CliClientOptions,
   CliStatus,

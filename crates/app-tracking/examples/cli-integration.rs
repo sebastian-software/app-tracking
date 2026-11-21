@@ -1,6 +1,7 @@
 //! Equivalent Rust composition. The host owns flags, observation boundaries, and output.
 //! Configuration comes from explicit synthetic-example environment variables.
-use app_tracking::client::{BACKGROUND_WORKER_ARGUMENT, Client, Interaction};
+use app_tracking::cli::{CliClient, handle_worker, policy_from_environment};
+use app_tracking::client::{Client, Interaction};
 use app_tracking::telemetry::Policy;
 use app_tracking::{Mode, Tool, UpdateClient};
 use std::process::ExitCode;
@@ -14,23 +15,25 @@ fn main() -> Result<ExitCode, Box<dyn std::error::Error>> {
     let root = std::env::var("APP_TRACKING_EXAMPLE_STATE")?;
     let cache = std::env::var("APP_TRACKING_EXAMPLE_CACHE")?;
     // Product-specific flags and isolation checks still belong to the host.
-    let policy = Policy {
-        do_not_track: enabled("DO_NOT_TRACK"),
-        telemetry: std::env::var("APP_TRACKING_TELEMETRY").ok(),
-        ci: enabled("CI") || enabled("CONTINUOUS_INTEGRATION"),
-        ci_revision: std::env::var("APP_TRACKING_CI").ok(),
-        isolated_ci_state: enabled("APP_TRACKING_EXAMPLE_ISOLATED_CI_STATE"),
+    let policy = policy_from_environment(Policy {
         offline: enabled("APP_TRACKING_EXAMPLE_OFFLINE"),
-        ..Default::default()
-    };
+        ..Policy::default()
+    });
     let mode = if policy.offline {
         Mode::Offline
     } else {
         Mode::Enabled
     };
-    let reporting = Client::registered(&origin, root, "ardo", "1.0.0")?
-        .with_policy(policy)
-        .with_interaction(Interaction::Never);
+    let reporting = || {
+        Ok(Client::registered(&origin, &root, "ardo", "1.0.0")?
+            .with_policy(policy.clone())
+            .with_interaction(Interaction::Never))
+    };
+    if let Some(result) = handle_worker(std::env::args_os().skip(1), reporting) {
+        result?;
+        return Ok(ExitCode::SUCCESS);
+    }
+    let mut reporting = CliClient::new(reporting()?);
     let updates = UpdateClient::new(
         &origin,
         cache,
@@ -40,31 +43,29 @@ fn main() -> Result<ExitCode, Box<dyn std::error::Error>> {
     let args: Vec<_> = std::env::args().collect();
     let action = args.get(1).map(String::as_str).unwrap_or("help");
     match action {
-        BACKGROUND_WORKER_ARGUMENT => {
-            reporting.run_background_worker(args.get(2).ok_or("missing worker nonce")?)?;
-        }
         "status" => println!("{}", serde_json::to_string(&reporting.status()?)?),
         "preview" => println!("{}", reporting.preview()?),
         "permission" => {
-            reporting.request_opt_in(
+            reporting.request_reporting_opt_in_in_settings(
                 "Help prioritize Ardo maintenance. Privacy: https://example.com/privacy",
             )?;
         }
         "withdraw" => {
-            reporting.set_opt_in(false)?;
+            reporting.withdraw_reporting()?;
         }
         "disable" => {
-            reporting.set_disabled(true)?;
+            reporting.disable_reporting()?;
         }
         "delete" => {
-            reporting.delete()?;
-            reporting.flush_in_background()?;
+            let request = reporting.delete_reporting()?;
+            request.handed_off?;
         }
         "build" => {
             // One host-owned observation; watch iterations and wrappers do not repeat it.
-            let _ = reporting.record("cli.invocation", || {
-                [("command".into(), "build".into())].into()
-            });
+            let _ = reporting.record_invocation(
+                "cli.invocation",
+                [("command".into(), "build".into())].into(),
+            );
             println!("{{\"command\":\"ok\"}}");
             // A synchronous bounded check: there is no in-flight Rust update task to cancel.
             if let Ok(Some(update)) = updates.check(mode) {
@@ -73,7 +74,7 @@ fn main() -> Result<ExitCode, Box<dyn std::error::Error>> {
                     update.latest_version, update.release_url
                 );
             }
-            let _ = reporting.flush_in_background(); // Local handoff; never await delivery.
+            let _ = reporting.complete(); // Local handoff; never await delivery.
             return Ok(ExitCode::from(7));
         }
         _ => println!(

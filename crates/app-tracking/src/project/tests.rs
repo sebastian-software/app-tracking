@@ -20,6 +20,43 @@ struct Case {
 }
 
 #[test]
+fn git_origin_reads_raw_local_configuration_and_rejects_ambiguity() {
+    let temp = tempfile::tempdir().unwrap();
+    let git = |args: &[&str]| {
+        let output = Command::new("git")
+            .args(args)
+            .current_dir(temp.path())
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{:?}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    };
+    assert!(matches!(git_origin(temp.path()), Origin::Unavailable));
+    git(&["init", "--quiet"]);
+    assert!(matches!(git_origin(temp.path()), Origin::Absent));
+    let origin = "alias:example/project.git";
+    git(&["config", "--local", "remote.origin.url", origin]);
+    git(&[
+        "config",
+        "--local",
+        "url.https://example.com/.insteadOf",
+        "alias:",
+    ]);
+    assert!(matches!(git_origin(temp.path()), Origin::Present(raw) if raw == origin));
+    git(&[
+        "config",
+        "--local",
+        "--add",
+        "remote.origin.url",
+        "alias:example/other.git",
+    ]);
+    assert!(matches!(git_origin(temp.path()), Origin::Unavailable));
+}
+
+#[test]
 fn normalization_v1_conformance() {
     let fixtures: Fixtures =
         serde_json::from_str(include_str!("../../fixtures/project-identity-v1.json")).unwrap();
