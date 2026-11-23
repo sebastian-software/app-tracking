@@ -46,7 +46,9 @@ export function bunnyApi(key: string): BunnyApi {
       }
       throw operationFailure(response.status, problem);
     }
-    const result = response.status === 204 ? undefined : await response.json();
+    // Bunny's certificate endpoint returns HTTP 200 with an empty body.
+    const certificate = method === "GET" && path.startsWith("/pullzone/loadFreeCertificate?");
+    const result = response.status === 204 || certificate ? undefined : await response.json();
     if (path.startsWith("/shield/")) {
       const failure = [result?.error, result?.errorResponse].find(
         (error) => error?.success === false,
