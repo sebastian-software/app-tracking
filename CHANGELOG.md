@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.8.0](https://github.com/sebastian-software/app-tracking/compare/app-tracking-v0.7.1...app-tracking-v0.8.0) (2026-11-23)
+
+
+### Features
+
+* issue protected links for build assets ([#131](https://github.com/sebastian-software/app-tracking/issues/131)) ([5cff514](https://github.com/sebastian-software/app-tracking/commit/5cff514df1fa22fe94838203b28601cc78805810))
+* share CLI reporting lifecycle across SDKs ([#121](https://github.com/sebastian-software/app-tracking/issues/121)) ([f2922f0](https://github.com/sebastian-software/app-tracking/commit/f2922f0d1b7aad7ef63179c53af854ab868df621))
+* verify signed asset downloads in both SDKs ([#138](https://github.com/sebastian-software/app-tracking/issues/138)) ([ff3bc1e](https://github.com/sebastian-software/app-tracking/commit/ff3bc1e79d71347e245ccddcea82b3a6cc9705f8))
+
+
+### Bug Fixes
+
+* accept Bunny certificate success without JSON ([#136](https://github.com/sebastian-software/app-tracking/issues/136)) ([289b21c](https://github.com/sebastian-software/app-tracking/commit/289b21c80e135952fdd2694dc02e449a6811cbba))
+* align download resource ID validation ([#122](https://github.com/sebastian-software/app-tracking/issues/122)) ([eec9e79](https://github.com/sebastian-software/app-tracking/commit/eec9e7912f3c69a44e043eb0f8bca1bf34585e3e))
+* **ci:** identify obsolete validation by its immutable run SHA ([#135](https://github.com/sebastian-software/app-tracking/issues/135)) ([301f751](https://github.com/sebastian-software/app-tracking/commit/301f751538617130ad9296ad8be33b3ff60fe415))
+* clarify reporting filter and chart states ([#123](https://github.com/sebastian-software/app-tracking/issues/123)) ([bb37a6c](https://github.com/sebastian-software/app-tracking/commit/bb37a6c9ee08355771d040042b2d90b12c3433c7))
+* **deps:** apply Node LTS and PostgreSQL CI security updates ([#124](https://github.com/sebastian-software/app-tracking/issues/124)) ([fb1e233](https://github.com/sebastian-software/app-tracking/commit/fb1e23388f3f0c9688b11004cffcf1cd4db28fed))
+* **deps:** update dependency axe-core to v4.14.0 ([#111](https://github.com/sebastian-software/app-tracking/issues/111)) ([01a9163](https://github.com/sebastian-software/app-tracking/commit/01a9163cea2d0b25120233132c006f57b9c2edc4))
+* **deps:** update dependency jose to v6.2.15 ([#110](https://github.com/sebastian-software/app-tracking/issues/110)) ([f22ef7f](https://github.com/sebastian-software/app-tracking/commit/f22ef7fa9a163602ee59bfb5f6fdec4bed9490af))
+* **deps:** update dependency oxfmt to v0.75.0 ([290b2ab](https://github.com/sebastian-software/app-tracking/commit/290b2ab6c11b449f6a1997745081586df6edc6f6))
+* **deps:** update dependency oxfmt to v0.77.0 ([#114](https://github.com/sebastian-software/app-tracking/issues/114)) ([8ee9411](https://github.com/sebastian-software/app-tracking/commit/8ee9411ac8a2e0866c8a8d6b7474c20beb7baa30))
+* **deps:** update dependency playwright to v1.65.1 ([#109](https://github.com/sebastian-software/app-tracking/issues/109)) ([16b1fbf](https://github.com/sebastian-software/app-tracking/commit/16b1fbf139849fdee5a7f4c5c350b04e43e23cb7))
+* **deps:** update locked ureq to 3.5.2 ([#126](https://github.com/sebastian-software/app-tracking/issues/126)) ([57a886c](https://github.com/sebastian-software/app-tracking/commit/57a886c2c306c5ae88cdfcedff4dc97654916fc5))
+* **deps:** update the Node toolchain and JavaScript dependencies ([#129](https://github.com/sebastian-software/app-tracking/issues/129)) ([a7bfa33](https://github.com/sebastian-software/app-tracking/commit/a7bfa3347f64b4891ec742e127421ce9640e25da))
+* **deps:** update WorkOS and JOSE ([#125](https://github.com/sebastian-software/app-tracking/issues/125)) ([13783f7](https://github.com/sebastian-software/app-tracking/commit/13783f75c37a815a1e5c6f75d69b2dc23670e1d3))
+* **deps:** use PostgreSQL 19 in storage CI ([#130](https://github.com/sebastian-software/app-tracking/issues/130)) ([b32efcb](https://github.com/sebastian-software/app-tracking/commit/b32efcb87f980290a07bfc6b5fa63bf838d4b7ea))
+
 ## [0.7.1](https://github.com/sebastian-software/app-tracking/compare/app-tracking-v0.7.0...app-tracking-v0.7.1) (2026-11-03)
 
 
