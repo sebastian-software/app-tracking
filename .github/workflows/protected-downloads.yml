@@ -1,0 +1,58 @@
+name: Deploy protected downloads
+on:
+  workflow_dispatch:
+    inputs:
+      tool:
+        description: Project to prepare or activate
+        required: true
+        type: choice
+        options:
+          - ferriki
+          - ferrigura
+      mode:
+        description: Stage private assets or activate verified project hostnames
+        required: true
+        type: choice
+        options:
+          - prepare
+          - activate
+      catalog_pins:
+        description: JSON array of full Ferriki commit SHAs or hashed Ferrigura manifest paths
+        required: true
+        type: string
+      import_public:
+        description: Copy already published asset bytes into protected storage for migration
+        required: true
+        default: false
+        type: boolean
+permissions:
+  contents: read
+concurrency: protected-download-deployment
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa
+        with:
+          run_install: false
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: node --test test/downloads.test.ts
+      - name: Deploy and validate selected protected download service
+        env:
+          BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
+          DOWNLOAD_TOOL: ${{ inputs.tool }}
+          DOWNLOAD_MODE: ${{ inputs.mode }}
+          DOWNLOAD_CATALOG_PINS: ${{ inputs.catalog_pins }}
+          DOWNLOAD_IMPORT_PUBLIC: ${{ inputs.import_public }}
+          DOWNLOAD_BUILD_TOKEN: ${{ inputs.tool == 'ferriki' && secrets.FERRIKI_DOWNLOAD_TOKEN || inputs.tool == 'ferrigura' && secrets.FERRIGURA_DOWNLOAD_TOKEN || '' }}
+          DOWNLOAD_ADDITIONAL_TOKEN_SHA256: ${{ inputs.tool == 'ferriki' && vars.FERRIKI_DOWNLOAD_TOKEN_SHA256 || inputs.tool == 'ferrigura' && vars.FERRIGURA_DOWNLOAD_TOKEN_SHA256 || '[]' }}
+        run: node scripts/downloads/deploy.ts "$DOWNLOAD_MODE"
