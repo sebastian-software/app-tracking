@@ -1,5 +1,7 @@
 # app-tracking for Node.js
 
+[![Node.js 22, 24, and 26](https://img.shields.io/badge/Node.js-22%20%7C%2024%20%7C%2026-339933?logo=nodedotjs&logoColor=white)](https://github.com/sebastian-software/app-tracking/blob/main/packages/node-client/README.md#build-and-verify)
+
 A TypeScript client for the maintained app-tracking event and download contracts.
 The package contains ESM, CommonJS, TypeScript declarations, and its background
 worker. It uses Node.js built-ins and bundled JavaScript; consumers need no

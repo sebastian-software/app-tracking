@@ -1,5 +1,7 @@
 # app-tracking
 
+[![Node.js 22, 24, and 26](https://img.shields.io/badge/Node.js-22%20%7C%2024%20%7C%2026-339933?logo=nodedotjs&logoColor=white)](./packages/node-client/README.md#build-and-verify)
+
 Useful update notices. Service statistics. Optional detailed usage reporting.
 
 app-tracking gives developer tools a shared service, with Rust and Node.js
