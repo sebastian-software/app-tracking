@@ -54,6 +54,12 @@ synchronously return a temporary `VerifiedDownload` only after size/SHA-256
 checks. Cache placement belongs to the host. Declined/failed reporting does
 not prevent a verified download; cache reads are separate observations.
 
+`SignedResource` and `download_signed` add a trusted issuer in front of the
+verified download. Pass the exact CDN origin, path and pinned SHA-256. The
+bearer token goes only to the issuer, both requests share one deadline,
+and optional reporting still requires its own permission. See the
+[paired Rust and Node example](https://github.com/sebastian-software/app-tracking/blob/main/docs/client-comparison.md#download-a-pinned-resource-through-a-signed-link).
+
 The service must have the matching event contract, migration, and runtime
 grants before adopting this API. See the repository's
 [`docs/unified-client.md`](https://github.com/sebastian-software/app-tracking/blob/main/docs/unified-client.md)

@@ -1,6 +1,7 @@
 export { Client } from "./client.ts";
 export { TrackingError } from "./types.ts";
 export type * from "./types.ts";
+export { downloadSigned } from "./download.ts";
 export type { VerifiedDownload } from "./download.ts";
 export * from "./permissions.ts";
 export { UpdateClient, UpdateError, UPDATE_NETWORK_BUDGET_MS } from "./update.ts";

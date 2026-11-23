@@ -289,6 +289,58 @@ cooperative `Cancellation` token and bounded reads; Node accepts an `AbortSignal
 in download options. Node also supports async disposal. See the language guides
 for deadlines and optional registered resource-download observations.
 
+## Download a pinned resource through a signed link
+
+On a cache miss, pass the issuer URL, exact CDN origin, asset path and checksum
+from trusted configuration. Pass the build token from the build's secret
+store. The SDK sends the token only to the issuer, validates the returned
+Bunny query and exact asset path, and verifies the CDN response within the
+same total deadline. The build token grants download access. Reporting uses
+the client's existing permission and only happens after verification. Cached
+and offline builds are handled by the host.
+
+**Rust**
+
+```rust
+use app_tracking::client::{DownloadOptions, SignedResource};
+
+let theme = SignedResource::new(
+    "theme.nord",
+    "https://downloads.ferriki.dev/v1/downloads",
+    "https://protected-assets.ferriki.dev",
+    "/themes/nord/DVzhgQds",
+    Some(26_684),
+    "e68ff2dae71a50102ba8c9d37f1938c88a877b71b42e7aefd20b3f2cf801d784",
+)?;
+let artifact = client.download_signed(&theme, &build_token, &DownloadOptions::default())?;
+// Copy artifact.path() into the host-owned cache before disposal.
+```
+
+**Node.js**
+
+```ts
+await using artifact = await client.downloadSigned(
+  {
+    id: "theme.nord",
+    issuerUrl: "https://downloads.ferriki.dev/v1/downloads",
+    cdnOrigin: "https://protected-assets.ferriki.dev",
+    path: "/themes/nord/DVzhgQds",
+    bytes: 26_684,
+    sha256: "e68ff2dae71a50102ba8c9d37f1938c88a877b71b42e7aefd20b3f2cf801d784",
+  },
+  buildToken,
+);
+// Copy artifact.path into the host-owned cache before disposal.
+```
+
+For a manifest pinned by its checksum alone, omit the expected size in Node or
+pass `None` in Rust. The issuer's size must then fit the configured byte limit
+and match the actual download. The response cannot change the pinned digest.
+
+For a download-only integration, call the exported `app_tracking::client::download_signed`
+or `downloadSigned` function with the same inputs. The standalone function needs no
+reporting client, does not report events, and leaves the offline decision to the host.
+
 ## Request separate history and publication permissions
 
 Ordinary reporting consent grants neither permission. Each dialog is an explicit

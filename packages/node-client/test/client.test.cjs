@@ -15,7 +15,7 @@ function bound(child) {
   return child;
 }
 
-let fixture, installed, Client, TrackingError, UpdateClient, UpdateError, CliClient;
+let fixture, installed, Client, TrackingError, UpdateClient, UpdateError, CliClient, downloadSigned;
 // These fixtures exercise a local, interactive-user profile independently of
 // the CI host. A separate test verifies environment restrictions explicitly.
 for (const name of [
@@ -58,11 +58,13 @@ const installedFixture = (async () => {
       env: { ...process.env, npm_config_cache: join(fixture, "npm-cache") },
     },
   );
-  ({ Client, TrackingError, UpdateClient, UpdateError, CliClient } = require(installed));
+  ({ Client, TrackingError, UpdateClient, UpdateError, CliClient, downloadSigned } = require(
+    installed,
+  ));
   const typeConsumer = join(fixture, "consumer.mts");
   await fs.writeFile(
     typeConsumer,
-    `import { Client, TrackingError, UpdateClient, CliClient, gitOrigin, policyFromEnvironment, HOSTED_REPORTING_NOTICE, type Update, type CliStatus, type Status, type VerifiedDownload } from '@sebastian-software/app-tracking';\nconst c = new Client({origin:'https://example.com',stateRoot:'/synthetic/private',tool:'ferriki',version:'1.2.3'});\nconst s: Promise<Status> = c.status();\nconst d: Promise<VerifiedDownload> = c.download({id:'grammar',url:'https://example.com/grammar',bytes:0,sha256:'0'.repeat(64)});\nconst code: string = new TrackingError('Busy').code;\nconst updates = new UpdateClient({origin:'https://example.com',cacheRoot:'/synthetic/cache',tool:'ardo',version:'1.0.0',distribution:'github'});\nconst update: Promise<Update | undefined> = updates.check('enabled');\nconst cli = new CliClient({origin:'https://example.com',stateRoot:'/synthetic/private',tool:'ardo',version:'1.0.0',invocation:{metric:'cli.invocation',categories:{build:{command:'build'}}}});\nconst status: Promise<CliStatus> = cli.status();\nconst raw: Promise<string | null | undefined> = gitOrigin('.');\nconst policy = policyFromEnvironment({offline: true});\nconst notice: string = HOSTED_REPORTING_NOTICE;\nconst choice: Promise<'granted' | 'declined' | 'unavailable'> = cli.requestReportingOptInInSettings(notice);\n`,
+    `import { Client, TrackingError, UpdateClient, CliClient, gitOrigin, policyFromEnvironment, HOSTED_REPORTING_NOTICE, downloadSigned, type SignedResource, type Update, type CliStatus, type Status, type VerifiedDownload } from '@sebastian-software/app-tracking';\nconst c = new Client({origin:'https://example.com',stateRoot:'/synthetic/private',tool:'ferriki',version:'1.2.3'});\nconst s: Promise<Status> = c.status();\nconst d: Promise<VerifiedDownload> = c.download({id:'grammar',url:'https://example.com/grammar',bytes:0,sha256:'0'.repeat(64)});\nconst signed: SignedResource = {id:'theme',issuerUrl:'https://example.com/v1/downloads',cdnOrigin:'https://cdn.example.com',path:'/asset',sha256:'0'.repeat(64)};\nconst signedArtifact: Promise<VerifiedDownload> = downloadSigned(signed, '7'.repeat(64));\nconst code: string = new TrackingError('Busy').code;\nconst updates = new UpdateClient({origin:'https://example.com',cacheRoot:'/synthetic/cache',tool:'ardo',version:'1.0.0',distribution:'github'});\nconst update: Promise<Update | undefined> = updates.check('enabled');\nconst cli = new CliClient({origin:'https://example.com',stateRoot:'/synthetic/private',tool:'ardo',version:'1.0.0',invocation:{metric:'cli.invocation',categories:{build:{command:'build'}}}});\nconst status: Promise<CliStatus> = cli.status();\nconst raw: Promise<string | null | undefined> = gitOrigin('.');\nconst policy = policyFromEnvironment({offline: true});\nconst notice: string = HOSTED_REPORTING_NOTICE;\nconst choice: Promise<'granted' | 'declined' | 'unavailable'> = cli.requestReportingOptInInSettings(notice);\n`,
   );
   const root = resolve(__dirname, "../../..");
   execFileSync(
@@ -236,6 +238,121 @@ test("download verifies streaming bytes, exposes a temporary file, and never for
     await assert.rejects(fs.stat(download.path), { code: "ENOENT" });
   } finally {
     await s.close();
+  }
+});
+
+test("signed downloads share the URL contract and isolate build credentials", async () => {
+  const cases = require("../../../contracts/signed-download-urls.json");
+  const token = "7".repeat(64);
+  const path = "/themes/nord/abcdef01";
+  const sha256 = resource("").sha256;
+  const reporting = { metric: "resource.download", dimensions: { kind: "theme" } };
+  const c = await client();
+  await c.setOptIn(false);
+  let transfers = 0;
+  let downloadHeaders;
+  let downloadPath;
+  const cdn = await server((req, res) => {
+    transfers++;
+    downloadHeaders = req.headers;
+    downloadPath = req.url;
+    res.end(body);
+  });
+  let issuerHeaders;
+  let issuerPath;
+  let issuerBody;
+  let grant;
+  const issuer = await server(async (req, res) => {
+    issuerHeaders = req.headers;
+    issuerPath = req.url;
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    issuerBody = JSON.parse(Buffer.concat(chunks));
+    res.end(JSON.stringify(grant));
+  });
+  try {
+    const signedResource = {
+      id: "theme.nord",
+      issuerUrl: issuer.origin + "/v1/downloads",
+      cdnOrigin: cdn.origin,
+      path,
+      sha256,
+      reporting,
+    };
+    let successful = 0;
+    for (const { valid, url } of cases) {
+      grant = {
+        url: url.replace("{cdn}", cdn.origin).replace("{signature}", "A".repeat(43)),
+        bytes: body.length,
+        sha256,
+      };
+      if (valid) {
+        const artifact = url.includes("?expires=")
+          ? await downloadSigned(signedResource, token)
+          : await c.downloadSigned(signedResource, token);
+        assert.deepEqual(await fs.readFile(artifact.path), body);
+        await artifact.close();
+        assert.equal(downloadHeaders.authorization, undefined);
+        assert.equal(downloadHeaders.cookie, undefined);
+        assert.ok(downloadPath.startsWith(path + "?"));
+        successful++;
+      } else {
+        await assert.rejects(c.downloadSigned(signedResource, token), { code: "Integrity" });
+      }
+      assert.equal(transfers, successful);
+      assert.equal(issuerHeaders.authorization, "Bearer " + token);
+      assert.equal(issuerPath, "/v1/downloads");
+      assert.deepEqual(issuerBody, { path, sha256 });
+      assert.equal((await c.preview()).open.length, 0);
+    }
+
+    await c.setOptIn(true);
+    grant.url = cdn.origin + path + "?token=HS256-" + "A".repeat(43) + "&expires=2000000000";
+    await assert.rejects(c.downloadSigned({ ...signedResource, bytes: 1 }, token), {
+      code: "Integrity",
+    });
+    assert.equal((await c.preview()).open.length, 0);
+    const artifact = await c.downloadSigned({ ...signedResource, bytes: body.length }, token);
+    await artifact.close();
+    const preview = await c.preview();
+    assert.equal(preview.open[0].metric, "resource.download");
+    assert.equal(preview.open[0].count, 1);
+    assert.ok(!JSON.stringify(preview).includes(token));
+    assert.ok(!JSON.stringify(preview).includes("HS256"));
+  } finally {
+    await issuer.close();
+    await cdn.close();
+  }
+});
+
+test("signed authorization rejects redirects, offline mode, and cancellation", async () => {
+  let requests = 0;
+  const issuer = await server((_req, res) => {
+    requests++;
+    res.writeHead(302, { location: "/redirect" });
+    res.end();
+  });
+  const token = "7".repeat(64);
+  const signed = {
+    id: "theme.nord",
+    issuerUrl: issuer.origin + "/v1/downloads",
+    cdnOrigin: issuer.origin,
+    path: "/themes/nord/abcdef01",
+    sha256: resource("").sha256,
+  };
+  try {
+    const c = await client();
+    const offline = await client({ policy: { offline: true } });
+    await assert.rejects(offline.downloadSigned(signed, token), { code: "Offline" });
+    await assert.rejects(c.downloadSigned(signed, token, { signal: AbortSignal.abort() }), {
+      code: "Cancelled",
+    });
+    await assert.rejects(c.downloadSigned(signed, "token"), { code: "Configuration" });
+    assert.equal(requests, 0);
+    await assert.rejects(c.downloadSigned(signed, token), { code: "HttpStatus" });
+    assert.equal(requests, 1);
+  } finally {
+    await issuer.close();
   }
 });
 

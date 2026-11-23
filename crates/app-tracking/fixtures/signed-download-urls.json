@@ -1,0 +1,27 @@
+[
+  { "url": "{cdn}/themes/nord/abcdef01?token=HS256-{signature}&expires=2000000000", "valid": true },
+  { "url": "{cdn}/themes/nord/abcdef01?expires=2000000000&token=HS256-{signature}", "valid": true },
+  {
+    "url": "https://untrusted.example/themes/nord/abcdef01?token=HS256-{signature}&expires=2000000000",
+    "valid": false
+  },
+  { "url": "{cdn}/themes/nord/wrong?token=HS256-{signature}&expires=2000000000", "valid": false },
+  {
+    "url": "{cdn}/themes/other/../nord/abcdef01?token=HS256-{signature}&expires=2000000000",
+    "valid": false
+  },
+  {
+    "url": "{cdn}/themes/nord/abcdef01?token=HS256-{signature}&expires=2000000000&next=extra",
+    "valid": false
+  },
+  {
+    "url": "{cdn}/themes/nord/abcdef01?token=HS256-{signature}&token=HS256-{signature}",
+    "valid": false
+  },
+  { "url": "{cdn}/themes/nord/abcdef01?token=plain&expires=2000000000", "valid": false },
+  { "url": "{cdn}/themes/nord/abcdef01?token=HS256-{signature}&expires=0", "valid": false },
+  {
+    "url": "{cdn}/themes/nord/abcdef01?token=HS256-{signature}&expires=2000000000#fragment",
+    "valid": false
+  }
+]

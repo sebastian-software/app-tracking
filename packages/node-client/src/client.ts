@@ -9,7 +9,7 @@ import { canonical, record as object } from "../../../src/telemetry/contract.ts"
 import { eventBatch, type EventCatalog } from "../../../src/telemetry/events.ts";
 import { strictJSON } from "../../../src/telemetry/json.ts";
 import { hash, projectIdentity, systemContext } from "./context.ts";
-import { download } from "./download.ts";
+import { download, downloadSigned } from "./download.ts";
 import { withProfile } from "./profile.ts";
 import { reportingVeto, resolvePolicy } from "./policy.ts";
 import { PROFILE_CONSENT_REVISION, PROFILE_NOTICE } from "./permissions.ts";
@@ -46,6 +46,7 @@ import {
   type PermissionOutcome,
   type Recorded,
   type Resource,
+  type SignedResource,
   type Status,
   type AdditionalPermissionStatus,
 } from "./types.ts";
@@ -1108,6 +1109,19 @@ export class Client {
   }
   async download(resource: Resource, options: DownloadOptions = {}) {
     const result = await download(resource, options, this.#options.policy!.offline === true);
+    if (resource.reporting)
+      await this.record(resource.reporting.metric, resource.reporting.dimensions).catch(() => {});
+    return result;
+  }
+
+  /** Fetch a pinned artifact through a separately authorized signed URL. */
+  async downloadSigned(
+    resource: SignedResource,
+    buildToken: string,
+    options: DownloadOptions = {},
+  ) {
+    if (this.#options.policy!.offline) fail("Offline");
+    const result = await downloadSigned(resource, buildToken, options);
     if (resource.reporting)
       await this.record(resource.reporting.metric, resource.reporting.dimensions).catch(() => {});
     return result;

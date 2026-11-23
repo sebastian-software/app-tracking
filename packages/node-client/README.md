@@ -146,6 +146,18 @@ populated cache, is a separate `language.use` observation. Call
 `flushInBackground()` once at a suitable command boundary rather than for each
 highlight.
 
+### Signed downloads
+
+Use `downloadSigned(resource, buildToken, options)` for the
+[protected download protocol](https://github.com/sebastian-software/app-tracking/blob/main/docs/protected-downloads.md).
+Pass a trusted `SignedResource` with the issuer URL, CDN origin, exact resource
+path, SHA-256 and optional expected byte length. The bearer token goes only to
+the issuer. The CDN request accepts exactly the signed path, token and expiry
+for the configured origin. Both requests share one timeout and reject
+redirects. A reporting declaration uses the normal opt-in policy.
+
+See the [paired Rust and Node example](https://github.com/sebastian-software/app-tracking/blob/main/docs/client-comparison.md#download-a-pinned-resource-through-a-signed-link).
+
 ## State, delivery, and compatibility
 
 Node stores state under
