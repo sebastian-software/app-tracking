@@ -94,6 +94,13 @@ test("cancels only earlier queued or running runs for the same SDK and PR", asyn
   assert.deepEqual(cancellations, [100, 101]);
 });
 
+test("uses the run SHA when the linked PR already reports the replacement SHA", async () => {
+  const old = { ...run(100, 18, oldSha), pull_requests: [pr] };
+  const { api, cancellations } = github([old]);
+  assert.deepEqual(await cancelSupersededSdkRuns(event, api), [100]);
+  assert.deepEqual(cancellations, [100]);
+});
+
 test("rejects reruns, main events, an outdated request, and ambiguous PR identities", async () => {
   for (const workflow_run of [
     { ...trigger, run_attempt: 2 },

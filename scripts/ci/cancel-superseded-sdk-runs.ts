@@ -8,11 +8,15 @@ interface Ref {
   repo: { id: number } | null;
 }
 
-interface PullRequest {
+interface PullRequestLink {
   number: number;
   base: Ref;
+  head: Ref;
+}
+
+interface PullRequest extends PullRequestLink {
   head: Ref & { sha: string };
-  state?: string;
+  state: string;
 }
 
 interface Run {
@@ -27,7 +31,7 @@ interface Run {
   head_repository: { id: number } | null;
   head_sha: string;
   head_branch: string;
-  pull_requests: PullRequest[];
+  pull_requests: PullRequestLink[];
 }
 
 interface RequestedEvent {
@@ -45,7 +49,7 @@ function positiveInteger(value: number): boolean {
   return Number.isSafeInteger(value) && value > 0;
 }
 
-function association(run: Run, repositoryId: number): PullRequest | undefined {
+function association(run: Run, repositoryId: number): PullRequestLink | undefined {
   if (
     run.event !== "pull_request" ||
     !sdkWorkflows.has(run.path) ||
@@ -69,13 +73,14 @@ function association(run: Run, repositoryId: number): PullRequest | undefined {
     positiveInteger(headRepositoryId) &&
     pull.head?.repo?.id === headRepositoryId &&
     !!pull.head.ref &&
-    pull.head.ref === run.head_branch &&
-    pull.head.sha === run.head_sha
+    // The embedded PR link can report the live head even for an old run.
+    // The immutable run.head_sha supplies the revision for comparisons.
+    pull.head.ref === run.head_branch
   )
     return pull;
 }
 
-function samePull(left: PullRequest, right: PullRequest): boolean {
+function samePull(left: PullRequestLink, right: PullRequestLink): boolean {
   return (
     left.number === right.number &&
     left.base?.repo?.id === right.base.repo?.id &&
