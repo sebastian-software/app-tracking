@@ -34,7 +34,7 @@ interface Run {
   pull_requests: PullRequestLink[];
 }
 
-interface RequestedEvent {
+interface WorkflowRunEvent {
   action: string;
   repository: { id: number };
   workflow_run: Run;
@@ -91,28 +91,32 @@ function samePull(left: PullRequestLink, right: PullRequestLink): boolean {
 }
 
 export async function cancelSupersededSdkRuns(
-  event: RequestedEvent,
+  event: WorkflowRunEvent,
   api: ActionsApi,
 ): Promise<number[]> {
-  const trigger = event.workflow_run;
+  const request = event.workflow_run;
   const repositoryId = event.repository?.id;
   if (
-    event.action !== "requested" ||
+    (event.action !== "requested" && event.action !== "in_progress") ||
     !positiveInteger(repositoryId) ||
-    !trigger ||
-    trigger.run_attempt !== 1
+    !request ||
+    request.event !== "pull_request" ||
+    request.run_attempt !== 1 ||
+    !positiveInteger(request.id)
   )
     return [];
 
+  const runPath = (id: number) => `actions/runs/${id}`;
+  // Resolve the association from the API. The early event can carry
+  // incomplete metadata even when the stored run is ready.
+  const trigger = await api.get<Run>(runPath(request.id));
   const pull = association(trigger, repositoryId);
-  if (!pull) return [];
+  if (!pull || trigger.id !== request.id || trigger.run_attempt !== 1) return [];
 
   const scope = { repositoryId, pull };
-  const runPath = (id: number) => `actions/runs/${id}`;
   const pullPath = `pulls/${pull.number}`;
 
-  async function replacementIsCurrent(): Promise<boolean> {
-    const replacement = await api.get<Run>(runPath(trigger.id));
+  async function replacementIsCurrent(replacement: Run): Promise<boolean> {
     const link = association(replacement, scope.repositoryId);
     if (
       !link ||
@@ -149,7 +153,7 @@ export async function cancelSupersededSdkRuns(
     );
   }
 
-  if (!(await replacementIsCurrent())) return [];
+  if (!(await replacementIsCurrent(trigger))) return [];
   const ids = new Set<number>();
   for (const status of activeStatuses) {
     for (let page = 1; page <= 10; page++) {
@@ -172,7 +176,7 @@ export async function cancelSupersededSdkRuns(
   for (const id of ids) {
     const candidate = await api.get<Run>(runPath(id));
     if (candidate.id !== id || !isObsolete(candidate)) continue;
-    if (!(await replacementIsCurrent())) break;
+    if (!(await replacementIsCurrent(await api.get<Run>(runPath(trigger.id))))) break;
     if (await api.cancel(id)) cancelled.push(id);
   }
   return cancelled;
@@ -201,7 +205,7 @@ async function main(): Promise<void> {
       },
     });
   }
-  const event = JSON.parse(await readFile(GITHUB_EVENT_PATH, "utf8")) as RequestedEvent;
+  const event = JSON.parse(await readFile(GITHUB_EVENT_PATH, "utf8")) as WorkflowRunEvent;
   const cancelled = await cancelSupersededSdkRuns(event, {
     async get<T>(path: string): Promise<T> {
       const response = await request(path, "GET");
