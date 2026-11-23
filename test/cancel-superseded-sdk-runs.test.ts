@@ -105,7 +105,6 @@ test("rejects reruns, main events, an outdated request, and ambiguous PR identit
   for (const workflow_run of [
     { ...trigger, run_attempt: 2 },
     { ...trigger, event: "push" },
-    { ...trigger, pull_requests: [] },
   ]) {
     const { api, cancellations } = github([run(100, 18, oldSha)]);
     assert.deepEqual(await cancelSupersededSdkRuns({ ...event, workflow_run }, api), []);
@@ -116,6 +115,23 @@ test("rejects reruns, main events, an outdated request, and ambiguous PR identit
   });
   assert.deepEqual(await cancelSupersededSdkRuns(event, stale.api), []);
   assert.deepEqual(stale.cancellations, []);
+});
+
+test("reads stored PR metadata and retries on the first start event", async () => {
+  const old = run(100, 18, oldSha);
+  const startEvent = { ...event, action: "in_progress" };
+  const missing = github([old], {
+    readRun: (id) => (id === trigger.id ? { ...trigger, pull_requests: [] } : undefined),
+  });
+  assert.deepEqual(await cancelSupersededSdkRuns(event, missing.api), []);
+  assert.deepEqual(missing.cancellations, []);
+
+  const started = github([old]);
+  const snapshot = { ...startEvent, workflow_run: { ...trigger, pull_requests: [] } };
+  assert.deepEqual(await cancelSupersededSdkRuns(snapshot, started.api), [100]);
+  const rerun = { ...startEvent, workflow_run: { ...trigger, run_attempt: 2 } };
+  assert.deepEqual(await cancelSupersededSdkRuns(rerun, started.api), []);
+  assert.deepEqual(started.cancellations, [100]);
 });
 
 test("rechecks the live PR immediately before each cancellation", async () => {

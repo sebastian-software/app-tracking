@@ -3,7 +3,8 @@ name: Cancel superseded SDK checks
 on:
   workflow_run:
     workflows: [Node client, Rust client]
-    types: [requested]
+    # The start event covers runs whose metadata is not ready at request time.
+    types: [requested, in_progress]
 
 permissions: {}
 
