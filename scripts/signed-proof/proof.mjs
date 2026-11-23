@@ -16,7 +16,18 @@ const cdnName = `at-asset-proof-${run}-${attempt}`;
 const issuerName = `at-issuer-proof-${run}-${attempt}`;
 const cdnHost = `${cdnName}.b-cdn.net`;
 const accountKey = required("BUNNY_API_KEY");
-const api = bunnyApi(accountKey);
+const management = bunnyApi(accountKey);
+async function api(method, path, body) {
+  for (let tryNumber = 0; ; tryNumber++) {
+    try {
+      return await management(method, path, body);
+    } catch (error) {
+      if (tryNumber >= 4 || !String(error.message).startsWith("Bunny operation failed (429)"))
+        throw error;
+      await delay(2_000 * (tryNumber + 1));
+    }
+  }
+}
 const fetchDirect = (url, options = {}) =>
   fetch(url, { ...options, redirect: "error", signal: AbortSignal.timeout(15_000) });
 
@@ -128,15 +139,28 @@ async function runProof() {
 
   stage = "upload verified fixture to private Storage Zone";
   const storageDetails = await api("GET", `/storagezone/${storage.Id}`);
-  assert(storageDetails.Name === cdnName && typeof storageDetails.Password === "string");
+  assert(storageDetails.Name === cdnName &&
+    typeof storageDetails.Password === "string" && storageDetails.Password.length > 0);
+  assert(String(storageDetails.Region).toUpperCase() === "DE", "Storage region must be Frankfurt");
   const origin = new URL(`https://storage.bunnycdn.com/${cdnName}${ASSET.path}`);
-  const uploaded = await fetchDirect(origin, {
-    method: "PUT",
-    headers: { AccessKey: storageDetails.Password, "Content-Type": "application/octet-stream" },
-    body: bytes,
-  });
-  await uploaded.body?.cancel();
-  assert(uploaded.ok, `Storage upload HTTP ${uploaded.status}`);
+  let uploadStatus;
+  for (let i = 0; i < 10; i++) {
+    const uploaded = await fetchDirect(origin, {
+      method: "PUT",
+      headers: {
+        AccessKey: storageDetails.Password,
+        "Content-Type": "application/octet-stream",
+        Checksum: ASSET.sha256.toUpperCase(),
+      },
+      body: bytes,
+    });
+    uploadStatus = uploaded.status;
+    await uploaded.body?.cancel();
+    if (uploaded.ok || ![401, 404, 503].includes(uploadStatus)) break;
+    // A newly provisioned Storage Zone may not have reached the region yet.
+    await delay(5_000);
+  }
+  assert.equal(uploadStatus, 201, "Storage PUT");
 
   stage = "publish isolated Bunny issuer";
   const { target } = await provision(api, issuerName, issuerName);
