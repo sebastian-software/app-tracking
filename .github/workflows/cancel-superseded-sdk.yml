@@ -1,0 +1,33 @@
+name: Cancel superseded SDK checks
+
+on:
+  workflow_run:
+    workflows: [Node client, Rust client]
+    types: [requested]
+
+permissions: {}
+
+jobs:
+  cancel:
+    if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.run_attempt == 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      actions: write
+      contents: read
+      pull-requests: read
+    steps:
+      # workflow_run supplies the default-branch SHA. Only that checkout runs
+      # with the write token. Never execute a PR checkout or use its artifacts.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Cancel obsolete runs for this PR and SDK workflow
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/ci/cancel-superseded-sdk-runs.ts
