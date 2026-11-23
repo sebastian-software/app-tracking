@@ -13,7 +13,7 @@ at the integration entry point, as well as in its tests.
 
 ## Current baseline
 
-Rust and Node support independent update checks, ordinary reporting, reminders, verified downloads, and
+Rust and Node support independent update checks, ordinary reporting, reminders, verified direct and signed downloads, and
 separate history, public usage, and shared v2 profile choices. General usage
 consent never silently enables an additional permission. The v2 profile tests
 exercise actual Rust and installed Node clients, including both creation orders
@@ -22,7 +22,8 @@ and the [profile guide](profile-linking.md) for the contract and evidence.
 
 Both clients validate download resource IDs against the same grammar before
 transfer. `contracts/download-resource-ids.json` covers their shared boundaries;
-its Rust fixture copy is checked for equality.
+its Rust fixture copy is checked for equality. The signed URL contract is verified
+with `contracts/signed-download-urls.json` and a matching packaged Rust fixture.
 
 ## Update and CLI integration contracts
 

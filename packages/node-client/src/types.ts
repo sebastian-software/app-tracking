@@ -55,6 +55,16 @@ export interface Resource {
   sha256: string;
   reporting?: { metric: string; dimensions: Dimensions };
 }
+export interface SignedResource {
+  id: string;
+  issuerUrl: string;
+  cdnOrigin: string;
+  path: string;
+  /** Optional for a pinned manifest whose exact length is provided by the issuer. */
+  bytes?: number;
+  sha256: string;
+  reporting?: Resource["reporting"];
+}
 export interface DownloadOptions {
   signal?: AbortSignal;
   timeoutMs?: number;

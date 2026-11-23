@@ -346,6 +346,21 @@ fn resource_server(
             socket.read_exact(&mut byte).unwrap();
             request.push(byte[0]);
         }
+        let headers = std::str::from_utf8(&request).unwrap();
+        let length = headers
+            .lines()
+            .find_map(|line| {
+                let (name, value) = line.split_once(':')?;
+                if name.eq_ignore_ascii_case("Content-Length") {
+                    value.trim().parse::<usize>().ok()
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_default();
+        let headers_end = request.len();
+        request.resize(headers_end + length, 0);
+        socket.read_exact(&mut request[headers_end..]).unwrap();
         write!(
             socket,
             "HTTP/1.1 {status} Fixture\r\nContent-Length: {}\r\n{extra}Connection: close\r\n\r\n",
@@ -555,4 +570,112 @@ fn shared_download_resource_ids_are_validated_before_transfer() {
             assert!(matches!(result, Err(Error::Configuration)));
         }
     }
+}
+
+#[test]
+fn signed_downloads_share_the_url_contract_and_isolate_build_credentials() {
+    let cases: serde_json::Value =
+        serde_json::from_str(include_str!("../../fixtures/signed-download-urls.json")).unwrap();
+    let root = tempfile::tempdir().unwrap();
+    let c = client(root.path());
+    c.set_opt_in(false).unwrap();
+    let data = b"verified theme";
+    let checksum = hash(data);
+    let token = "7".repeat(64);
+    for case in cases.as_array().unwrap() {
+        let valid = case["valid"].as_bool().unwrap();
+        let (cdn, server) = if valid {
+            let (origin, thread) = resource_server(200, data, "");
+            (origin, Some(thread))
+        } else {
+            ("http://127.0.0.1:1".into(), None)
+        };
+        let url = case["url"]
+            .as_str()
+            .unwrap()
+            .replace("{cdn}", &cdn)
+            .replace("{signature}", &"A".repeat(43));
+        let grant = serde_json::json!({"url":url,"bytes":data.len(),"sha256":checksum}).to_string();
+        let (issuer, issued) = resource_server(200, grant.as_bytes(), "");
+        let path = "/themes/nord/abcdef01";
+        let resource = SignedResource::new(
+            "theme.nord",
+            &format!("{issuer}/v1/downloads"),
+            &cdn,
+            path,
+            None,
+            &checksum,
+        )
+        .unwrap()
+        .reporting("rich", values());
+        let options = DownloadOptions::default();
+        let result = if case["url"].as_str().unwrap().contains("?expires=") {
+            download_signed(&resource, &token, &options)
+        } else {
+            c.download_signed(&resource, &token, &options)
+        };
+        if let Some(server) = server {
+            let artifact = result.unwrap();
+            assert_eq!(std::fs::read(artifact.path()).unwrap(), data);
+            let request = server.join().unwrap().to_lowercase();
+            assert!(!request.contains("authorization"));
+            assert!(!request.contains(&token));
+        } else {
+            assert!(matches!(result, Err(Error::Integrity)), "{case}");
+            assert!(!result.unwrap_err().to_string().contains(&token));
+        }
+        let request = issued.join().unwrap();
+        let (headers, body) = request.split_once("\r\n\r\n").unwrap();
+        assert!(headers.starts_with("POST /v1/downloads HTTP/1.1"));
+        assert!(
+            headers
+                .to_lowercase()
+                .contains(&format!("authorization: bearer {token}"))
+        );
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(body).unwrap(),
+            serde_json::json!({"path":path,"sha256":checksum})
+        );
+        assert_eq!(c.status().unwrap().open_dimensions, 0);
+    }
+}
+
+#[test]
+fn signed_download_authorization_rejects_redirect_and_offline_without_transfer() {
+    let root = tempfile::tempdir().unwrap();
+    let c = client(root.path());
+    let (issuer, server) = resource_server(302, b"", "Location: http://127.0.0.1:1/next\r\n");
+    let resource = SignedResource::new(
+        "theme.nord",
+        &format!("{issuer}/v1/downloads"),
+        "http://127.0.0.1:1",
+        "/themes/nord/abcdef01",
+        Some(1),
+        &hash(b"x"),
+    )
+    .unwrap();
+    let token = "7".repeat(64);
+    let options = DownloadOptions::default();
+    assert!(matches!(
+        c.download_signed(&resource, &token, &options),
+        Err(Error::HttpStatus(302))
+    ));
+    server.join().unwrap();
+    let offline = client(root.path()).with_policy(Policy {
+        offline: true,
+        ..Policy::default()
+    });
+    assert!(matches!(
+        offline.download_signed(&resource, &token, &options),
+        Err(Error::Offline)
+    ));
+    options.cancellation.cancel();
+    assert!(matches!(
+        c.download_signed(&resource, &token, &options),
+        Err(Error::Cancelled)
+    ));
+    assert!(matches!(
+        c.download_signed(&resource, "token", &options),
+        Err(Error::Configuration)
+    ));
 }
